@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 # A pasta pessoal da skill vai para um temporário: nenhum teste toca ~/.getbrolls.
-import _isolation  # noqa: F401  (efeito de import: define GB_HOME)
+import _isolation
 from _paths import ROOT  # noqa: F401  (efeito de import: insere scripts/ em sys.path)
 
 from getbrolls import serve
@@ -451,7 +451,7 @@ class SaveWriteHardeningTests(unittest.TestCase):
             (brolls / serve.REVIEWS_DIR).mkdir(parents=True)
             target = root / "fora-do-projeto.json"
             name = time.strftime("%Y%m%d-%H%M%S") + ".json"
-            (brolls / serve.REVIEWS_DIR / name).symlink_to(target)
+            _isolation.symlink_or_skip(brolls / serve.REVIEWS_DIR / name, target)
             with self.assertRaises(ValueError):
                 serve.save_review(brolls, {"items": []})
             self.assertFalse(target.exists())
@@ -463,7 +463,7 @@ class SaveWriteHardeningTests(unittest.TestCase):
             brolls.mkdir(parents=True)
             elsewhere = root / "outro-lugar"
             elsewhere.mkdir()
-            (brolls / serve.REVIEWS_DIR).symlink_to(elsewhere)
+            _isolation.symlink_or_skip(brolls / serve.REVIEWS_DIR, elsewhere, target_is_directory=True)
             with self.assertRaises(ValueError):
                 serve.save_review(brolls, {"items": []})
             self.assertEqual([], list(elsewhere.iterdir()))

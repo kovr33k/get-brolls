@@ -176,7 +176,7 @@ class StabilityTests(unittest.TestCase):
                 self.assertEqual(video.call_args.args[0], "composition.mp4")
                 self.assertEqual(video.call_args.args[3:5], (0, 2))
                 del c["full_preview_path"]
-                with self.assertRaisesRegex(ValueError, "full exige"):
+                with self.assertRaisesRegex(ValueError, "GB_GIF_SCOPE=full requires"):
                     prepare_preview(ledger, c, 5, 7, cfg)
 
 

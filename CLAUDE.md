@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-16
-updated: 2026-09-17
+updated: 2026-10-03
 tags: [get-brolls]
 ---
 
@@ -13,3 +13,6 @@ tags: [get-brolls]
 - **Operar a skill** (coletar B-rolls, prévias, revisão, entrega): o contrato de operação é [SKILL.md](SKILL.md). Instalado como plugin do Claude Code, a skill descoberta é o espelho [skills/get-brolls/SKILL.md](skills/get-brolls/SKILL.md).
 
 Não duplique instruções aqui: este arquivo apenas roteia. Guia operacional ([GUIDE.md](docs/GUIDE.md)), qualidade ([QUALITY.md](docs/QUALITY.md)) e os demais destinos estão indexados no hub.
+
+- **Specs and tickets:** use GitHub Issues in `kovr33k/get-brolls`; follow [issue-tracker.md](docs/agents/issue-tracker.md).
+- **Engineering exploration:** follow the single-context consumer rules in [domain.md](docs/agents/domain.md).

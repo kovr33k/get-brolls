@@ -20,6 +20,7 @@ FORMATS = ("native", "reels", "horizontal")
 INTENTS = ("literal", "illustrative")
 POSTURES = ("per_item_evidence", "user_declaration")
 SOURCES = (
+    "archive",
     "youtube",
     "instagram",
     "tiktok",
@@ -30,7 +31,7 @@ SOURCES = (
     "local",
 )
 STOCK_SOURCES = ("pexels", "pixabay")
-SEARCHABLE = ("youtube", "pexels", "pixabay", "commons", "nasa")
+SEARCHABLE = ("youtube", "pexels", "pixabay", "commons", "nasa", "archive")
 MIN_HINT_S = 0.5
 MAX_HINT_S = 120
 
@@ -38,7 +39,7 @@ MAX_HINT_S = 120
 # palavra, e o `target` é escrito para gente ler, não para a API procurar.
 QUERY_MAX_TOKENS = 6
 # Fontes que publicam foto, na ordem em que valem a tentativa para um beat de imagem.
-STILL_SOURCES = ("commons", "nasa")
+STILL_SOURCES = ("commons", "nasa", "archive")
 # O `target` fala de um quadro parado, não de um vídeo: a busca tem que pedir imagem.
 STILL_WORDS = ("foto", "fotografia", "imagem", "print", "still", "captura de tela", "screenshot", "retrato")
 # Palavras que não estreitam busca nenhuma; sair com elas só gasta espaço do teto.

@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-09-17
+updated: 2026-10-03
 tags: [get-brolls, guide, installation, providers, storyboard]
 ---
 
@@ -17,6 +17,8 @@ Este é o manual operacional único do **GET B-ROLLS — ENGENHEIRO DE VÍDEO**:
 - [Fluxo editorial](#fluxo-editorial)
 - [Estado do projeto e progresso](#estado-do-projeto-e-progresso)
 - [Fontes e transportes](#fontes-e-transportes)
+- [Catalog selection, access, and researched special routes](SOURCE-CATALOGS.md)
+- [Archive.org and resumable fragment search](#provider--archiveorg-and-fragment-search)
 - [Tipos de assets](#tipos-de-assets-e-formatos)
 - [Captura pelo navegador](#captura-de-notícias-e-páginas-pelo-navegador)
 - [Instagram](#instagram--navegadorplaywright-dois-streams-e-mp4)
@@ -280,7 +282,7 @@ Como só lê, `status` nunca completa uma gravação interrompida: quando existe
 
 ### Convenção do campo `summary`
 
-Os comandos do fluxo — `search`, `resolve`, `preview`, `review`, `import-review`, `permit`, `fetch` e `verify` — acrescentam ao próprio JSON um campo `summary` com uma linha em português no formato **verbo + objeto + resultado** (por exemplo, "Coletei o corte final de local:abc em clips/….mp4."). O campo é aditivo: nenhuma chave existente muda de nome, tipo ou posição, e integrações que já leem o JSON continuam válidas. Use essa linha para dizer ao usuário o que acabou de acontecer e `status` para o quadro completo da coleta.
+Workflow commands (`search`, `resolve`, `preview`, `review`, `import-review`, `permit`, `fetch`, and `verify`) add a `summary` field to their JSON output. `preview`, `review`, and `import-review` use English summaries; other routes may still use Portuguese during migration. The summary states the action, object, and result. This is an additive field: existing JSON keys and types remain unchanged. Use this line to explain the completed action and `status` for the complete collection state.
 
 ## Fontes e transportes
 
@@ -292,6 +294,7 @@ Os comandos do fluxo — `search`, `resolve`, `preview`, `review`, `import-revie
 | Pexels | API, PEXELS_API_KEY | HTTPS e cache de original para prévia |
 | Pixabay | API, PIXABAY_API_KEY; cache 24 h | HTTPS e cache de original para prévia |
 | Commons / NASA | APIs sem chave | HTTPS |
+| Archive.org | Public search and item/file metadata | Selected public file via HTTPS; restrictions remain explicit |
 | Local | resolve --file | arquivo local |
 
 Fluxo único: descobrir → obter mídia de trabalho/mostrar sequência → revisão humana → corte final → verify. Prévia não equivale a aprovação. `--reference-only` é opção explícita para não adquirir mídia. Consulte o guia da fonte; Instagram começa na seção [Instagram pelo navegador](#instagram--navegadorplaywright-dois-streams-e-mp4).
@@ -343,6 +346,33 @@ Diagnóstico: `python3 scripts/gb.py providers`. Falha de credencial não ativa 
 Images API pública consulta vídeos e assets MP4. Autoria de terceiros e condições precisam de verificação antes de permit. https://images.nasa.gov/docs/images.nasa.gov_api_docs.pdf
 
 Diagnóstico: `python3 scripts/gb.py providers`. Falha de credencial não ativa scraping ou outra conta.
+
+## Provider — Archive.org and fragment search
+
+`archive` supports public video/image discovery and explicit item/file resolution without an API key. An item may contain several independent assets; representations of the same original are grouped while their file names, hashes, quality metadata, and access restrictions remain visible. Search thumbnails are excluded. Rights stay unknown until the separate `permit` step; an archive collection name is not permission.
+
+An ordinary `search --provider archive --query "collection:prelinger factory" --limit 3 --media video --shot <beat.id> --project <project>` keeps the existing single-provider behavior. For resumable search, select one existing beat from the original scenario and save its catalog rationale:
+
+```sh
+python3 scripts/gb.py search-plan --shot opening --provider archive --reason "Historical factory footage" --expected-material "Factory production line" --project <project>
+python3 scripts/gb.py search --planned --shot opening --query "collection:prelinger factory" --language en --media video --limit 3 --project <project>
+python3 scripts/gb.py inspect --candidate <ID> --query "factory" --project <project>
+python3 scripts/gb.py preview --candidate <ID> --start <START> --end <END> --project <project>
+python3 scripts/gb.py search-assess --shot opening --query "collection:prelinger factory" --assessment "Inspected returned material; need a closer production shot" --project <project>
+python3 scripts/gb.py status --project <project>
+```
+
+Use the beat's actual `--intent` when it is illustrative; the default is literal. Record an assessment after inspecting results and before dispatching a different query. There are three meaningful queries per fragment/catalog, including translated queries and automatic shortening after an empty long query. Transport retries are bounded inside the same attempt. Repeating a completed query returns its saved candidate IDs. An interrupted dispatch remains consumed and uncertain; assess it before continuing with another formulation. Restart and journal recovery preserve the budget. Reusing a plan or changing narration does not reset it.
+
+Changing `--media` changes the source query and uses the same allowance. If identical wording was recorded with multiple media filters, select the attempt with `search-assess --media video|image|any`. A pending journal makes status report an unknown remaining allowance until a writing command recovers it; status itself never performs that recovery.
+
+`search --planned --dry-run` validates the prospective query without network access or ledger changes. Ordinary `search --dry-run` retains its existing diagnostic search behavior. `status.search_progress` reports the catalog, rationale, original narration/target, pass, attempts and remaining allowance without recovery, tree creation or a project lock. Hits and generated previews are not confirmed suitable options; suitability counting and catalog chains are subsequent tickets.
+
+For a multi-file page, select a real asset with `resolve --url https://archive.org/details/<item> --archive-file <filename> --shot <beat.id> --project <project>`; complete `https://archive.org/download/<item>/<filename>` URLs also select that file. Refresh keeps this representation rather than silently replacing it. Prefer actual high-quality files when available, respecting the download ceiling; inspect/preview decode the acquired representation and report real dimensions. Associated SRT/VTT captions are read when present; absent captions stay absent. Restricted/private files have explicit unavailable acquisition and do not become usable because their metadata can be viewed.
+
+Prepared previews enter `review --ready-only` with their original narration. Human approval and rights evidence remain independent prerequisites for `fetch`, then `verify` and `deliver`. See [source contracts](SOURCE-CATALOGS.md#internet-archive--archiveorg) and [dated quality observations](QUALITY.md).
+
+`providers` lists twenty retained catalogs plus local import. `implementation`, operation flags, `configured`, and `live_observation` express separate facts. A configured key or session reference is not authenticated access. Planned adapters never advertise working operations. The private configuration allowlist accepts DVIDS, Europeana, NARA, Mapillary, Telegram, and optional AI settings shown in `.env.example`; process values still win and unknown names are rejected. Optional Gemini/xAI keys do not select API billing. Telegram's future public-channel configuration is a JSON username array and its session belongs outside the distributed source; parsing, authorization and channel discovery await that adapter.
 
 ## Provedor — arquivo local
 
@@ -767,18 +797,22 @@ Não ler nem imprimir cookies, `.env`, browser credential stores ou tokens. Usar
 
 ## Storyboard
 
-Entregável de revisão independente da landing page. `gb.py review` gera `brolls/review.html` com CSS e JavaScript próprios incorporados; a tipografia usa fontes do sistema; imagens/GIF ficam em `previews/`.
+For scenario review, use `review --ready-only --project <PROJECT>` after preparing and visually checking each candidate with `preview --narration "<exact scenario line>" --reason "<observed match and limitations>"`. This view includes only candidates with narration and an existing motion GIF (or a prepared image asset). Search thumbnails and failed previews remain in the ledger and in the default full view; filtering does not change decisions. Regenerate the ready view after adding candidates. A scenario quote identifies the intended beat; it is not a verified quotation from the source. Record source speech in its original language and distinguish it from the scenario.
 
-1. Resolva o original autorizado e use um `--shot` distinto por insert.
-2. Execute `preview` com intervalo, `--narration` (fala exata, quando fornecida; omita se ausente) e `--reason` (motivo da fonte).
-3. O topo mostra o insert em sua proporção; à direita, fonte e ações de revisão. Galeria sempre estática. O GIF anima só no quadro selecionado; clique para alternar estático/animação. A preferência de movimento reduzido é respeitada.
-4. Revisor aprova, pede ajuste ou sugere fonte; ajustes exigem comentário. Exporte JSON para devolver decisões. O botão PDF gera versão estática dos quadros com fontes/comentários.
-5. Importe com `import-review --by`. Projeto, IDs, assinatura do intervalo/fonte e versão da decisão (`reviewEpoch`) são validados. Mudança de intervalo ou substituição da decisão invalida a exportação anterior. Em caso de revisão desatualizada, regenere o Storyboard, confira e exporte novamente; não altere assinaturas manualmente. Um board exportado antes da 2.4 continua sendo aceito pela época antiga (`legacy_review_epoch`), mas só enquanto o item não mudou: se a aprovação ou o intervalo mudou depois do export, o trecho é recusado como `stale_epoch` (ou `signature_mismatch`) e a decisão antiga nunca é reaplicada por cima da nova.
-6. Só colete o corte final depois de aprovação humana e registro da permissão. Clips MP4 ficam separados do storyboard.
+The Storyboard interface, preview/contact-sheet labels, and print/export controls are in English. Scenario narration and source material remain in their original language. The operational language policy is defined in [SKILL.md](../SKILL.md#language-policy). Refreshing a review page preserves existing content and decisions. Other CLI routes and documentation may still contain Portuguese during the gradual migration.
 
-Configurações, presets e limitações estão no [README](../README.md). `preview` obtém mídia de trabalho remota nas rotas de aquisição implementadas; no Instagram por navegador, importe primeiro o MP4 unido. Um poster isolado, inclusive com `--reference-only`, não comprova movimento.
+A standalone review artifact, independent of the landing page. `gb.py review` generates `brolls/review.html` with embedded CSS and JavaScript, system fonts, and images/GIFs in `previews/`.
 
-Configuração padrão: `GB_GIF_SCOPE=broll`. O print opcional da pessoa permanece estático. Para revisar composição pronta do mesmo insert, escolha `full` e forneça `--full-preview-file`. O objetivo continua ser decidir a direção da coleta; nenhuma montagem adicional é exigida.
+1. Resolve the authorized original and use a distinct `--shot` for each insert.
+2. Run `preview` with the interval, `--narration` (the exact supplied script line; omit when absent), and `--reason` (why this source was selected).
+3. The selected insert keeps its original aspect ratio; its source and review controls appear alongside it. Gallery animation offers Static, GIF on hover, and GIF on modes. Click the selected preview to pause or play its GIF. Reduced-motion preferences are respected.
+4. Choose Approve, Request changes, or Reject. Change requests require a comment; the request can ask for another source. Click Save decisions to save inside the project when using the local server, or download JSON when opened as a portable page. Print / PDF produces a static version with sources and comments.
+5. Import with `import-review --by`. Project identity, item IDs, interval/source signatures, and decision versions (`reviewEpoch`) are validated. Changed intervals or decisions invalidate earlier exports. Regenerate, review, and export again when a review is stale. A pre-2.4 export may use `legacy_review_epoch` while the item remains unchanged; stale decisions never overwrite newer ones.
+6. Fetch the final clip after explicit human approval and recorded usage permission. Final MP4s are separate from the Storyboard.
+
+See the [README](../README.md) for configuration, presets, and limitations. `preview` may acquire remote working media through supported acquisition routes; browser-based Instagram requires importing the joined MP4 first. A poster alone, including `--reference-only`, does not demonstrate motion.
+
+The default is `GB_GIF_SCOPE=broll`. An optional presenter screenshot stays static. To review a completed composition of the same insert, use `full` with `--full-preview-file`. The purpose remains reviewing collection choices; no additional editing is required.
 
 ## Apêndice — utilitários legados
 

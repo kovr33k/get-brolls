@@ -332,7 +332,7 @@ def review_preview(src, directory, stem, start, end, config, label=None):  # noq
     """
     directory = Path(directory)
     if end - start > config["max_seconds"] + CAP_EPSILON:
-        raise ValueError("Trecho excede GB_PREVIEW_MAX_SECONDS; selecione um insert menor ou ajuste a configuração.")
+        raise ValueError("Clip exceeds GB_PREVIEW_MAX_SECONDS; select a shorter insert or adjust the configuration.")
     # Stage every output before replacing any prior preview.
     with tempfile.TemporaryDirectory(dir=directory) as stage_dir:
         stage = Path(stage_dir)
@@ -382,10 +382,11 @@ def review_preview(src, directory, stem, start, end, config, label=None):  # noq
             title = _banner_text(label.get("title"))
             ident = _banner_text(label.get("id"))
             title_file.write_text(
-                f"{title}\n[{ident}]  corte {clock(src_start)}–{clock(src_end)}"
-                + (f" de {clock(label['duration'])}" if label.get("duration") else "")
-                + f"  ·  {n} quadros",
+                f"{title}\n[{ident}]  clip {clock(src_start)}–{clock(src_end)}"
+                + (f" of {clock(label['duration'])}" if label.get("duration") else "")
+                + f"  ·  {n} frames",
                 encoding="utf-8",
+                newline="\n",
             )
             banner = (
                 f",pad=iw:ih+72:0:72:color=0x0b0b0b,drawtext=fontfile='{font_opt}':"
@@ -433,7 +434,7 @@ def review_preview(src, directory, stem, start, end, config, label=None):  # noq
                 files.append((gif, result["gif_path"]))
             else:
                 result["warning"] = (
-                    "GIF excedeu o limite de tamanho; entregue estático. Reduza largura/FPS ou aumente GB_GIF_MAX_MB e gere novamente."
+                    "GIF exceeds the size limit; using a static preview. Reduce width/FPS or increase GB_GIF_MAX_MB and regenerate."
                 )
         for source, relative in files:
             source.replace(directory.parent / relative)

@@ -23,6 +23,8 @@ SUMMARIES = {
     "doctor": "Diagnosticar dependências, caminhos fixados e fontes utilizáveis",
     "status": "Resumir onde o projeto está por etapa, sem alterar arquivos",
     "search": "Pesquisar candidatos numa fonte e registrá-los no projeto (--shot liga ao beat; --dry-run não grava)",
+    "search-plan": "Save a one-catalog search plan for a BRIEF fragment without resetting its query allowance",
+    "search-assess": "Record the managing agent's assessment of a fragment search attempt",
     "resolve": "Registrar um candidato a partir de URL pública ou arquivo local",
     "inspect": "Analisar a fonte (duração, capítulos, legendas) antes de coletar",
     "preview": "Gerar prévia (GIF/contact sheet) do intervalo escolhido",
@@ -99,6 +101,8 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
     for name in (
         "status",
         "search",
+        "search-plan",
+        "search-assess",
         "resolve",
         "inspect",
         "preview",
@@ -252,6 +256,12 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
             p.add_argument("--narration", help="Fala exata do roteiro")
             p.add_argument("--reason", help="Decisão de coleta desta fonte")
+        if name == "review":
+            p.add_argument(
+                "--ready-only",
+                action="store_true",
+                help="Show only candidates with scenario narration and an existing motion preview (or image asset)",
+            )
         if name == "import-review":
             p.add_argument(
                 "--file",
@@ -377,11 +387,33 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
         if name == "browser-plan":
             p.add_argument("--url", required=True, help="URL pública da página a capturar")
+        if name in ("search-plan", "search-assess"):
+            p.add_argument("--shot", required=True, help="Existing BRIEF fragment ID")
+            if name == "search-plan":
+                p.add_argument("--provider", required=True, help="One supported catalog allowed by the fragment")
+                p.add_argument("--reason", required=True, help="Why this catalog fits the fragment")
+                p.add_argument("--expected-material", required=True, help="Material expected in this catalog")
+                p.add_argument("--dry-run", action="store_true", help="Validate and show the plan without saving it")
+            else:
+                p.add_argument(
+                    "--media",
+                    choices=("image", "video", "any"),
+                    default=None,
+                    help="Recorded media filter when the same wording was used more than once",
+                )
+                p.add_argument("--query", required=True, help="Query wording of the recorded attempt")
+                p.add_argument(
+                    "--assessment", required=True, help="What the returned results established and what to inspect next"
+                )
         if name == "search":
+            p.add_argument(
+                "--planned", action="store_true", help="Use the saved fragment plan and durable three-query allowance"
+            )
+            p.add_argument("--language", help="Agent-selected source query language; does not renew the allowance")
             p.add_argument(
                 "--provider",
                 default="auto",
-                help="Fonte: youtube, pexels, pixabay, commons, nasa ou auto (padrão)",
+                help="Source: youtube, pexels, pixabay, commons, nasa, archive or auto (default)",
             )
             p.add_argument("--query", required=True, help="Termos da busca na fonte")
             p.add_argument("--limit", type=int, default=8, help="Máximo de candidatos, 1–50 (padrão 8)")
@@ -412,6 +444,9 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 help="Por que este material foi descartado; fica gravado no candidato",
             )
         if name == "resolve":
+            p.add_argument(
+                "--archive-file", help="Actual file name within the Archive.org item (required for multi-asset items)"
+            )
             p.add_argument("--context-image", help="Print opcional da pessoa; permanece estático")
             p.add_argument(
                 "--full-preview-file",
@@ -436,7 +471,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             g = p.add_mutually_exclusive_group(required=True)
             g.add_argument(
                 "--url",
-                help="URL pública da fonte (YouTube, Instagram, TikTok, Wikimedia Commons, NASA)",
+                help="Public source URL (YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org)",
             )
             g.add_argument("--file", help="Arquivo local já autorizado para importação")
     return parser

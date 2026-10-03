@@ -17,7 +17,7 @@
           : button.dataset.gif;
         button.setAttribute("aria-pressed", String(!playing));
         const label = button.querySelector("span");
-        if (label) label.textContent = playing ? "▶ Assistir trecho" : "■ Parar GIF";
+        if (label) label.textContent = playing ? "▶ Play clip" : "■ Stop GIF";
       }),
     );
   }
@@ -42,7 +42,7 @@
         img.src = button.dataset.gif;
         button.setAttribute("aria-pressed", "true");
         const label = button.querySelector("span");
-        if (label) label.textContent = "■ Parar GIF";
+        if (label) label.textContent = "■ Stop GIF";
       });
     select.value = String(index);
     document.getElementById("prev").disabled = index === 0;

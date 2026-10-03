@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 # A pasta pessoal da skill vai para um temporário: nenhum teste toca ~/.getbrolls.
-import _isolation  # noqa: F401  (efeito de import: define GB_HOME)
+import _isolation
 from _media import synth_video
 from _paths import ROOT, SKILLS
 
@@ -331,7 +331,7 @@ class ProbeRemoteTests(unittest.TestCase):
             victim.write_text("não me sobrescreva", encoding="utf-8")
             stem = hashlib.sha256(URL.encode()).hexdigest()[:16]
             planted = cache / f"{stem}-pt.vtt"
-            planted.symlink_to(victim)
+            _isolation.symlink_or_skip(planted, victim)
             env = stub_ytdlp(tmp, WITH_EVERYTHING, VTT)
             with patch.dict(os.environ, env):
                 probe = social.probe_remote(URL, cache=cache)

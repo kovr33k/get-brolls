@@ -59,7 +59,7 @@ class CliTest(unittest.TestCase):
             self.assertIn("Registrei o candidato", c["summary"]["line"])
             self.call("fetch", *base, ok=False)
             preview = self.call("preview", *base, "--start", 0.5, "--end", 1.5)
-            self.assertIn("Gerei a prévia", preview["summary"]["line"])
+            self.assertIn("Generated the preview", preview["summary"]["line"])
             approved = self.call(
                 "approve",
                 *base,
@@ -88,7 +88,7 @@ class CliTest(unittest.TestCase):
             self.assertEqual(verified["count"], 1)
             self.assertIn("1 arquivo coletado: íntegro e decodificável", verified["summary"]["line"])
             reviewed = self.call("review", "--project", root)
-            self.assertIn("Gerei o Storyboard", reviewed["summary"]["line"])
+            self.assertIn("Generated the Storyboard", reviewed["summary"]["line"])
             state = self.call("status", "--project", root)
             self.assertEqual(1, state["counts"]["verified"])
             self.assertIn("completo", state["summary"]["next"])
@@ -303,8 +303,8 @@ class CliTest(unittest.TestCase):
             self.assertNotIn("SECRET_TEST", page)
             self.assertFalse(any("onerror" in a for t, a in dom.nodes))
             self.assertIn("&lt;img src=x onerror=alert(1)&gt;", page)
-            self.assertIn("Abrir fonte original", page)
-            self.assertIn("Salvar decisões", page)
+            self.assertIn("Open original source", page)
+            self.assertIn("Save decisions", page)
             self.assertNotIn("Exportar revisão", page)
 
 

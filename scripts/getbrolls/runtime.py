@@ -35,7 +35,8 @@ def _acquire_lock(stream, platform=None, windows=None):
         return
     import fcntl
 
-    fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    # Windows typeshed omits these POSIX-only attributes; this branch runs elsewhere.
+    fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def _release_lock(stream, platform=None, windows=None):
@@ -49,7 +50,7 @@ def _release_lock(stream, platform=None, windows=None):
         return
     import fcntl
 
-    fcntl.flock(stream, fcntl.LOCK_UN)
+    fcntl.flock(stream, fcntl.LOCK_UN)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def _ensure_private_file(path):
@@ -145,7 +146,21 @@ def redact(text):
     user-facing messages: paths are left intact (see `scrub_home` for why).
     """
     value = str(text)
-    for key in ("PEXELS_API_KEY", "PIXABAY_API_KEY", "YOUTUBE_API_KEY"):
+    for key in (
+        "PEXELS_API_KEY",
+        "PIXABAY_API_KEY",
+        "YOUTUBE_API_KEY",
+        "DVIDS_API_KEY",
+        "DVIDS_CLIENT_SECRET",
+        "EUROPEANA_API_KEY",
+        "NARA_API_KEY",
+        "MAPILLARY_TOKEN",
+        "TELEGRAM_API_ID",
+        "TELEGRAM_API_HASH",
+        "TELEGRAM_SESSION",
+        "GEMINI_API_KEY",
+        "XAI_API_KEY",
+    ):
         secret = os.getenv(key)
         if secret:
             value = value.replace(secret, "[REDACTED]")

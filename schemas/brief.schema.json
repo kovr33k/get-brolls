@@ -44,6 +44,7 @@
           "items": {
             "enum": [
               "youtube",
+              "archive",
               "instagram",
               "tiktok",
               "pexels",
@@ -77,6 +78,7 @@
             "items": {
               "enum": [
                 "youtube",
+                "archive",
                 "instagram",
                 "tiktok",
                 "pexels",

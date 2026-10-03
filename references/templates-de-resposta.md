@@ -14,27 +14,26 @@ seguem o [glossário](glossario.md).
 
 ---
 
-## 1. Entrega do Storyboard
+## 1. Storyboard handoff
 
-> **Sua página de escolhas está pronta:** <URL>
->
-> Clique no link (ou cole no navegador). Você vai ver <N> trechos; em cada um, diz
-> **Aprovar**, **Pedir ajuste** ou **Reprovar**. Dentro de "Pedir ajuste" tem uma
-> caixinha pra dizer "não é esse vídeo, procure outro".
->
-> Quando terminar, tem dois jeitos de me devolver isso — escolha um:
-> • **Na página:** clique em **"Salvar decisões"** no fim da lista. Ela baixa um arquivo;
->   volte aqui e me diga onde salvou.
-> • **Aqui na conversa:** se você aprovou tudo, é só me dizer **"aprovei todos"** que eu
->   registro por aqui, sem arquivo nenhum.
->
-> Enquanto você estiver na página, eu fico parado esperando. Me avisa que eu continuo.
+Use the user's language for chat and the English action labels displayed in the interface. Preserve scenario and source content in its original language, as required by the [language policy](../SKILL.md#language-policy).
 
-Só ofereça a rota do chat quando a pessoa for aprovar de fato: aprovação nunca é inferida
-de silêncio. Se ela disser "aprovei todos", registre exatamente os IDs que você mostrou:
-`approve --candidate ID1 --candidate ID2 … --by "<NOME>" --channel chat --statement "<frase exata dela>"`.
-Use `--all` só quando todos os candidatos com prévia foram mostrados — "aprovei todos"
-quer dizer "todos os que você me mostrou", não "todo arquivo de prévia que ficou no disco".
+> **Your review page is ready:** <URL>
+>
+> Review the <N> clips and choose **Approve**, **Request changes**, or **Reject**.
+> Under **Request changes**, you can ask for a different video.
+>
+> Click **Save decisions** when finished. With the local server, decisions are saved
+> inside the project; return to the chat and say “saved”. If the page downloads a
+> JSON file, tell the agent where you saved it.
+>
+> You can also approve in chat by explicitly stating which shown clips you approve.
+
+Record explicit human approval only. A phrase such as “aprovei todos” applies to the
+IDs actually shown to the reviewer. Register those IDs with
+`approve --candidate ID1 --candidate ID2 --by "<NAME>" --channel chat --statement "<exact human statement>"`.
+Use `--all` only when every candidate with a preview was shown. Wait for the human's
+review; silence is not approval.
 
 ---
 

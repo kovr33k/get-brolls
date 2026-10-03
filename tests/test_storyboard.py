@@ -8,9 +8,78 @@ from getbrolls.storyboard import render_page
 
 
 class StoryboardTest(unittest.TestCase):
+    def test_ready_only_keeps_search_results_and_approvals_in_ledger(self):
+        import copy
+        import tempfile
+
+        from getbrolls.ledger import Ledger
+        from getbrolls.models import candidate, signature
+        from getbrolls.rendering import render
+
+        with tempfile.TemporaryDirectory() as folder:
+            ledger = Ledger(folder)
+            ledger.data["project_id"] = "ready-view-test"
+            raw = candidate("youtube", "raw", "Unprepared search result")
+            ready = candidate("youtube", "ready", "Prepared clip")
+            ready["narration"] = "Solo 210 minutos."
+            ready["preview"]["gif_path"] = "previews/ready.gif"
+            (ledger.root / "previews/ready.gif").write_bytes(b"GIF89a")
+            raw["preview"]["gif_path"] = "previews/ready.gif"
+            raw["output"]["path"] = "clips/original.mp4"
+            ready["approval"].update(status="approved", signature=signature(ready))
+            missing = candidate("youtube", "missing", "Missing preview file")
+            missing["narration"] = "Texto original"
+            missing["preview"]["gif_path"] = "previews/missing.gif"
+            ledger.data["items"] = [raw, ready, missing]
+            before = copy.deepcopy(ledger.data)
+            page = Path(render(ledger, ready_only=True)).read_text(encoding="utf-8")
+            self.assertIn(ready["title"], page)
+            self.assertIn(ready["narration"], page)
+            self.assertNotIn(raw["title"], page)
+            self.assertNotIn(missing["title"], page)
+            self.assertIn(raw["id"], (ledger.root / "credits.md").read_text(encoding="utf-8"))
+            self.assertEqual(before, ledger.data)
+            full = Path(render(ledger)).read_text(encoding="utf-8")
+            self.assertIn(raw["title"], full)
+
+    def test_english_interface_preserves_original_language_content_and_decisions(self):
+        import json
+        import tempfile
+
+        from getbrolls.ledger import Ledger
+        from getbrolls.models import candidate, signature
+        from getbrolls.rendering import render
+
+        with tempfile.TemporaryDirectory() as folder:
+            ledger = Ledger(folder)
+            item = candidate("youtube", "es", "La última entrevista de Maduro")
+            item["narration"] = "¿Cómo ocurrió la operación?"
+            item["creator"]["name"] = "Vídeos de Venezuela"
+            item["match"]["reason"] = "Discurso original en español"
+            item["review"] = {
+                "state": "changes",
+                "comment": "Conservar el audio original",
+                "signature": signature(item),
+            }
+            ledger.data["items"].append(item)
+            before = json.dumps(item, ensure_ascii=False, sort_keys=True)
+            page = Path(render(ledger)).read_text(encoding="utf-8")
+            self.assertIn('<html lang="en">', page)
+            self.assertIn("Save decisions", page)
+            self.assertIn("Request changes", page)
+            for value in (
+                item["title"],
+                item["narration"],
+                item["creator"]["name"],
+                item["match"]["reason"],
+                item["review"]["comment"],
+            ):
+                self.assertIn(value, page)
+            self.assertEqual(before, json.dumps(item, ensure_ascii=False, sort_keys=True))
+
     def test_empty_and_escaped_portable_review(self):
         page = render_page([], title="Teste <script>")
-        self.assertIn("Nada aqui ainda", page)
+        self.assertIn("Nothing here yet", page)
         self.assertIn("Teste &lt;script&gt;", page)
         self.assertNotIn("data:font/ttf;base64,", page)
         self.assertIn("system-ui", page)
@@ -73,9 +142,9 @@ class ContactSheetRenderingTest(unittest.TestCase):
         )
         self.assertIn('<figure class="contact-sheet">', page)
         self.assertIn('<img src="previews/a-sheet.jpg"', page)
-        self.assertIn("1 = 7,0 s · 2 = 8,3 s · 3 = 9,5 s · 4 = 10,8 s", page)
-        self.assertIn("Os quadros do trecho (4) · grade 4×1 · corte 0:07.0–0:12.0", page)
-        self.assertIn("Trecho do vídeo", page)
+        self.assertIn("1 = 7.0 s · 2 = 8.3 s · 3 = 9.5 s · 4 = 10.8 s", page)
+        self.assertIn("Clip frames (4) · grid 4×1 · clip 0:07.0–0:12.0", page)
+        self.assertIn("Video clip", page)
         self.assertNotIn("Contact sheet", page)
         self.assertNotIn("Sem prévia", page)
         self.assertNotIn("Ver contact sheet", page)
@@ -93,11 +162,11 @@ class ContactSheetRenderingTest(unittest.TestCase):
 
     def test_source_thumbnail_is_never_called_a_preview(self):
         page = self.render_item(poster_url="https://i.ytimg.com/vi/abc/hq.jpg")
-        self.assertIn("Imagem da fonte · sem prévia em movimento", page)
-        self.assertIn('<span class="preview-badge">só imagem</span>', page)
-        self.assertNotIn("Trecho do vídeo", page)
+        self.assertIn("Source image · no motion preview", page)
+        self.assertIn('<span class="preview-badge">image only</span>', page)
+        self.assertNotIn("Video clip", page)
         self.assertNotIn('alt="Prévia', page)
-        self.assertIn('alt="Miniatura da fonte — Foguete decolando"', page)
+        self.assertIn('alt="Source thumbnail — Foguete decolando"', page)
 
 
 class StoryboardV2Test(unittest.TestCase):
@@ -136,7 +205,7 @@ class StoryboardV2Test(unittest.TestCase):
         page = self.render_two()
         self.assertIn('<header class="artifact-header">', page)
         self.assertIn('<span class="wordmark">engenheiro<span>de vídeo<b>.</b></span></span>', page)
-        self.assertIn("<span>2 quadros</span>", page)
+        self.assertIn("<span>2 shots</span>", page)
         self.assertIn('<div class="gallery-head"><h2>Storyboard</h2>', page)
         self.assertIn('data-storyboard-mode="hover"', page)
         self.assertIn('id="pending-only"', page)
@@ -144,21 +213,21 @@ class StoryboardV2Test(unittest.TestCase):
         self.assertIn('<a class="source-link-card" href="https://www.youtube.com/watch?v=two"', page)
         self.assertIn('<span class="source-domain">youtube.com</span>', page)
         self.assertIn("<strong>Foguete &lt;decolando&gt;</strong>", page)
-        self.assertIn("<p>corte 0:59.0–1:05.0 de 2:02.0</p>", page)
-        self.assertIn("Por que eu escolhi este:", page)
-        self.assertIn("Pode usar? ainda não conferido", page)
+        self.assertIn("<p>clip 0:59.0–1:05.0 of 2:02.0</p>", page)
+        self.assertIn("Why this was selected:", page)
+        self.assertIn("Usage rights? not checked yet", page)
         self.assertIn('<span class="cut-position"', page)
-        self.assertIn("Abrir fonte original ↗", page)
-        self.assertIn('<span class="script-label">Fala do roteiro</span>', page)
+        self.assertIn("Open original source ↗", page)
+        self.assertIn('<span class="script-label">Script narration</span>', page)
         self.assertIn("“e o foguete saiu do chão”", page)
-        # Três botões: "outra fonte" virou caixinha dentro de "Pedir ajuste"; o valor
+        # Três botões: "outra fonte" virou caixinha dentro de "Request changes"; o valor
         # exportado `alternative` segue existindo no JS/no schema.
         for decision in ("approved", "changes", "rejected"):
             self.assertIn(f'data-decision="{decision}"', page)
         self.assertNotIn('data-decision="alternative"', page)
-        self.assertIn("<h2>Esse trecho serve?</h2>", page)
+        self.assertIn("<h2>Does this clip work?</h2>", page)
         self.assertIn("data-alternative", page)
-        self.assertIn('title="Descarta o trecho. Eu não baixo ele."', page)
+        self.assertIn('title="Reject this clip and exclude it from the final download."', page)
         self.assertIn('class="comment-toggle"', page)
         # Presenter interval in MM:SS.ff and the first frame with a preview flagged.
         self.assertIn("00:59.00–01:05.00", page)
@@ -194,41 +263,41 @@ class PanelStringsSnapshotTest(unittest.TestCase):
 
     def test_panel_placeholders_and_labels_are_exactly_these(self):
         page = self.page()
-        self.assertIn('placeholder="Me conta em uma linha o que você queria…"', page)
+        self.assertIn('placeholder="Describe what you want in one line…"', page)
         self.assertIn('<input data-suggestion type="url" placeholder="https://…">', page)
-        self.assertIn("<h2>Esse trecho serve?</h2>", page)
-        self.assertIn("<label>O que mudar<textarea data-comment", page)
-        self.assertIn("Achou outro vídeo? cole o link (opcional)", page)
-        self.assertIn(" Não é esse vídeo: procure outro</label>", page)
+        self.assertIn("<h2>Does this clip work?</h2>", page)
+        self.assertIn("<label>What to change<textarea data-comment", page)
+        self.assertIn("Found another video? Paste the link (optional)", page)
+        self.assertIn(" Find a different video</label>", page)
         self.assertIn(
-            '<button class="confirm-review" type="button" hidden>Confirmar pedido de ajuste</button>',
+            '<button class="confirm-review" type="button" hidden>Confirm change request</button>',
             page,
         )
-        self.assertIn('<button class="comment-toggle" type="button" aria-expanded="false">Comentar</button>', page)
+        self.assertIn('<button class="comment-toggle" type="button" aria-expanded="false">Comment</button>', page)
 
     def test_the_three_decision_buttons_say_what_each_one_causes(self):
         page = self.page()
-        self.assertIn('title="Marca o trecho como aprovado. Depois eu baixo ele pra sua pasta.">Aprovar</button>', page)
+        self.assertIn('title="Approve this clip for the final download to your folder.">Approve</button>', page)
         self.assertIn(
-            'title="Você escreve o que mudar (outro pedaço do vídeo, ou outro vídeo) e eu refaço.">Pedir ajuste</button>',
+            'title="Describe the changes you want (a different segment or video) and I will revise it.">Request changes</button>',
             page,
         )
-        self.assertIn('title="Descarta o trecho. Eu não baixo ele.">Reprovar</button>', page)
+        self.assertIn('title="Reject this clip and exclude it from the final download.">Reject</button>', page)
 
     def test_review_js_error_and_confirm_strings_are_exactly_these(self):
         js = (self.ASSETS / "review.js").read_text(encoding="utf-8")
-        self.assertIn('status.textContent = "Me conta em uma linha o que você queria.";', js)
-        self.assertIn('wanted() === "changes" ? "Confirmar pedido de ajuste" : "Confirmar: procure outro vídeo"', js)
-        self.assertIn('note("Não consegui salvar no projeto; baixei o arquivo em vez disso.");', js)
-        self.assertIn('"Decisões salvas em getbrolls-review.json (na sua pasta de Downloads). "', js)
-        self.assertIn('"Agora volte à conversa e diga onde salvou."', js)
-        self.assertIn('copy.textContent = "Copiar caminho";', js)
+        self.assertIn('status.textContent = "Describe what you want in one line.";', js)
+        self.assertIn('wanted() === "changes" ? "Confirm change request" : "Confirm: find a different video"', js)
+        self.assertIn('note("Could not save to the project; downloaded the file instead.");', js)
+        self.assertIn('"Decisions saved in getbrolls-review.json (in your Downloads folder). "', js)
+        self.assertIn('"Return to the chat and say where you saved the file."', js)
+        self.assertIn('copy.textContent = "Copy path";', js)
         for state, label in (
-            ("pending", "Você ainda não disse"),
-            ("approved", "Aprovado"),
-            ("changes", "Pedi ajuste"),
-            ("rejected", "Não serve"),
-            ("alternative", "Pedi outro vídeo"),
+            ("pending", "Awaiting decision"),
+            ("approved", "Approved"),
+            ("changes", "Changes requested"),
+            ("rejected", "Rejected"),
+            ("alternative", "Different video requested"),
         ):
             self.assertIn(f'{state}: "{label}"', js)
 
@@ -260,8 +329,8 @@ class GalleryThumbnailFallbackTest(unittest.TestCase):
 
     def test_the_gallery_fallback_is_the_badge_text_and_the_panel_keeps_the_long_one(self):
         page = render_page([{"title": "Sem imagem", "content": "<p>x</p>", "no_preview": True}])
-        self.assertIn('<div class="thumbs"><span class="placeholder">só imagem</span>', page)
-        self.assertIn('<span class="preview-badge">só imagem</span>', page)
+        self.assertIn('<div class="thumbs"><span class="placeholder">image only</span>', page)
+        self.assertIn('<span class="preview-badge">image only</span>', page)
         # O cartão da galeria não repete a explicação comprida.
         gallery = page.split('<div class="gallery">')[1].split("<template")[0]
         self.assertNotIn("Não consegui gerar o movimento", gallery)
@@ -269,7 +338,7 @@ class GalleryThumbnailFallbackTest(unittest.TestCase):
     def test_the_detail_panel_still_carries_the_full_explanation(self):
         page = render_one()
         panel = page[page.index("<template") :]
-        self.assertIn("Não consegui gerar o movimento — veja o original no link", panel)
+        self.assertIn("Motion preview unavailable — open the original link", panel)
         self.assertNotIn("sem imagem da fonte", page)
 
 

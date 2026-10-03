@@ -105,7 +105,11 @@ class WorkflowTests(unittest.TestCase):
     def test_gif_static_duration_aspect_fallback(self):
         with (
             tempfile.TemporaryDirectory() as d,
-            patch.dict(os.environ, {"PATH": os.environ.get("PATH", "")}, clear=True),
+            patch.dict(
+                os.environ,
+                {"PATH": os.environ.get("PATH", ""), "GB_CACHE_DIR": str(Path(d) / "cache")},
+                clear=True,
+            ),
         ):
             root = Path(d)
             (root / "previews").mkdir()
@@ -126,7 +130,7 @@ class WorkflowTests(unittest.TestCase):
             cfg["max_mb"] = 0.000001
             result = review_preview(src, root / "previews", "large", 0, 2, cfg)
             self.assertIsNone(result["gif_path"])
-            self.assertIn("excedeu", result["warning"])
+            self.assertIn("GIF exceeds the size limit", result["warning"])
             cfg["max_seconds"] = 1
             with self.assertRaises(ValueError):
                 review_preview(src, root / "previews", "long", 0, 2, cfg)
@@ -251,7 +255,7 @@ class ContactSheetTests(unittest.TestCase):
             self.assertEqual(result["frame_times_s"], [59.0, 60.5, 62.0, 63.5])
             banner = calls[-1][calls[-1].index("-vf") + 1]
             self.assertIn("textfile=", banner)
-            self.assertIn("corte 0:59.0–1:05.0 de 2:02.4", self.banner_text)
+            self.assertIn("clip 0:59.0–1:05.0 of 2:02.4", self.banner_text)
             # ffmpeg still cuts the working file at 0–6.
             self.assertEqual(calls[-1][calls[-1].index("-ss") + 1], "0")
 

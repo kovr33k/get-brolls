@@ -155,7 +155,7 @@ class ReferencesTests(unittest.TestCase):
 
     def test_response_templates_cover_both_approval_routes(self):
         body = (REFERENCES / "templates-de-resposta.md").read_text(encoding="utf-8")
-        self.assertIn("Salvar decisões", body)
+        self.assertIn("Save decisions", body)
         self.assertIn("aprovei todos", body)
         self.assertIn("--channel chat", body)
 

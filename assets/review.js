@@ -5,11 +5,11 @@
   const key = "getbrolls-v2:" + data.project;
   const STATES = ["pending", "approved", "changes", "rejected", "alternative"];
   const LABELS = {
-    pending: "Você ainda não disse",
-    approved: "Aprovado",
-    changes: "Pedi ajuste",
-    rejected: "Não serve",
-    alternative: "Pedi outro vídeo",
+    pending: "Awaiting decision",
+    approved: "Approved",
+    changes: "Changes requested",
+    rejected: "Rejected",
+    alternative: "Different video requested",
   };
   let saved = {};
   let available = true;
@@ -44,7 +44,7 @@
   const summary = document.createElement("div");
   summary.className = "review-summary";
   summary.innerHTML =
-    '<p data-summary></p><div class="summary-actions"><button type="button" id="next-pending">Próximo pendente →</button><button type="button" id="export-review" title="Baixa um arquivo com tudo o que você decidiu. É o que você manda de volta pro agente.">Salvar decisões</button><button type="button" id="print-review">Imprimir / PDF</button></div><span data-storage-status role="status"></span><p class="export-done" role="status" aria-live="polite"></p>';
+    '<p data-summary></p><div class="summary-actions"><button type="button" id="next-pending">Next pending →</button><button type="button" id="export-review" title="Save your decisions to return them to the agent.">Save decisions</button><button type="button" id="print-review">Print / PDF</button></div><span data-storage-status role="status"></span><p class="export-done" role="status" aria-live="polite"></p>';
   document.querySelector(".review-toolbar")?.remove();
 
   // Gallery: status tag per card, pending filter.
@@ -114,7 +114,7 @@
       card.hidden = !!pendingOnly?.checked && d.state !== "pending";
     });
     const c = counts();
-    const text = `${c.approved} aprovados · ${c.other} com pedidos · ${c.pending} pendentes`;
+    const text = `${c.approved} approved · ${c.other} reviewed · ${c.pending} pending`;
     document.querySelectorAll("[data-summary]").forEach((el) => (el.textContent = text));
     const next = document.querySelector("#next-pending");
     if (next) next.disabled = c.pending === 0;
@@ -128,8 +128,8 @@
     document.querySelectorAll("[data-storage-status]").forEach(
       (el) =>
         (el.textContent = available
-          ? "Suas escolhas ficam guardadas nesta aba. Clique em “Salvar decisões” quando terminar."
-          : "Esta aba não consegue guardar suas escolhas. Clique em “Salvar decisões” assim que terminar."),
+          ? "Your choices are stored in this browser. Click “Save decisions” when finished."
+          : "This browser cannot store your choices. Click “Save decisions” when finished."),
     );
     paintGallery();
     paintPlayer();
@@ -161,7 +161,7 @@
         control.innerHTML = playing
           ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3v14H7zm7 0h3v14h-3z"/></svg>'
           : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg>';
-        const label = playing ? "Pausar GIF" : "Reproduzir GIF";
+        const label = playing ? "Pause GIF" : "Play GIF";
         control.title = label;
         control.setAttribute("aria-label", label);
       };
@@ -203,7 +203,7 @@
       wantOther.hidden = !asking;
       other.hidden = !(asking && alternative.checked);
       toggle.setAttribute("aria-expanded", String(open));
-      toggle.textContent = open ? "Fechar comentário" : comment.value ? "Ver comentário" : "Comentar";
+      toggle.textContent = open ? "Close comment" : comment.value ? "View comment" : "Comment";
     }
     function checkComment() {
       // Validação na hora: o bloqueio aparece onde a pessoa escreve, não no fim —
@@ -212,8 +212,8 @@
       const empty = !comment.value.trim();
       confirm.disabled = empty;
       confirm.textContent =
-        wanted() === "changes" ? "Confirmar pedido de ajuste" : "Confirmar: procure outro vídeo";
-      if (empty) status.textContent = "Me conta em uma linha o que você queria.";
+        wanted() === "changes" ? "Confirm change request" : "Confirm: find a different video";
+      if (empty) status.textContent = "Describe what you want in one line.";
       else if (pending) status.textContent = "";
       else paint();
     }
@@ -227,7 +227,7 @@
           ),
         ),
       );
-      status.textContent = d.state === "pending" ? "" : LABELS[d.state] + (d.updatedAt ? " · guardado nesta aba" : "");
+      status.textContent = d.state === "pending" ? "" : LABELS[d.state] + (d.updatedAt ? " · saved in this browser" : "");
     }
     toggle.onclick = () => {
       pending = null;
@@ -272,7 +272,7 @@
     });
     confirm.onclick = () => {
       if (!comment.value.trim()) {
-        status.textContent = "Me conta em uma linha o que você queria.";
+        status.textContent = "Describe what you want in one line.";
         comment.focus();
         return;
       }
@@ -341,7 +341,7 @@
       document.querySelectorAll("[data-storage-status]").forEach((el) => (el.textContent = text));
     for (const d of Object.values(decisions)) {
       if (["changes", "alternative"].includes(d.state) && !d.comment.trim()) {
-        note("Falta dizer o que mudar em um dos trechos. Abra o trecho e escreva uma linha.");
+        note("A change request needs a comment. Open that clip and describe the changes.");
         return;
       }
       if (d.suggestion) {
@@ -361,7 +361,7 @@
             !/^\d+\.\d+\.\d+\.\d+$/.test(u.hostname);
         } catch {}
         if (!valid) {
-          note("O link de outro vídeo precisa ser um endereço https público, sem senha nem código de acesso. Corrija ou apague o link.");
+          note("Use a public HTTPS link without credentials or access tokens. Correct or remove the link.");
           return;
         }
       }
@@ -375,7 +375,7 @@
     if (save && save.url && save.token) {
       // Servido por `gb.py serve`: as decisões vão direto para dentro do projeto,
       // sem passar pela pasta de Downloads nem depender de a pessoa achar o arquivo.
-      note("Salvando no projeto…");
+      note("Saving to the project…");
       fetch(save.url, {
         method: "POST",
         headers: { "Content-Type": "application/json", [save.header]: save.token },
@@ -388,15 +388,15 @@
         .then((answer) => {
           note("");
           announce(
-            "Decisões salvas no projeto (" +
+            "Decisions saved to the project (" +
               answer.name +
-              "). É só voltar à conversa e dizer “salvei”.",
+              "). Return to the chat and say “saved”.",
             answer.path,
           );
         })
         .catch(() => {
           // Servidor fora do ar ou recusa: cai no download, que nunca depende dele.
-          note("Não consegui salvar no projeto; baixei o arquivo em vez disso.");
+          note("Could not save to the project; downloaded the file instead.");
           download(result);
         });
       return;
@@ -416,8 +416,8 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     // O maior buraco da jornada era aqui: a página acabava e ninguém dizia pra voltar.
     announce(
-      "Decisões salvas em getbrolls-review.json (na sua pasta de Downloads). " +
-        "Agora volte à conversa e diga onde salvou.",
+      "Decisions saved in getbrolls-review.json (in your Downloads folder). " +
+        "Return to the chat and say where you saved the file.",
       "getbrolls-review.json",
     );
     note("");
@@ -434,11 +434,11 @@
     const copy = document.createElement("button");
     copy.type = "button";
     copy.className = "copy-path";
-    copy.textContent = "Copiar caminho";
-    copy.title = "Copia o caminho do arquivo de decisões para você colar na conversa.";
+    copy.textContent = "Copy path";
+    copy.title = "Copy the decision file path to paste into the chat.";
     copy.onclick = () =>
       navigator.clipboard.writeText(path).then(
-        () => (copy.textContent = "Caminho copiado"),
+        () => (copy.textContent = "Path copied"),
         () => (copy.textContent = path),
       );
     done.append(" ", copy);
@@ -462,17 +462,17 @@
       const d = decisions[item.id];
       for (const text of [
         item.asset_type && item.asset_type !== "video"
-          ? `Imagem estática${item.captured_at ? " · Capturada em " + item.captured_at : ""}`
+          ? `Still image${item.captured_at ? " · Captured on " + item.captured_at : ""}`
           : item.segment.start_s === null
-            ? "Intervalo a definir"
-            : `Trecho: ${item.segment.start_s}–${item.segment.end_s} s`,
-        item.source ? "Fonte: " + item.source : "Arquivo local",
-        item.creator ? "Autor: " + item.creator : "",
-        item.narration ? "Fala: “" + item.narration + "”" : "",
-        item.collection_reason ? "Coleta: " + item.collection_reason : "",
-        "Revisão: " + LABELS[d.state],
-        d.comment ? "Comentário: " + d.comment : "",
-        d.suggestion ? "Sugestão: " + d.suggestion : "",
+            ? "Interval to be defined"
+            : `Clip: ${item.segment.start_s}–${item.segment.end_s} s`,
+        item.source ? "Source: " + item.source : "Local file",
+        item.creator ? "Creator: " + item.creator : "",
+        item.narration ? "Narration: “" + item.narration + "”" : "",
+        item.collection_reason ? "Selection reason: " + item.collection_reason : "",
+        "Review: " + LABELS[d.state],
+        d.comment ? "Comment: " + d.comment : "",
+        d.suggestion ? "Suggestion: " + d.suggestion : "",
       ].filter(Boolean)) {
         const p = document.createElement("p");
         p.textContent = text;

@@ -11,10 +11,10 @@ from .models import id_stem
 def prepare_preview(ledger, c, start, end, config):  # noqa: C901 - existing size; validates staleness/scope then dispatches by media kind
     src = c["local_path"]
     if digest(src) != c["local_sha256"]:
-        raise ValueError("Original local mudou: importe novamente.")
+        raise ValueError("Local original changed: import it again.")
     for name in ("context_image", "full_preview"):
         if c.get(name + "_path") and digest(c[name + "_path"]) != c[name + "_sha256"]:
-            raise ValueError("Arquivo de contexto/composição mudou. Importe com outro --shot e revise novamente.")
+            raise ValueError("Context/composition file changed. Import with another --shot and review again.")
     if c.get("media", {}).get("kind") != "image":
         start -= c.get("local_start_s", 0)
         end -= c.get("local_start_s", 0)
@@ -24,11 +24,11 @@ def prepare_preview(ledger, c, start, end, config):  # noqa: C901 - existing siz
     if scope == "full":
         if not c.get("full_preview_path"):
             raise ValueError(
-                "GB_GIF_SCOPE=full exige --full-preview-file com a composição do insert. Forneça esse arquivo ou use GB_GIF_SCOPE=broll."
+                "GB_GIF_SCOPE=full requires --full-preview-file containing the insert composition. Provide this file or use GB_GIF_SCOPE=broll."
             )
         duration = c["full_preview_media"]["duration_s"]
         if abs(duration - (end - start)) > 0.25:  # noqa: PLR2004 - 0.25 s tolerance when comparing the composition length with the segment
-            raise ValueError("A composição deve conter apenas o mesmo insert e ter a duração do trecho selecionado.")
+            raise ValueError("The composition must contain only the same insert and match the selected clip duration.")
         src = c["full_preview_path"]
         start = 0
         end = duration
