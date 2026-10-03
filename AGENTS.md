@@ -2,7 +2,7 @@
 type: instructions
 status: current
 created: 2026-09-15
-updated: 2026-09-17
+updated: 2026-10-03
 tags: [get-brolls, documentation]
 ---
 
@@ -20,6 +20,10 @@ Este arquivo é o índice central para agentes e mantenedores: tudo que um agent
 | Instalar no Claude Code como plugin | `/plugin marketplace add engenheirodevideo/get-brolls`, acione com `/get-brolls:get-brolls` e prepare o ambiente com [`/get-brolls-setup`](commands/get-brolls-setup.md). |
 | Instalar no Gemini CLI | [GEMINI.md](GEMINI.md) — o snippet de importação `@` que o usuário acrescenta ao próprio `GEMINI.md`. |
 | Guia operacional (instalação, provedores, navegador, Storyboard, `status`) | [GUIDE.md](docs/GUIDE.md) |
+| Choose a catalog or inspect its search, access, and acquisition requirements | [SOURCE-CATALOGS.md](docs/SOURCE-CATALOGS.md) — source reference, researched special routes, and current integration status. |
+| Implement the accepted catalog inventory and fragment search behavior | [SPEC-CATALOG-INTEGRATION.md](docs/SPEC-CATALOG-INTEGRATION.md) — accepted implementation and testing specification, based on the catalog-search ADR. |
+| Publish or read engineering specs and tickets | [issue-tracker.md](docs/agents/issue-tracker.md) — selected GitHub tracker and CLI conventions. |
+| Explore engineering domain terms and decisions | [domain.md](docs/agents/domain.md) — single-context glossary and ADR consumer rules. |
 | Manual + tutorial para quem está chegando (comandos explicados, JSON de saída, automação) | [MANUAL.md](docs/MANUAL.md) |
 | Qualidade, evidências reais e limites conhecidos | [QUALITY.md](docs/QUALITY.md) |
 | Medir qualidade editorial (blind tests) | [eval/README.md](eval/README.md) — processo, rubrica, corpus e rodadas; execute um caso com [`/get-brolls-eval`](commands/get-brolls-eval.md). |
