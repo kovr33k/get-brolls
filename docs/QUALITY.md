@@ -2,13 +2,23 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-09-19
+updated: 2026-10-03
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.5.0
+# Qualidade e evidências — GET B-ROLLS 2.6.0
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
+
+## Archive.org fragment route — 2026-10-03, 2.6.0
+
+**Implemented scope.** One catalog per original-scenario fragment, durable three-query accounting, explicit agent assessments, uncertain-dispatch recovery, actual Archive item/file and representation identity, associated captions, and the existing review/delivery gates. All twenty catalogs are inventoried; twelve adapters remain planned. Visual suitability counting and catalog chains are subsequent tickets and are not claimed here.
+
+**Offline evidence.** The full Windows `scripts/check.ps1` passes: 1,068 tests in 145.018 seconds, 31 skips, no failures or errors. Ruff lint and formatting, native Windows Pyright, skill-mirror synchronization, and documentation anchors pass. The 22 focused Archive/fragment tests use synthetic media and transport fixtures. They exercise independent fragments, translated formulations and media-filter changes sharing the allowance, shortened fallback, replay without network, durable interrupted dispatch, failed-write recovery, read-only status, dry-run, configuration precedence/redaction, real decoded dimensions, restricted access refusal, and the route through inspect, preview, Storyboard, approval, permit, fetch, verify, and `deliver`. The FFmpeg banner checks also pass; the live Windows probe exposed CRLF creating extra banner lines, corrected by explicitly writing LF. CLI test subprocesses now use an empty environment file by default while preserving an explicit selection; the media fallback test uses a temporary cache. Four additional symlink tests skip only when Windows refuses the symlink privilege, rather than failing before reaching the security check. These checks are separate from cross-platform CI.
+
+**Bounded live observation.** One query, `collection:prelinger AND title:factory`, returned the public [Factory item](https://archive.org/details/factory). Metadata identified original `factory.mpeg` and its separate representations. Explicit selection of `factory.mp4` acquired 81,796,127 bytes; ffprobe reported 640×480, 29.97 fps, 783.071995 seconds. The 0–5 second window generated a poster, contact sheet, GIF, and ready-preview Storyboard. FFmpeg decoded that window with exit 0. The contact sheet was viewed and contains opening credits/title cards. Approval remains pending and rights remain unknown. Raw logs, hashes, source cache, previews, and the probe report are retained outside the distributed source.
+
+**Limits.** This observation establishes public discovery, selected-file acquisition and decoding for one movie item at that date. It does not establish 1080p availability, access to restricted material, caption coverage, current availability of every Archive item, suitability for a creator's narration, human acceptance, or rights clearance. Image/caption and restricted-file paths have synthetic coverage only. Skipped checks, including symlink checks unavailable on this Windows host, are not reported as executed coverage. The required three-platform CI matrix remains an integration/release gate.
 
 ## Blind tests
 

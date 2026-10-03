@@ -141,7 +141,10 @@ def cache_direct_media(ledger, candidate, refresh=True):
     if refresh:
         from .providers import refresh as refresh_candidate
 
-        url = (refresh_candidate(candidate) or {}).get("media_url") or url
+        refreshed = refresh_candidate(candidate) or {}
+        if candidate["provider"] == "archive" and refreshed.get("acquisition", {}).get("status") == "unavailable":
+            raise ValueError("Selected Archive.org file requires separate access; public acquisition is unavailable.")
+        url = refreshed.get("media_url") or url
     if not url:
         raise ValueError("Arquivo do provedor não está mais disponível.")
     from .http import download
@@ -190,7 +193,7 @@ def cache_direct_media(ledger, candidate, refresh=True):
     return final
 
 
-def prepare_source(ledger, candidate, start, end, tolerant=False):  # noqa: C901, PLR0915 - existing size; walks every source-readiness state (local/remote, cache hit/miss, tolerant)
+def prepare_source(ledger, candidate, start, end, tolerant=False):  # noqa: C901, PLR0912, PLR0915 - source-readiness states plus explicit provider access refusal
     """Deixa a mídia de trabalho pronta para [start, end] em tempo da fonte.
 
     `tolerant=True` aceita que o arquivo baixado seja mais curto do que o pedido — é
@@ -199,6 +202,8 @@ def prepare_source(ledger, candidate, start, end, tolerant=False):  # noqa: C901
     `tolerant` precisa reler `local_duration_s` antes de montar a grade.
     """
     c = candidate
+    if c["provider"] == "archive" and c.get("acquisition", {}).get("status") == "unavailable":
+        raise ValueError("Selected Archive.org file requires separate access; public acquisition is unavailable.")
     remote = c["provider"] != "local"
     if not remote:
         return

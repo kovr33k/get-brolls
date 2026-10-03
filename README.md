@@ -15,7 +15,7 @@
     <img src="https://img.shields.io/badge/Playwright-browser-2EAD33?style=flat-square" alt="Playwright para fontes que pedem navegador">
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="Licença MIT">
     <img src="https://img.shields.io/github/actions/workflow/status/engenheirodevideo/get-brolls/test.yml?branch=main&style=flat-square&label=tests" alt="Status dos testes">
-    <img src="https://img.shields.io/badge/version-2.5.0-blue?style=flat-square" alt="Versão 2.5.0">
+    <img src="https://img.shields.io/badge/version-2.6.0-blue?style=flat-square" alt="Versão 2.6.0">
   </p>
 </div>
 
@@ -235,7 +235,7 @@ Cada subcomando aceita `help`; a sintaxe completa está em [Usar pelo terminal](
 ## Destaques
 
 - **Storyboard local.** `review` gera `brolls/review.html`: uma página para alternar entre imagem estática e GIF, ver fala, intervalo, motivo da escolha, autor e fonte, e aprovar, pedir ajuste ou sugerir outra fonte por trecho. [Detalhes do storyboard.](#storyboard)
-- **Seis fontes cobertas.** YouTube e TikTok sem API key via yt-dlp/FFmpeg, Instagram pelo navegador autorizado com coletor de pares vídeo/áudio incluído, Pexels e Pixabay com chave própria, Wikimedia Commons e NASA sem chave, e importação de arquivos locais. [Veja fontes e transportes.](#fontes)
+- **Fontes integradas.** YouTube e TikTok sem API key via yt-dlp/FFmpeg, Instagram pelo navegador autorizado com coletor de pares vídeo/áudio incluído, Pexels e Pixabay com chave própria, Wikimedia Commons, NASA e Archive.org sem chave, e importação de arquivos locais. [Veja fontes e transportes.](#fontes)
 - **Estado do projeto a qualquer momento.** `status --project` resume candidatos, prévias, decisões, permissões e entregas, com o próximo passo sugerido, sem alterar o projeto. [Veja uso pelo terminal.](#usar-pelo-terminal)
 - **Lotes sociais com ritmo.** `queue` enfileira URLs de Instagram/TikTok/YouTube e só devolve o próximo item quando o intervalo e os tetos por hora/dia permitem — a CLI nunca dorme, ela diz quanto esperar. `serve` sobe o Storyboard local em `http://localhost:8767/review.html` sem comando solto de `http.server`.
 - **Registro de origem.** Cada trecho entregue carrega fonte, autor, intervalo e condições de uso — a aprovação editorial é sempre sua.
@@ -268,6 +268,7 @@ Compartilhe a pasta **`brolls/` completa**, para manter as imagens e os GIFs ace
 | **TikTok** | URL completa descoberta no navegador | yt-dlp + FFmpeg; sem API key. |
 | **Pexels / Pixabay** | Busca nas APIs dos bancos | Chave do respectivo banco; download HTTPS. |
 | **Wikimedia Commons / NASA** | Busca nas APIs públicas | Download HTTPS; sem chave. |
+| **Archive.org** | Public search and explicit item/file resolution | Selected HTTPS file; resumable fragment plan; separate approval/rights gates. |
 | **Arquivo local** | Vídeo, imagem ou captura fornecida | Importação local com origem e autoria, quando informadas. |
 
 Pexels e Pixabay são rota opcional: o agente recorre a bancos somente quando você pede stock explicitamente. O padrão é a fonte literal do que a narração cita.

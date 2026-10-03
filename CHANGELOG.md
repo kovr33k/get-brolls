@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-09-19
+updated: 2026-10-03
 tags: [get-brolls]
 ---
 
@@ -10,6 +10,27 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.6.0 — 2026-10-03
+
+- Archive.org: public discovery and explicit item/file resolution preserve original assets, representations, captions, access restrictions, and unknown rights. Selected files use the existing inspect, preview, Storyboard, approval, permit, fetch, verify, and delivery route.
+- Preview: write FFmpeg banner text with LF on Windows to prevent carriage returns from creating extra lines over the contact sheet.
+- Fragment search: `search-plan`, `search --planned`, and `search-assess` save one catalog and scenario context in the ledger. Dispatch is durable before network access; three meaningful queries include language variations and shortened fallback. Restart preserves consumed attempts and never silently repeats uncertain work. `status.search_progress` remains read-only; visual suitability counting is reserved for issue #4.
+- Configuration: accept the retained catalog credentials/channel settings with unchanged precedence and unknown-key rejection. `providers` separates implemented operations, configured values, and live evidence across twenty catalogs plus local imports; planned adapters stay explicit and optional AI keys do not select billing.
+- Verification: isolate CLI tests from the private source `.env`, give the media fallback test a temporary cache, align preview/review assertions with the English interface, and skip symlink fixtures only when Windows denies the required privilege. Keep the Claude router thin and limit platform-specific type ignores to the POSIX lock calls.
+
+- Docs: engineering skills use GitHub Issues in `kovr33k/get-brolls` through [issue-tracker.md](docs/agents/issue-tracker.md) and the existing single-context glossary/ADRs through [domain.md](docs/agents/domain.md). Routed from CLAUDE and AGENTS; triage configuration is omitted because the skill is not installed. No runtime changes.
+
+- Docs: [SPEC-CATALOG-INTEGRATION.md](docs/SPEC-CATALOG-INTEGRATION.md) records the accepted twenty-catalog rollout and fragment search policy, with user stories, implementation contracts, and both offline rule checks and live catalog/media acceptance checks. Published as [spec issue #2](https://github.com/kovr33k/get-brolls/issues/2) with `ready-for-agent` and self-contained vocabulary/source contracts. No runtime changes.
+
+- Docs: [CONTEXT.md](CONTEXT.md) defines catalog search vocabulary; [ADR-0001](docs/adr/0001-fragment-catalog-search-chain.md) records accepted planning with one level of search fragments, query and language policies, three visually confirmed distinct options, and one bounded additional pass. An integrated twenty-catalog rollout is accepted; counting separately requested originals is deferred until a concrete case arises. Linked from the source catalog reference. No runtime changes.
+
+- Docs: `docs/SOURCE-CATALOGS.md` consolidates 20 source catalogs, their search/access/acquisition routes, and the researched EC, UN, Destockd, X, Telegram, and social-source details. Current get-brolls support is distinguished from prior-project implementations and planned adapters; linked from AGENTS and GUIDE. No runtime changes.
+
+- Storyboard: `review --ready-only` shows prepared previews with scenario narration and existing media files. Unprepared search results remain in the ledger; the default full view and existing decisions are preserved. The skill uses this view for scenario review.
+
+- Storyboard: English interface, preview/contact-sheet labels, accessibility text, and print/export controls. Scenario narration, source titles, captions, and editorial comments retain their original language; saved review decisions and schemas are unchanged. The canonical skill now defines this language policy for future projects.
+
+- Docs: mapa interativo de arquitetura em `docs/architecture/get-brolls.html`, gerado com Archify a partir do código, com referências verificadas, especificação JSON e recibos de validação e navegador. Sem mudança de comportamento.
 - Docs: `docs/MANUAL.md`, manual + tutorial em português para quem está chegando — tutorial do zero à `entrega/`, todos os subcomandos agrupados nos 8 passos do fluxo com explicação dentro de cada bloco, as três rotas do `permit`, como ler `summary.line`/`summary.do`/erros/códigos de saída, `BRIEF.md`, `RULES.md` e `.env` campo a campo, e receitas de automação com `jq`. Ligado no README, no README.en e no AGENTS. Fecha #80.
 - READMEs: os diagramas `assets/flow*.svg` e `assets/formats*.svg` passam a mostrar o fluxo atual — brief, análise da fonte, direitos como segundo portão, verificação e `entrega/` por beat — e a árvore de pastas ganha `BRIEF.md`, `entrega/`, `getbrolls.log` e `reviews/`. Eram da 2.3.x e apontavam `clips/` como lugar dos arquivos finais.
 - READMEs: badges de FFmpeg, yt-dlp e Playwright no topo, ao lado de Python e Node, para mostrar o que a instalação coloca na máquina.

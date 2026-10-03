@@ -27,6 +27,7 @@
     "provider": {
       "enum": [
         "local",
+        "archive",
         "youtube",
         "instagram",
         "tiktok",

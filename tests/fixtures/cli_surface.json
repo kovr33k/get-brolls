@@ -1579,6 +1579,18 @@
           "action": "_StoreAction",
           "choices": null,
           "default": null,
+          "dest": "archive_file",
+          "help": "Actual file name within the Archive.org item (required for multi-asset items)",
+          "nargs": null,
+          "option_strings": [
+            "--archive-file"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
           "dest": "context_image",
           "help": "Print opcional da pessoa; permanece estático",
           "nargs": null,
@@ -1696,7 +1708,7 @@
           "choices": null,
           "default": null,
           "dest": "url",
-          "help": "URL pública da fonte (YouTube, Instagram, TikTok, Wikimedia Commons, NASA)",
+          "help": "Public source URL (YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org)",
           "nargs": null,
           "option_strings": [
             "--url"
@@ -1754,6 +1766,18 @@
           "nargs": 0,
           "option_strings": [
             "--confirm-format-change"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "ready_only",
+          "help": "Show only candidates with scenario narration and an existing motion preview (or image asset)",
+          "nargs": 0,
+          "option_strings": [
+            "--ready-only"
           ],
           "required": false
         }
@@ -1842,11 +1866,35 @@
           "required": false
         },
         {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "planned",
+          "help": "Use the saved fragment plan and durable three-query allowance",
+          "nargs": 0,
+          "option_strings": [
+            "--planned"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "language",
+          "help": "Agent-selected source query language; does not renew the allowance",
+          "nargs": null,
+          "option_strings": [
+            "--language"
+          ],
+          "required": false
+        },
+        {
           "action": "_StoreAction",
           "choices": null,
           "default": "auto",
           "dest": "provider",
-          "help": "Fonte: youtube, pexels, pixabay, commons, nasa ou auto (padrão)",
+          "help": "Source: youtube, pexels, pixabay, commons, nasa, archive or auto (default)",
           "nargs": null,
           "option_strings": [
             "--provider"
@@ -1926,6 +1974,202 @@
           "default": false,
           "dest": "dry_run",
           "help": "Listar o que a fonte devolveu sem registrar nada no projeto",
+          "nargs": 0,
+          "option_strings": [
+            "--dry-run"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "search-assess": {
+      "help": "Record the managing agent's assessment of a fragment search attempt",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "confirm_format_change",
+          "help": "==SUPPRESS==",
+          "nargs": 0,
+          "option_strings": [
+            "--confirm-format-change"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "shot",
+          "help": "Existing BRIEF fragment ID",
+          "nargs": null,
+          "option_strings": [
+            "--shot"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "any",
+            "image",
+            "video"
+          ],
+          "default": null,
+          "dest": "media",
+          "help": "Recorded media filter when the same wording was used more than once",
+          "nargs": null,
+          "option_strings": [
+            "--media"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "query",
+          "help": "Query wording of the recorded attempt",
+          "nargs": null,
+          "option_strings": [
+            "--query"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "assessment",
+          "help": "What the returned results established and what to inspect next",
+          "nargs": null,
+          "option_strings": [
+            "--assessment"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "search-plan": {
+      "help": "Save a one-catalog search plan for a BRIEF fragment without resetting its query allowance",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "confirm_format_change",
+          "help": "==SUPPRESS==",
+          "nargs": 0,
+          "option_strings": [
+            "--confirm-format-change"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "shot",
+          "help": "Existing BRIEF fragment ID",
+          "nargs": null,
+          "option_strings": [
+            "--shot"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "provider",
+          "help": "One supported catalog allowed by the fragment",
+          "nargs": null,
+          "option_strings": [
+            "--provider"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "reason",
+          "help": "Why this catalog fits the fragment",
+          "nargs": null,
+          "option_strings": [
+            "--reason"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "expected_material",
+          "help": "Material expected in this catalog",
+          "nargs": null,
+          "option_strings": [
+            "--expected-material"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "dry_run",
+          "help": "Validate and show the plan without saving it",
           "nargs": 0,
           "option_strings": [
             "--dry-run"

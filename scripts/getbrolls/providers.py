@@ -13,6 +13,25 @@ KEYS = {
     "pixabay": "PIXABAY_API_KEY",
 }
 
+# Guidance is inventory, never proof of an adapter or an authorized session.
+PLANNED_CATALOGS = {
+    "loc": ("Public catalog and item resources", ()),
+    "dvids": ("Keyed search and selected asset/file", ("DVIDS_API_KEY",)),
+    "europeana": ("Keyed records and holding-institution resources", ("EUROPEANA_API_KEY",)),
+    "nara": ("Keyed catalog and digital objects", ("NARA_API_KEY",)),
+    "mapillary": ("Geographic street images; location/bbox required", ("MAPILLARY_TOKEN",)),
+    "telegram": (
+        "User session; explicit public-channel whitelist",
+        ("TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_SESSION", "BROLL_TELEGRAM_CHANNELS"),
+    ),
+    "gdelt_tv": ("TV broadcast/time locator", ()),
+    "x": ("Retained Grok OAuth X Search; OAuth/tool access unverified", ()),
+    "ec_audiovisual": ("AV Portal shot/parent records; endpoints require revalidation", ()),
+    "un_webtv": ("Recent transcripts; older catalog/direct assets", ()),
+    "un_avlibrary": ("Archive cards, previews and footage-request links", ()),
+    "destockd": ("Website/direct shot links and Archive originals; no agreed API access", ()),
+}
+
 
 def capabilities():
     result = {}
@@ -24,13 +43,14 @@ def capabilities():
         "pixabay",
         "commons",
         "nasa",
+        "archive",
         "local",
     ):
-        search_ok = name in ("youtube", "pexels", "pixabay", "commons", "nasa")
+        search_ok = name in ("youtube", "pexels", "pixabay", "commons", "nasa", "archive")
         key = KEYS.get(name)
         result[name] = {
             "search": search_ok,
-            "resolve_url": name in ("youtube", "instagram", "tiktok"),
+            "resolve_url": name in ("youtube", "instagram", "tiktok", "commons", "nasa", "archive"),
             "account_library": False,
             "embed": False,
             "seek": "local" if name == "local" else "unsupported",
@@ -42,7 +62,42 @@ def capabilities():
             else name,
             "configured": not key or bool(os.environ.get(key)),
             "env_key": key,
+            "preview": True,
+            "manual": name in ("instagram", "tiktok"),
+            "implementation": "supported",
+            "live": "unverified",
+            "live_observation": None,
+            "access_verified": False,
+            "media_types": ["image", "video"] if name in ("commons", "nasa", "archive", "local") else ["video"],
         }
+    for name, (route, env_keys) in PLANNED_CATALOGS.items():
+        result[name] = {
+            "search": False,
+            "resolve_url": False,
+            "preview": False,
+            "download": False,
+            "manual": name in ("un_avlibrary", "destockd", "gdelt_tv"),
+            "implementation": "planned",
+            "configured": all(bool(os.environ.get(k)) for k in env_keys) if env_keys else None,
+            "env_keys": list(env_keys),
+            "transport": route,
+            "live": "unverified",
+            "live_observation": None,
+            "access_verified": False,
+        }
+    result["archive"]["live"] = "sample_verified"
+    result["archive"]["live_observation"] = {
+        "date": "2026-10-03",
+        "version": "2.6.0",
+        "status": "passed_sample",
+        "source_url": "https://archive.org/details/factory",
+        "selected_file": "factory.mp4",
+        "operations": ["search", "resolve_url", "inspect", "preview", "review", "decode_5s"],
+        "width": 640,
+        "height": 480,
+        "duration_s": 783.071995,
+        "limitations": "One public movie item; no rights permission, human acceptance, or editorial suitability established.",
+    }
     return result
 
 
@@ -93,10 +148,12 @@ def _text(raw):
 
 MEDIA_CHOICES = ("image", "video", "any")
 # Fontes que publicam foto e vídeo no mesmo acervo; nas outras `--media` não muda nada.
-MEDIA_AWARE = ("nasa", "commons")
+MEDIA_AWARE = ("nasa", "commons", "archive")
 
 
 def search(provider, query, limit=8, media="any"):
+    from .archive import search as archive_search
+
     if not isinstance(limit, int) or not 1 <= limit <= 50:  # noqa: PLR2004 - matches the "entre 1 e 50" message below
         raise ProviderError("Limite deve estar entre 1 e 50")
     if not isinstance(query, str) or not query.strip() or len(query) > 500:  # noqa: PLR2004 - matches the "entre 1 e 500 caracteres" message below
@@ -109,6 +166,7 @@ def search(provider, query, limit=8, media="any"):
         "youtube": _youtube,
         "commons": _commons,
         "nasa": _nasa,
+        "archive": archive_search,
     }.get(provider)
     if not fn:
         raise ProviderError("Busca indisponível nesta fonte; forneça URL ou arquivo local")
@@ -397,12 +455,18 @@ def _nasa_details(ident):
     return item
 
 
-def resolve(url):  # noqa: C901 - existing size; one branch per recognized source host/URL shape
+def resolve(url, archive_file=None):  # noqa: C901, PLR0912 - existing size; one branch per recognized source host/URL shape
     if not public_url(url):
         raise ProviderError("Forneça URL pública HTTPS sem credenciais")
     p = urlsplit(url)
     host = p.hostname.lower()
     path = p.path.strip("/")
+    if archive_file is not None and host not in ("archive.org", "www.archive.org"):
+        raise ProviderError("--archive-file requires an Archive.org item URL.")
+    if host in ("archive.org", "www.archive.org"):
+        from .archive import resolve as archive_resolve
+
+        return archive_resolve(url, archive_file)
     if host in ("youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"):
         ident = (
             path
@@ -461,13 +525,20 @@ def resolve(url):  # noqa: C901 - existing size; one branch per recognized sourc
     return item
 
 
-def refresh(item):
+def refresh(item):  # noqa: C901 - one bounded refresh branch per supported provider
     """Refresh public stock file URLs without changing selection or approval."""
     import copy
 
     name = item["provider"]
     ident = str(item["source_id"])
     current = copy.deepcopy(item)
+    if name == "archive":
+        from .archive import refresh as archive_refresh
+
+        fresh = archive_refresh(item)
+        current["media_url"] = fresh["media_url"]
+        current["acquisition"] = fresh["acquisition"]
+        return current
     if name == "pexels":
         if not ident.isdigit():
             raise ProviderError("ID Pexels inválido")

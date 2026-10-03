@@ -13,6 +13,7 @@ import atexit
 import os
 import shutil
 import tempfile
+import unittest
 from pathlib import Path
 
 if not os.environ.get("GB_HOME"):
@@ -21,3 +22,14 @@ if not os.environ.get("GB_HOME"):
     atexit.register(shutil.rmtree, _home, ignore_errors=True)
 
 GB_HOME = Path(os.environ["GB_HOME"])
+_ERROR_PRIVILEGE_NOT_HELD = 1314
+
+
+def symlink_or_skip(link, target, *, target_is_directory=False):
+    """Skip only when Windows denies the symlink privilege; keep other errors visible."""
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except OSError as exc:
+        if os.name == "nt" and getattr(exc, "winerror", None) == _ERROR_PRIVILEGE_NOT_HELD:
+            raise unittest.SkipTest("Windows symlink privilege is unavailable") from exc
+        raise

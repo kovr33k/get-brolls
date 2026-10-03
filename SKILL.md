@@ -1,21 +1,25 @@
 ---
 name: get-brolls
-description: 'Coleta, pré-visualiza e entrega B-rolls com revisão humana e origem registrada. Use quando alguém pedir b-roll, vídeos de apoio, imagens de apoio, cutaways, inserts, footage, "um corte do X falando Y", um print da tela de um site ou de uma notícia, ou material para ilustrar um vídeo, Reel ou aula — buscando em YouTube, Instagram, TikTok, Wikimedia Commons, NASA ou bancos (Pexels, Pixabay), gerando prévias para revisão humana e entregando os trechos com origem e condições de uso. Also in English: collect B-roll, cutaways, inserts, supporting footage, stock video, screen grabs. Não serve para editar, montar ou renderizar o vídeo final. Not for editing or rendering the finished video.'
+description: 'Coleta, pré-visualiza e entrega B-rolls com revisão humana e origem registrada. Use quando alguém pedir b-roll, vídeos de apoio, imagens de apoio, cutaways, inserts, footage, "um corte do X falando Y", um print da tela de um site ou de uma notícia, ou material para ilustrar um vídeo, Reel ou aula — buscando em YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org ou bancos (Pexels, Pixabay), gerando prévias para revisão humana e entregando os trechos com origem e condições de uso. Also in English: collect B-roll, cutaways, inserts, supporting footage, stock video, screen grabs. Não serve para editar, montar ou renderizar o vídeo final. Not for editing or rendering the finished video.'
 license: MIT
 metadata:
-  version: "2.5.0"
+  version: "2.6.0"
   type: "skill"
   status: "current"
   created: "2026-09-15"
-  updated: "2026-09-19"
+  updated: "2026-10-03"
   tags: "b-roll, youtube, instagram, tiktok, storyboard"
 ---
 
-<!-- Fonte canônica do fluxo clone-como-skill. Espelhado em skills/get-brolls/SKILL.md (plugin do Claude Code). Ao editar um, sincronize o outro. -->
+<!-- Canonical workflow; generate the plugin mirror with scripts/gen_skill_mirror.py. -->
 
 # GET B-ROLLS — ENGENHEIRO DE VÍDEO
 
-Você planeja fontes literais, mostra o trecho à pessoa, recebe a decisão dela e só então entrega o corte. Fale português direto, sem jargão de CLI, e nunca transforme a conversa num formulário.
+Plan literal sources, preview, obtain human approval, then deliver. Chat in the user’s language.
+
+## Language policy
+
+Use English for Storyboard/preview interface/service text. Preserve original-language scenario/source content, editorial comments, and saved decisions verbatim.
 
 ## Três guardas
 
@@ -39,9 +43,11 @@ Escreva o `BRIEF.md` com `python3 "scripts/gb.py" init-brief --project <projeto>
 
 ## Passo 3 — Busque fonte literal
 
-`python3 "scripts/gb.py" brief --beat <ID> --project <projeto>` devolve o comando pronto do beat. Todo material entra com `--shot <beat.id>`. Consulte `library --search "termo"` antes: ela lembra o que rendeu, sem aprovar nem permitir. Fontes, presets, lotes e a biblioteca estão em [`references/providers.md`](references/providers.md). **Reel do Instagram: leia [`references/instagram.md`](references/instagram.md) antes de tocar no navegador** — é a rota que quebra primeiro.
+Use `brief --beat <ID>` and `--shot <beat.id>`. Check `library --search` first; hints confer no approval/rights. Read [providers](references/providers.md). **Instagram: leia [Instagram](references/instagram.md) antes de tocar no navegador.**
 
 **Checkpoint C2.** Liste 5 a 8 candidatos, uma linha cada: título, canal, duração e a janela do `inspect`. Feche com "sigo com estes?".
+
+Archive fragments: read [workflow](docs/GUIDE.md#provider--archiveorg-and-fragment-search) before `search-plan` → `search --planned` → `search-assess`. Three queries share a durable budget. Select files with `--archive-file`; previews confer no suitability/approval. [Catalog guidance](docs/SOURCE-CATALOGS.md) distinguishes retained routes from working adapters.
 
 ## Passo 4 — Analise e pré-visualize
 
@@ -55,7 +61,7 @@ Sem pista, `preview --scan` varre o vídeo inteiro: exploratório, depois de `in
 
 Duas rotas, e você para nas duas.
 
-**Board**, quando quem revisa é outra pessoa: `python3 "scripts/gb.py" review --project <projeto>`, depois `serve --background --project <projeto>`. Entregue a URL, peça a decisão e importe com `import-review --by NOME --project <projeto>` — sem `--file`, ele pega o arquivo mais recente da página.
+**Board**, quando quem revisa é outra pessoa: `python3 "scripts/gb.py" review --ready-only --project <projeto>`, depois `serve --background --project <projeto>`. Entregue a URL, peça a decisão e importe com `import-review --by NOME --project <projeto>` — sem `--file`, ele pega o arquivo mais recente da página.
 
 Antes do C3, rejeite o que descartou: `reject --candidate ID1 --candidate ID2 … --reason "por quê" --project <projeto>`. Assim o status reflete a conversa.
 

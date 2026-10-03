@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 # A pasta pessoal da skill vai para um temporário: nenhum teste toca ~/.getbrolls.
-import _isolation  # noqa: F401  (efeito de import: define GB_HOME)
+import _isolation
 from _paths import ROOT  # noqa: F401  (efeito de import: insere scripts/ em sys.path)
 
 from getbrolls import acquisition, delivery, queue
@@ -564,7 +564,7 @@ class DeliveryRefusalLoggingTests(unittest.TestCase):
             _project(tmp, [_fetched("a", "T", shot="abertura")])
             outside = Path(tmp) / "outside"
             outside.mkdir()
-            (Path(tmp) / delivery.DELIVERY_DIR).symlink_to(outside)
+            _isolation.symlink_or_skip(Path(tmp) / delivery.DELIVERY_DIR, outside, target_is_directory=True)
             with self.assertLogs("getbrolls.delivery", "WARNING") as cm, self.assertRaises(ValueError):
                 delivery.build_delivery(tmp)
             joined = _joined(cm)

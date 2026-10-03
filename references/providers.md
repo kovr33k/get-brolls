@@ -2,7 +2,7 @@
 type: reference
 status: current
 created: 2026-09-17
-updated: 2026-09-17
+updated: 2026-10-03
 tags: [get-brolls, fontes, provedores]
 ---
 
@@ -71,9 +71,11 @@ Chaves de Pexels/Pixabay são opcionais e ficam no ambiente ou num `.env` aponta
 
 ## Domínio público e arquivo
 
-Wikimedia Commons e NASA não pedem chave e costumam ser a rota literal mais rápida para fato histórico, espaço e ciência: `--provider commons` ou `--provider nasa`. Quando você já tem o link do item, `resolve --url` registra direto: `https://images.nasa.gov/details/<id>` no acervo da NASA e `https://commons.wikimedia.org/wiki/File:<nome>` no Commons — vídeo ou imagem estática nos dois. Para um beat de foto, peça imagem à fonte: `search --provider commons --media image` (ou `--provider nasa`); `--media` aceita `image`, `video` e `any` (padrão), e só NASA e Commons publicam os dois tipos — YouTube e os bancos ignoram a flag. Arquivo local entra com `resolve --file --source-url --creator --shot`.
+Wikimedia Commons e NASA não pedem chave e costumam ser a rota literal mais rápida para fato histórico, espaço e ciência: `--provider commons` ou `--provider nasa`. Quando você já tem o link do item, `resolve --url` registra direto: `https://images.nasa.gov/details/<id>` no acervo da NASA e `https://commons.wikimedia.org/wiki/File:<nome>` no Commons — vídeo ou imagem estática nos dois. Para um beat de foto, peça imagem à fonte: `search --provider commons --media image` (ou `--provider nasa`); `--media` aceita `image`, `video` e `any` (padrão), e NASA, Commons e Archive.org publicam os dois tipos — YouTube e os bancos ignoram a flag. Arquivo local entra com `resolve --file --source-url --creator --shot`.
 
 Panorama completo em [Fontes e transportes](../docs/GUIDE.md#fontes-e-transportes).
+
+Archive.org is also implemented for public images/videos: `search --provider archive`, explicit item/file `resolve`, then the shared inspect and preview route. For resumable fragment search, use [the Archive workflow](../docs/GUIDE.md#provider--archiveorg-and-fragment-search). Consult [SOURCE-CATALOGS.md](../docs/SOURCE-CATALOGS.md) for all twenty retained routes and `providers` for current support. Planned entries are guidance, and an archive collection name does not clear rights.
 
 ## Quantidade
 

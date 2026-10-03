@@ -272,11 +272,11 @@ FLOW_SUMMARIES = {
     ),
     "resolve": lambda r: f"Registrei o candidato {_identifier(r)}: estado {r.get('state')}.",
     "preview": lambda r: (
-        f"Gerei somente a referência estática de {_identifier(r)}: "
-        f"estado {r.get('state')}, aprovação {(r.get('approval') or {}).get('status')}."
+        f"Generated a static reference only for {_identifier(r)}: "
+        f"state {r.get('state')}, approval {(r.get('approval') or {}).get('status')}."
         if r.get("state") == "reference_only"
-        else f"Gerei a prévia de {_identifier(r)}: "
-        f"estado {r.get('state')}, aprovação {(r.get('approval') or {}).get('status')}."
+        else f"Generated the preview for {_identifier(r)}: "
+        f"state {r.get('state')}, approval {(r.get('approval') or {}).get('status')}."
     ),
     "approve": lambda r: (
         f"Registrei a aprovação humana de {r.get('by')} pelo {r.get('channel')} em "
@@ -291,10 +291,8 @@ FLOW_SUMMARIES = {
         if isinstance(r.get("rejected"), list)
         else f"Rejeitei {_identifier(r)}: estado {r.get('state')}" + _rejection_note(r)
     ),
-    "review": lambda r: f"Gerei o Storyboard em {r.get('review')}.",
-    "import-review": lambda r: (
-        f"Importei {_count(r.get('imported') or 0, 'decisão', 'decisões')} assinada(s) por {r.get('by')}."
-    ),
+    "review": lambda r: f"Generated the Storyboard at {r.get('review')}.",
+    "import-review": lambda r: f"Imported {_count(r.get('imported') or 0, 'decision', 'decisions')} by {r.get('by')}.",
     "permit": lambda r: (
         f"Registrei as condições de uso de {_identifier(r)}: direitos {(r.get('rights') or {}).get('status')}."
     ),
@@ -1162,6 +1160,8 @@ def _flow_next(ledger, rules):
 
 def status_report(ledger, rules=None, rules_error=None, queue=None):
     """Onde o projeto está, por etapa. Somente leitura: não grava nada."""
+    from .fragment_search import progress
+
     items = ledger.data["items"]
     listing = {key: [c["id"] for c in items if STAGE_TESTS[key](c)] for key, _, _ in STATUS_STAGES}
     counts = {key: len(listing[key]) for key, _, _ in STATUS_STAGES}
@@ -1247,6 +1247,7 @@ def status_report(ledger, rules=None, rules_error=None, queue=None):
         "rules_error": rules_error,
         "references": remembered,
         "references_error": references_error,
+        "search_progress": progress(ledger.data, recovery_pending=ledger.pending.exists()),
         "queue": queue,
         "review_page": str(review_page) if review_page.is_file() else None,
         "journal": {
@@ -1474,14 +1475,27 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
     rules = load_rules(args.project)
     if cmd == "rules":
         return rules
-    ledger = Ledger(args.project)
+    plan_dry_run = getattr(args, "dry_run", False) and (cmd == "search-plan" or getattr(args, "planned", False))
+    ledger = Ledger(args.project, recover=not plan_dry_run)
+    if cmd in ("search-plan", "search-assess"):
+        from .fragment_search import assess_command, plan_command
+
+        return {"search-plan": plan_command, "search-assess": assess_command}[cmd](ledger, args, rules)
     from getbrolls.rules import sync_formats
 
     # Consultas (`references`, `inspect`) não decidem nada sobre formato: como o
     # `status`, elas nunca podem ser barradas pelo portão de `--confirm-format-change`.
     # `deliver --dry-run` é ensaio: não pode reescrever o manifesto nem por tabela.
-    if cmd not in READ_ONLY_CONSULTS and not (cmd == "deliver" and getattr(args, "dry_run", False)):
+    if (
+        cmd not in READ_ONLY_CONSULTS
+        and not plan_dry_run
+        and not (cmd == "deliver" and getattr(args, "dry_run", False))
+    ):
         sync_formats(ledger, rules, confirm=getattr(args, "confirm_format_change", False))
+    if cmd == "search" and getattr(args, "planned", False):
+        from .fragment_search import search_command
+
+        return search_command(ledger, args, rules)
     if cmd == "deliver":
         return deliver_report(ledger, rules, getattr(args, "dry_run", False))
     if cmd == "browser-plan":
@@ -1498,7 +1512,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
     if cmd == "search":
         from getbrolls import library
 
-        if "video" not in rules["asset_types"]:
+        if "video" not in rules["asset_types"] and args.provider not in providers.MEDIA_AWARE:
             return {
                 "items": [],
                 "errors": [],
@@ -1653,7 +1667,11 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             }
             c["preview"]["seek_mode"] = "local"
         else:
-            c = providers.resolve(args.url)
+            c = (
+                providers.resolve(args.url, archive_file=args.archive_file)
+                if getattr(args, "archive_file", None)
+                else providers.resolve(args.url)
+            )
             fill_remote_metadata(c)
         # Mesmo registro que `search` faz: a intenção é da pessoa, e sem ela o
         # candidato de URL entrava sempre como "literal", inclusive quando não era.
@@ -1712,6 +1730,9 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                 raise ValueError("--shot: use 1–80 letras, números, hífen ou underscore.")
             c["id"] += ":shot:" + args.shot
             c["shot"] = args.shot
+            from .fragment_search import attach_fragment_context
+
+            attach_fragment_context(ledger, args, rules, c)
         if c.get("asset_type") in ("news_screenshot", "web_screenshot") and not c.get("source_url"):
             raise ValueError("Screenshot exige --source-url para manter a origem.")
         if not allowed(c, rules):
@@ -1738,7 +1759,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         render(ledger)
         return result
     if cmd == "review":
-        page = render(ledger)
+        page = render(ledger, ready_only=args.ready_only)
         if not any(_has_preview(c) for c in ledger.data["items"]):
             # Publicar uma página sem nada para decidir manda a pessoa abrir uma URL
             # à toa. O aviso aparece aqui e em `status`, no mesmo código.
@@ -2323,11 +2344,19 @@ def inspect_source(ledger, args, config=None):
         from getbrolls import providers
 
         source = providers.resolve(url)
+    if source.get("provider") == "archive" and source.get("acquisition", {}).get("status") == "unavailable":
+        raise ValueError("Selected Archive.org file requires separate access; public inspection is unavailable.")
     if direct_media(source):
         # NASA, Commons e os bancos publicam o arquivo; `source_url` é a página do
         # item, e o yt-dlp responde "Unsupported URL" para ela. A duração sai do
         # ffprobe do próprio arquivo, e legenda não existe nessa rota.
         probe = probe_direct(ledger, source, url)
+        if source.get("provider") == "archive":
+            from .archive import inspect_captions
+
+            probe["subtitles"] = inspect_captions(source)
+            probe["subtitle_langs"] = ["und"] if probe["subtitles"] else []
+            probe["subtitle_langs_total"] = len(probe["subtitle_langs"])
     else:
         probe = probe_remote(url, cache=ledger.root.parent / ".getbrolls-sources")
     cap = float((config or {}).get("max_seconds") or 0)
@@ -2335,6 +2364,8 @@ def inspect_source(ledger, args, config=None):
     if c is not None and probe["duration_s"]:
         # Único efeito no projeto: agora `set_segment` sabe recusar o que não cabe.
         c["media"]["duration_s"] = probe["duration_s"]
+        if c["provider"] == "archive":
+            c["media"].update(width=probe.get("width"), height=probe.get("height"))
         ledger.save("inspect", c)
     logs.event(
         _log,
@@ -2380,6 +2411,8 @@ def probe_direct(ledger, source, url=None):
         "url": url or source.get("source_url") or source.get("media_url"),
         "title": source.get("title"),
         "duration_s": float(duration) if duration else None,
+        "width": info.get("width"),
+        "height": info.get("height"),
         "chapters": [],
         "subtitle_langs": [],
         "subtitle_langs_total": 0,

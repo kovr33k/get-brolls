@@ -35,6 +35,9 @@ class DrawtextEscapingTests(unittest.TestCase):
                     for part in flt.split("textfile='")[1:]:
                         path = part.split("'")[0].replace("\\:", ":")
                         seen["banner"] = Path(path).read_text(encoding="utf-8")
+                        self.assertNotIn(
+                            b"\r", Path(path).read_bytes(), "FFmpeg treats CR as a banner control character"
+                        )
             Path(args[-1]).write_bytes(b"x")
             return ""
 
@@ -74,7 +77,7 @@ class DrawtextEscapingTests(unittest.TestCase):
         # Ele chega inteiro pelo arquivo, que é o caminho seguro.
         self.assertIn(HOSTILE, banner)
         self.assertIn("[youtube:abc]", banner)
-        self.assertIn("corte 0:00.0–0:02.0 de 1:35.0", banner)
+        self.assertIn("clip 0:00.0–0:02.0 of 1:35.0", banner)
 
     def test_control_characters_never_break_the_banner_lines(self):
         _, banner = self.sheet_call("Linha um\nlinha dois\x00\ttab")

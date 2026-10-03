@@ -12,20 +12,31 @@ de erro lá).
 `test_library.py`. `project` é conveniência: quando informado, acrescenta
 `--project <project>` ao fim dos argumentos, para quem não quer repetir o par
 em toda chamada.
+
+Sem `--env-file` explícito, usa um arquivo vazio: o `.env` pessoal da fonte
+não pode alterar as expectativas dos testes.
 """
 
 import json
 import os
 import subprocess
 import sys
+import tempfile
+from pathlib import Path
 
 # A pasta pessoal da skill vai para um temporário: nenhum teste toca ~/.getbrolls.
 import _isolation  # noqa: F401  (efeito de import: define GB_HOME)
 from _paths import CLI
 
+_EMPTY_ENV_DIR = tempfile.TemporaryDirectory(prefix="gb-test-env-")
+_EMPTY_ENV_FILE = Path(_EMPTY_ENV_DIR.name) / ".env"
+_EMPTY_ENV_FILE.write_text("", encoding="utf-8")
+
 
 def run_cli(*args, project=None, expect=0, env=None):
     command_args = list(args)
+    if not any(str(arg).split("=", 1)[0] == "--env-file" for arg in command_args):
+        command_args[:0] = ["--env-file", str(_EMPTY_ENV_FILE)]
     if project is not None:
         command_args += ["--project", str(project)]
 

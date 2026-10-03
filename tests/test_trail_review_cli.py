@@ -69,7 +69,7 @@ class ImportReviewHappyPathTests(unittest.TestCase):
             result = run_cli("import-review", "--file", str(path), "--by", "Ana", project=tmp)
             self.assertEqual(1, result["imported"])
             self.assertEqual([], result["skipped"])
-            self.assertIn("Importei 1 decisão", result["summary"]["line"])
+            self.assertIn("Imported 1 decision", result["summary"]["line"])
             fresh = Ledger(tmp).get("local:one")
             self.assertEqual("approved", fresh["approval"]["status"])
             self.assertEqual("storyboard", fresh["approval"]["channel"])

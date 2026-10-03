@@ -578,11 +578,11 @@ class ProgressSummaryTests(unittest.TestCase):
             "permit": with_summary("permit", {"id": "local:a", "rights": {"status": "permitted"}})["summary"]["line"],
             "import-review": with_summary("import-review", {"imported": 3, "by": "Revisor"})["summary"]["line"],
         }
-        self.assertIn("Gerei a prévia de local:a", lines["preview"])
+        self.assertIn("Generated the preview for local:a", lines["preview"])
         self.assertIn("clips/a.mp4", lines["fetch"])
         self.assertIn("2 arquivos coletados", lines["verify"])
         self.assertIn("permitted", lines["permit"])
-        self.assertIn("3 decisões", lines["import-review"])
+        self.assertIn("3 decisions", lines["import-review"])
 
     def test_unknown_and_already_summarised_results_are_untouched(self):
         self.assertEqual({"a": 1}, with_summary("doctor", {"a": 1}))
@@ -601,7 +601,7 @@ class ProgressSummaryTests(unittest.TestCase):
             "preview",
             {"id": "local:a", "state": "reference_only", "approval": {"status": "pending"}},
         )["summary"]["line"]
-        self.assertIn("somente a referência estática", line)
+        self.assertIn("Generated a static reference only", line)
 
     def test_singular_and_plural_agree_with_the_counts(self):
         self.assertIn(
