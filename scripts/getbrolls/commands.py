@@ -1599,7 +1599,11 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                 before = len(items)
                 try:
                     candidates = providers.search(
-                        name, query, args.limit - len(items), media=getattr(args, "media", "any")
+                        name,
+                        query,
+                        args.limit - len(items),
+                        media=getattr(args, "media", "any"),
+                        **({"catalog_filters": args.catalog_filter} if getattr(args, "catalog_filter", None) else {}),
                     )
                 except ValueError as e:
                     errors.append({"provider": name, "error": str(e)})
@@ -1722,8 +1726,12 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             c["preview"]["seek_mode"] = "local"
         else:
             c = (
-                providers.resolve(args.url, archive_file=args.archive_file)
-                if getattr(args, "archive_file", None)
+                providers.resolve(
+                    args.url,
+                    archive_file=getattr(args, "archive_file", None),
+                    catalog_file=getattr(args, "catalog_file", None),
+                )
+                if getattr(args, "archive_file", None) or getattr(args, "catalog_file", None)
                 else providers.resolve(args.url)
             )
             fill_remote_metadata(c)
@@ -2061,6 +2069,10 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         else:
             # Re-resolve from the provider to refresh temporary variant URLs.
             fresh = providers.refresh(c)
+            if c["provider"] in ("loc", "dvids", "europeana", "nara"):
+                c.update(fresh)
+                ledger.save("fetch-refresh", c)
+                require_fetch(c)
             url = fresh.get("media_url")
             if not url:
                 raise ValueError(
@@ -2199,6 +2211,12 @@ def _acquire_preview_source(ledger, c, args, config):
     """Download the working file for a preview. A still has no interval to cap."""
     if args.reference_only or c["provider"] == "local":
         return
+    from . import catalogs
+
+    if c["provider"] in catalogs.NAMES:
+        c.update(catalogs.refresh(c))
+        if not c.get("media_url") or c["acquisition"]["status"] != "available":
+            raise ValueError(c["acquisition"].get("restriction") or "Catalog original is unavailable.")
     if (c.get("media") or {}).get("kind") == "image":
         path = c.get("local_path")
         if path and Path(path).is_file() and c.get("local_sha256") and digest(path) == c["local_sha256"]:
@@ -2393,7 +2411,7 @@ def inspect_warnings(probe, query=None):
     return found
 
 
-def inspect_source(ledger, args, config=None):
+def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source URL, original-access and timed-caption checks
     """O que a fonte já conta sobre si, antes de escolher intervalo.
 
     Na rota normal (página que o yt-dlp lê) nada de mídia é pedido: só metadados e
@@ -2403,8 +2421,9 @@ def inspect_source(ledger, args, config=None):
     em `warnings[]`.
 
     Somente leitura sobre decisão e intervalo em qualquer rota: com `--candidate`, o
-    único campo que passa a existir no projeto é `media.duration_s` — nada de
-    aprovação, segmento, prévia ou arquivo em `clips/`.
+    campo de mídia medido no projeto é `media.duration_s` — nada de nova aprovação,
+    segmento, prévia ou arquivo em `clips/`. Nos novos catálogos, o detalhe também
+    fixa o arquivo original; contexto alterado invalida aprovação já desatualizada.
     """
     from .acquisition import direct_media
     from .inspecting import candidate_windows
@@ -2433,25 +2452,36 @@ def inspect_source(ledger, args, config=None):
         source = providers.resolve(url)
     if source.get("provider") == "archive" and source.get("acquisition", {}).get("status") == "unavailable":
         raise ValueError("Selected Archive.org file requires separate access; public inspection is unavailable.")
+    from . import catalogs
+
+    if source.get("provider") in catalogs.NAMES:
+        source = catalogs.refresh(source)
+        if not direct_media(source):
+            raise ValueError(source["acquisition"].get("restriction") or "Catalog original is unavailable.")
     if direct_media(source):
         # NASA, Commons e os bancos publicam o arquivo; `source_url` é a página do
         # item, e o yt-dlp responde "Unsupported URL" para ela. A duração sai do
         # ffprobe do próprio arquivo, e legenda não existe nessa rota.
         probe = probe_direct(ledger, source, url)
-        if source.get("provider") == "archive":
-            from .archive import inspect_captions
-
-            probe["subtitles"] = inspect_captions(source)
+        if source.get("provider") in ("archive", *catalogs.NAMES):
+            probe["subtitles"] = catalogs.inspect_captions(source)
             probe["subtitle_langs"] = ["und"] if probe["subtitles"] else []
             probe["subtitle_langs_total"] = len(probe["subtitle_langs"])
+            probe["description"] = source.get("catalog", {}).get("description") or ""
+            if source.get("catalog"):
+                probe["source_transcripts"] = catalogs.inspect_transcripts(source)
     else:
         probe = probe_remote(url, cache=ledger.root.parent / ".getbrolls-sources")
     cap = float((config or {}).get("max_seconds") or 0)
     windows = clamp_windows(candidate_windows(probe, args.query, args.max_windows or 3), cap)
-    if c is not None and probe["duration_s"]:
-        # Único efeito no projeto: agora `set_segment` sabe recusar o que não cabe.
+    if c is not None and (probe["duration_s"] or c["provider"] in catalogs.NAMES):
+        if c["provider"] in catalogs.NAMES:
+            # Pin the detail-selected file before a later preview can reuse this cache.
+            # A changed source context invalidates approval through catalog refresh.
+            c.update(source)
+        # A measured duration lets `set_segment` refuse intervals beyond the source.
         c["media"]["duration_s"] = probe["duration_s"]
-        if c["provider"] == "archive":
+        if c["provider"] in ("archive", *catalogs.NAMES):
             c["media"].update(width=probe.get("width"), height=probe.get("height"))
         ledger.save("inspect", c)
     logs.event(
@@ -2475,6 +2505,7 @@ def inspect_source(ledger, args, config=None):
         "subtitle_langs_total": probe.get("subtitle_langs_total", len(probe["subtitle_langs"])),
         "limitations": list(probe.get("limitations") or []),
         "candidate_windows": windows,
+        **({"source_transcripts": probe["source_transcripts"]} if "source_transcripts" in probe else {}),
     }
 
 

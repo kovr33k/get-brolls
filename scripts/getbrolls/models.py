@@ -64,6 +64,21 @@ def signature(c):
                 c.get("title"),
                 c.get("creator", {}).get("name"),
                 c.get("captured_at"),
+                *(
+                    [
+                        {
+                            "record_id": c["catalog"].get("record_id"),
+                            "asset_id": c["catalog"].get("asset_id"),
+                            "selected_file": c["catalog"].get("selected_file"),
+                            "rights": c["catalog"].get("rights"),
+                            "selected_rights": c["catalog"].get("selected_rights"),
+                            "access_restricted": c["catalog"].get("access_restricted"),
+                            "institution_record": c["catalog"].get("institution_record"),
+                        }
+                    ]
+                    if c.get("catalog")
+                    else []
+                ),
             ],
             sort_keys=True,
         ).encode()

@@ -34,7 +34,11 @@
         "pexels",
         "pixabay",
         "commons",
-        "nasa"
+        "nasa",
+        "loc",
+        "dvids",
+        "europeana",
+        "nara"
       ]
     },
     "source_id": {

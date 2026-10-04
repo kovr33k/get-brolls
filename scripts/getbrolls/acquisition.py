@@ -123,6 +123,10 @@ def cache_direct_media(ledger, candidate, refresh=True):
     continua somente leitura sobre decisão, intervalo e direitos.
     """
     cache = ledger.root.parent / ".getbrolls-sources"
+    from .catalogs import NAMES
+
+    if candidate["provider"] in NAMES and candidate.get("acquisition", {}).get("status") != "available":
+        raise ValueError("Catalog original is unavailable; cached thumbnails do not establish original access.")
     _ensure_private_cache_dir(cache)
     reused = _reuse_from_index(cache, candidate["id"], 0, 0)
     if reused is not None:
@@ -144,7 +148,7 @@ def cache_direct_media(ledger, candidate, refresh=True):
         refreshed = refresh_candidate(candidate) or {}
         if candidate["provider"] == "archive" and refreshed.get("acquisition", {}).get("status") == "unavailable":
             raise ValueError("Selected Archive.org file requires separate access; public acquisition is unavailable.")
-        url = refreshed.get("media_url") or url
+        url = refreshed.get("media_url") if candidate["provider"] in NAMES else refreshed.get("media_url") or url
     if not url:
         raise ValueError("Arquivo do provedor não está mais disponível.")
     from .http import download

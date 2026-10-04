@@ -102,6 +102,19 @@ def source_card(c, source, sheet, poster, esc):
         details.append(f"<p>Creator: {esc(c['creator']['name'])}</p>")
     if c.get("captured_at"):
         details.append(f"<p>Captured on: {esc(c['captured_at'])}</p>")
+    catalog = c.get("catalog") or {}
+    for label, value in (
+        ("Catalog record", catalog.get("record_id")),
+        ("Institution", catalog.get("institution")),
+        ("Institution record", catalog.get("institution_record")),
+        ("Selected original file", catalog.get("selected_file")),
+        ("Published on", catalog.get("published_at")),
+        ("Unit", catalog.get("unit")),
+        ("Item rights", c["rights"].get("license_name") if catalog else None),
+        ("Access limitation", c["acquisition"].get("restriction") if catalog else None),
+    ):
+        if value:
+            details.append(f"<p>{label}: {esc(value)}</p>")
     details.append(f"<p>Why this was selected: {esc(c.get('match', {}).get('reason') or 'not recorded yet')}</p>")
     if c["rights"].get("attribution"):
         details.append(f"<p>{esc(c['rights']['attribution'])}</p>")
