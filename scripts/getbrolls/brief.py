@@ -32,6 +32,9 @@ SOURCES = (
     "dvids",
     "europeana",
     "nara",
+    "mapillary",
+    "telegram",
+    "x",
     "gdelt_tv",
     "ec_audiovisual",
     "un_webtv",
@@ -51,6 +54,8 @@ SEARCHABLE = (
     "dvids",
     "europeana",
     "nara",
+    "mapillary",
+    "telegram",
     "gdelt_tv",
     "ec_audiovisual",
     "un_webtv",
@@ -62,7 +67,18 @@ MAX_HINT_S = 120
 # palavra, e o `target` é escrito para gente ler, não para a API procurar.
 QUERY_MAX_TOKENS = 6
 # Fontes que publicam foto, na ordem em que valem a tentativa para um beat de imagem.
-STILL_SOURCES = ("commons", "nasa", "archive", "loc", "dvids", "europeana", "nara", "ec_audiovisual")
+STILL_SOURCES = (
+    "commons",
+    "nasa",
+    "archive",
+    "loc",
+    "dvids",
+    "europeana",
+    "nara",
+    "ec_audiovisual",
+    "mapillary",
+    "telegram",
+)
 # O `target` fala de um quadro parado, não de um vídeo: a busca tem que pedir imagem.
 STILL_WORDS = ("foto", "fotografia", "imagem", "print", "still", "captura de tela", "screenshot", "retrato")
 # Palavras que não estreitam busca nenhuma; sair com elas só gasta espaço do teto.

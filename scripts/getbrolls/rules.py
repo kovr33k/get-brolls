@@ -168,6 +168,8 @@ def load_rules(project):  # noqa: C901, PLR0912 - existing size; validator with 
         "dvids",
         "europeana",
         "nara",
+        "mapillary",
+        "telegram",
         "gdelt_tv",
         "ec_audiovisual",
         "un_webtv",

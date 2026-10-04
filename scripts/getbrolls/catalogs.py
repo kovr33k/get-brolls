@@ -15,6 +15,8 @@ from .runtime import record_warning
 NAMES = ("loc", "dvids", "europeana", "nara")
 KEYS = {"dvids": "DVIDS_API_KEY", "europeana": "EUROPEANA_API_KEY", "nara": "NARA_API_KEY"}
 FILTERS = {
+    "mapillary": {"bbox", "captured_after", "captured_before"},
+    "telegram": {"channel", "from_date", "to_date"},
     "gdelt_tv": {"station", "STARTDATETIME", "ENDDATETIME", "timespan"},
     "ec_audiovisual": {"type"},
     "un_webtv": {"locale", "category", "date", "from", "to", "sort"},
@@ -67,6 +69,10 @@ def filters(name, values=None, language=None):
         if key in result:
             raise ProviderError(f"Duplicate catalog filter: {key}.")
         result[key] = value.strip()
+    if name in ("mapillary", "telegram"):
+        from .account_catalogs import validate_filters
+
+        validate_filters(name, result)
     if name == "un_webtv":
         from .broadcasts import LOCALES
 

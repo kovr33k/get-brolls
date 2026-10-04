@@ -1478,7 +1478,9 @@ def _annotate_dispatch(row, plan):
     row["match"] = {"kind": plan["context"]["intent"], "reason": "Search hit; visual confirmation required."}
 
 
-def _query_key(query, media, catalog_filters=None):
+def _query_key(query, media, catalog_filters=None, catalog=None):
+    if catalog == "mapillary":
+        query = "geographic image search"
     key = " ".join(query.split()).casefold() + " [" + media + "]"
     return key + (" " + json.dumps(catalog_filters, sort_keys=True) if catalog_filters else "")
 
@@ -1516,7 +1518,7 @@ def reserve_attempt(ledger, plan, args, query, browser=False):
     from .catalogs import filters
 
     selected_filters = filters(plan["catalog"], getattr(args, "catalog_filter", None), getattr(args, "language", None))
-    key = _query_key(query, args.media, selected_filters)
+    key = _query_key(query, args.media, selected_filters, plan["catalog"])
     existing = next(
         (attempt for attempt in _catalog_attempts(plan, plan["catalog"], plan["pass"]) if attempt["query_key"] == key),
         None,
@@ -1550,8 +1552,18 @@ def reserve_attempt(ledger, plan, args, query, browser=False):
 
 def _dispatch(ledger, plan, args, rules, query):
     attempt, replayed = reserve_attempt(ledger, plan, args, query)
-    if replayed:
+    if replayed and not (plan["catalog"] == "telegram" and getattr(args, "resume_history", False)):
         return attempt, True
+    if replayed:
+        entry = _current_entry(plan)
+        if (
+            _target_reached(ledger, args.project, args.shot)
+            or plan.get("shortfall")
+            or _entry_state(entry) != "current"
+        ):
+            raise ValueError(
+                "The fragment/catalog is closed; Telegram history cannot continue after closure or target completion."
+            )
     selected_filters = attempt["catalog_filters"]
     try:
         rows = providers.search(
@@ -1561,6 +1573,15 @@ def _dispatch(ledger, plan, args, rules, query):
             media=args.media,
             **({"catalog_filters": args.catalog_filter} if selected_filters else {}),
             **({"language": args.language} if plan["catalog"] == "un_webtv" else {}),
+            **(
+                {
+                    "ledger": ledger,
+                    "resume_history": getattr(args, "resume_history", False),
+                    "search_context": {"shot": args.shot, "pass": plan["pass"], "query_key": attempt["query_key"]},
+                }
+                if plan["catalog"] == "telegram"
+                else {}
+            ),
         )
     except (ValueError, OSError) as error:
         attempt.update(status="access_or_provider_error", outcome="access_failure", error=redact(error))
@@ -1600,7 +1621,11 @@ def _dispatch(ledger, plan, args, rules, query):
             if allowed(row, rules)
         ]
     ledger.save_many("search-outcome", added)
-    return attempt, False
+    if plan["catalog"] == "telegram":
+        attempt["coverage"] = "incomplete"
+        attempt["history_progress"] = [row["catalog"]["history_progress"] for row in rows]
+        ledger.save("search-outcome")
+    return attempt, replayed
 
 
 def _planned_dry_run(ledger, plan, args):
@@ -1611,6 +1636,7 @@ def _planned_dry_run(ledger, plan, args):
         args.query,
         args.media,
         filters(plan["catalog"], getattr(args, "catalog_filter", None), getattr(args, "language", None)),
+        plan["catalog"],
     )
     replayed = any(
         attempt["query_key"] == query_key for attempt in _catalog_attempts(plan, plan["catalog"], plan["pass"])
@@ -1660,6 +1686,8 @@ def search_command(ledger, args, rules):  # noqa: C901 - validation plus idempot
         raise ValueError("Fragment context changed. Existing budget is preserved; review the plan before continuing.")
     if args.provider not in ("auto", plan["catalog"]):
         raise ValueError("--provider must match the saved fragment catalog.")
+    if getattr(args, "resume_history", False) and (plan["catalog"] != "telegram" or args.dry_run):
+        raise ValueError("--resume-history requires the saved Telegram catalog and cannot be combined with --dry-run.")
     if args.intent != beat["intent"]:
         raise ValueError("--intent must match the search fragment.")
     if not args.query.strip() or len(args.query) > MAX_QUERY_CHARS:

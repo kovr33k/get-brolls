@@ -1672,7 +1672,7 @@
           "choices": null,
           "default": null,
           "dest": "original_for",
-          "help": "UN, Destockd or GDELT locator candidate linked to this supplied original",
+          "help": "UN, Destockd, GDELT or X locator candidate linked to this supplied original",
           "nargs": null,
           "option_strings": [
             "--original-for"
@@ -2009,6 +2009,18 @@
           "action": "_StoreTrueAction",
           "choices": null,
           "default": false,
+          "dest": "resume_history",
+          "help": "Continue the same Telegram query from its saved cursor; increase --limit to request more attachments. Does not renew an attempt",
+          "nargs": 0,
+          "option_strings": [
+            "--resume-history"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
           "dest": "planned",
           "help": "Use the saved fragment chain and the current catalog's three-query allowance",
           "nargs": 0,
@@ -2034,7 +2046,7 @@
           "choices": null,
           "default": "auto",
           "dest": "provider",
-          "help": "Source: youtube, pexels, pixabay, commons, nasa, archive, loc, dvids, europeana, nara, gdelt_tv, ec_audiovisual, un_webtv or auto (default)",
+          "help": "Catalog source or auto (default); Mapillary requires bbox, Telegram requires a public whitelist and date range",
           "nargs": null,
           "option_strings": [
             "--provider"
@@ -2932,6 +2944,24 @@
         }
       ]
     },
+    "telegram-login": {
+      "help": "Authorize the private Telegram user session in a local interactive terminal, including 2FA",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        }
+      ]
+    },
     "verify": {
       "help": "Conferir integridade e decodificação dos arquivos coletados",
       "options": [
@@ -2969,6 +2999,36 @@
           "nargs": 0,
           "option_strings": [
             "--confirm-format-change"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "x-access": {
+      "help": "Inspect retained Grok OAuth prerequisite metadata without invoking Grok, refreshing tokens or using API billing",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "model",
+          "help": "Already selected retained model; does not choose or invoke another model",
+          "nargs": null,
+          "option_strings": [
+            "--model"
           ],
           "required": false
         }

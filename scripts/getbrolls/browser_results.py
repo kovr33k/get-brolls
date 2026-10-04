@@ -16,7 +16,7 @@ from .rules import allowed, format_report
 from .runtime import redact
 
 BROWSER_CATALOGS = ("instagram", "tiktok", "un_avlibrary", "destockd")
-LOCATORS = ("un_avlibrary", "destockd", "gdelt_tv")
+LOCATORS = ("un_avlibrary", "destockd", "gdelt_tv", "x")
 REQUEST_URL = "https://media.un.org/avlibrary/en/contact/request_footage"
 MAX_IMPORT_BYTES = 524288
 FIELDS = {
@@ -339,8 +339,8 @@ def link_original(ledger, args, row, rules):
         raise ValueError(
             "--original-for links a local supplied original or Archive.org file to a UN/Destockd/GDELT locator."
         )
-    if source["provider"] == "un_avlibrary" and row["provider"] != "local":
-        raise ValueError("UN requested originals must be supplied explicitly as a local --file.")
+    if source["provider"] in ("un_avlibrary", "x") and row["provider"] != "local":
+        raise ValueError("UN requested originals and X post captures must be supplied explicitly as a local --file.")
     if args.shot and source.get("shot") and args.shot != source["shot"]:
         raise ValueError("The linked original must retain its locator's fragment.")
     data = source.get("locator") or {}

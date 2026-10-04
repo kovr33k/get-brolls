@@ -1368,6 +1368,11 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         )
     from getbrolls import providers
 
+    if args.command in ("telegram-login", "x-access"):
+        from .account_catalogs import telegram_login, x_access
+
+        return telegram_login() if args.command == "telegram-login" else x_access(model=args.model)
+
     if args.command in ("providers", "doctor"):
         result = providers.capabilities()
         if args.command == "doctor":
@@ -1567,6 +1572,10 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         from getbrolls import library
 
         args.provider = {"pixel": "pexels", "getbrolls": "auto"}.get(args.provider, args.provider)
+        if getattr(args, "resume_history", False) and (args.provider != "telegram" or args.dry_run):
+            raise ValueError(
+                "--resume-history requires an explicit Telegram source and cannot be combined with --dry-run."
+            )
         media = getattr(args, "media", "any") or "any"
         video_disabled = "video" not in rules["asset_types"]
         video_note = "APIs atuais pesquisam vídeos. Para imagem/notícia use importação local ou browser-plan."
@@ -1610,6 +1619,15 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                         args.limit - len(items),
                         media=getattr(args, "media", "any"),
                         **({"catalog_filters": args.catalog_filter} if getattr(args, "catalog_filter", None) else {}),
+                        **(
+                            {
+                                "ledger": None if dry_run else ledger,
+                                "resume_history": getattr(args, "resume_history", False),
+                                "search_context": {"shot": shot},
+                            }
+                            if name == "telegram"
+                            else {}
+                        ),
                         **({"language": args.language} if name == "un_webtv" else {}),
                     )
                 except ValueError as e:
@@ -2490,7 +2508,7 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
         source = providers.resolve(url)
     if source.get("provider") == "archive" and source.get("acquisition", {}).get("status") == "unavailable":
         raise ValueError("Selected Archive.org file requires separate access; public inspection is unavailable.")
-    from . import broadcasts, catalogs
+    from . import account_catalogs, broadcasts, catalogs
 
     broadcasts.prepare_inspection(ledger, source)
 
@@ -2513,15 +2531,16 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
     else:
         probe = broadcasts.inspect_remote(source, url, ledger.root.parent / ".getbrolls-sources")
     cap = float((config or {}).get("max_seconds") or 0)
-    windows = clamp_windows(candidate_windows(probe, args.query, args.max_windows or 3), cap)
-    if c is not None and (probe["duration_s"] or c["provider"] in catalogs.NAMES):
+    still = (source.get("media") or {}).get("kind") == "image"
+    windows = [] if still else clamp_windows(candidate_windows(probe, args.query, args.max_windows or 3), cap)
+    if c is not None and (probe["duration_s"] or c["provider"] in (*catalogs.NAMES, *account_catalogs.NAMES)):
         if c["provider"] in catalogs.NAMES:
             # Pin the detail-selected file before a later preview can reuse this cache.
             # A changed source context invalidates approval through catalog refresh.
             c.update(source)
         # A measured duration lets `set_segment` refuse intervals beyond the source.
         c["media"]["duration_s"] = probe["duration_s"]
-        if c["provider"] in ("archive", *catalogs.NAMES):
+        if c["provider"] in ("archive", *catalogs.NAMES, *account_catalogs.NAMES):
             c["media"].update(width=probe.get("width"), height=probe.get("height"))
         ledger.save("inspect", c)
     logs.event(
@@ -2534,8 +2553,19 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
     )
     return {
         # Veredito primeiro, como nos outros comandos: quantas janelas e qual a melhor.
-        "summary": inspect_summary(windows, probe, cap, args.query),
-        "warnings": inspect_warnings(probe, args.query),
+        "summary": {
+            "line": f"Inspected the selected still image: {probe.get('width')} x {probe.get('height')}. No duration, frame rate, speech or temporal windows are inferred.",
+            "next": "Generate preview and actually view the image before recording its place/visual match; rights and human approval remain separate.",
+        }
+        if still
+        else inspect_summary(windows, probe, cap, args.query),
+        "warnings": (
+            ["Inspection downloaded the complete selected image to the private working cache."]
+            if probe.get("downloaded_bytes")
+            else []
+        )
+        if still
+        else inspect_warnings(probe, args.query),
         "candidate": c["id"] if c is not None else None,
         "url": url,
         "title": probe.get("title"),
@@ -2563,7 +2593,7 @@ def probe_direct(ledger, source, url=None):
     if local and digest(path) != source.get("local_sha256"):
         raise ValueError("Local original changed; resolve the current file before inspecting it.")
     info = probe(path)
-    duration = info.get("duration_s")
+    duration = None if (source.get("media") or {}).get("kind") == "image" else info.get("duration_s")
     try:
         downloaded = Path(path).stat().st_size
     except OSError:

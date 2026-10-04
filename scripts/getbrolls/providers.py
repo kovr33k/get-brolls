@@ -14,15 +14,11 @@ KEYS = {
     "dvids": "DVIDS_API_KEY",
     "europeana": "EUROPEANA_API_KEY",
     "nara": "NARA_API_KEY",
+    "mapillary": "MAPILLARY_TOKEN",
 }
 
 # Guidance is inventory, never proof of an adapter or an authorized session.
-PLANNED_CATALOGS = {
-    "mapillary": ("Geographic street images; location/bbox required", ("MAPILLARY_TOKEN",)),
-    "telegram": (
-        "User session; explicit public-channel whitelist",
-        ("TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_SESSION", "BROLL_TELEGRAM_CHANNELS"),
-    ),
+PLANNED_CATALOGS: dict[str, tuple[str, tuple[str, ...]]] = {
     "x": ("Retained Grok OAuth X Search; OAuth/tool access unverified", ()),
 }
 
@@ -131,6 +127,57 @@ def capabilities():
             "live_observation": None,
             "access_verified": False,
         }
+    for name, keys in (
+        ("mapillary", ("MAPILLARY_TOKEN",)),
+        ("telegram", ("TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_SESSION", "BROLL_TELEGRAM_CHANNELS")),
+    ):
+        result[name] = {
+            "search": True,
+            "resolve_url": True,
+            "preview": True,
+            "download": True,
+            "implementation": "supported",
+            "configured": all(bool(os.environ.get(k)) for k in keys),
+            "env_keys": list(keys),
+            "transport": "token / geographic image / private CDN refresh"
+            if name == "mapillary"
+            else "Telethon user session / bounded explicit public channels",
+            "access_verified": False,
+            "live": "unverified",
+            "live_observation": None,
+            "media_types": ["image"] if name == "mapillary" else ["image", "video"],
+            "geographic_requirement": "bbox required; topic wording is not sent to the API"
+            if name == "mapillary"
+            else None,
+            "session_authorization": "unverified" if name == "telegram" else None,
+            "attachment_access": "unverified",
+            "manual": False,
+        }
+    result["x"].update(
+        resolve_url=True,
+        manual=True,
+        implementation="manual_original; oauth_unverified",
+        media_types=["image", "video"],
+        original_post="manual public reference",
+        screenshot="separately supplied local image",
+        attachment_download="unverified",
+        billing_fallback=False,
+    )
+    result["mapillary"]["live"] = "sample_verified"
+    result["mapillary"]["live_observation"] = {
+        "date": "2026-10-04",
+        "version": "2.13.0",
+        "status": "passed_sample",
+        "source_url": "https://www.mapillary.com/app/?pKey=2857466357804285",
+        "selected_file": "thumb_original_url",
+        "operations": ["search", "inspect", "preview", "review", "decode"],
+        "width": 5660,
+        "height": 2830,
+        "bytes": 3149043,
+        "duration_s": None,
+        "visual_verdict": "unsuitable",
+        "limitations": "One dated street panorama, not the requested Plaza Mayor square. No complete place coverage, current access, reuse rights or human acceptance established.",
+    }
     result["archive"]["live"] = "sample_verified"
     result["archive"]["live_observation"] = {
         "date": "2026-10-03",
@@ -295,11 +342,33 @@ def _text(raw):
 
 MEDIA_CHOICES = ("image", "video", "any")
 # Fontes que publicam foto e vídeo no mesmo acervo; nas outras `--media` não muda nada.
-MEDIA_AWARE = ("nasa", "commons", "archive", "loc", "dvids", "europeana", "nara", "ec_audiovisual")
+MEDIA_AWARE = (
+    "nasa",
+    "commons",
+    "archive",
+    "loc",
+    "dvids",
+    "europeana",
+    "nara",
+    "ec_audiovisual",
+    "mapillary",
+    "telegram",
+)
 
 
-def search(provider, query, limit=8, media="any", catalog_filters=None, *, language=None):  # noqa: PLR0913 - explicit query language alongside catalog filters
-    from . import broadcasts, catalogs
+def search(  # noqa: C901, PLR0913 - documented provider dispatch and recoverable session context
+    provider,
+    query,
+    limit=8,
+    media="any",
+    catalog_filters=None,
+    *,
+    language=None,
+    ledger=None,
+    resume_history=False,
+    search_context=None,
+):
+    from . import account_catalogs, broadcasts, catalogs
     from .archive import search as archive_search
 
     if not isinstance(limit, int) or not 1 <= limit <= 50:  # noqa: PLR2004 - matches the "entre 1 e 50" message below
@@ -309,6 +378,12 @@ def search(provider, query, limit=8, media="any", catalog_filters=None, *, langu
     if media not in MEDIA_CHOICES:
         raise ProviderError("--media aceita image, video ou any")
     selected_filters = catalogs.filters(provider, catalog_filters, language)
+    if provider == "mapillary":
+        return account_catalogs.mapillary_search(query.strip(), limit, media, selected_filters)
+    if provider == "telegram":
+        return account_catalogs.telegram_search(
+            query.strip(), limit, media, selected_filters, ledger, resume_history, search_context
+        )
     if provider in broadcasts.NAMES:
         items = broadcasts.search(provider, query.strip(), limit, media, selected_filters)
         for item in items:
@@ -831,12 +906,18 @@ def resolve(url, archive_file=None, catalog_file=None):  # noqa: C901, PLR0912, 
     p = urlsplit(url)
     host = p.hostname.lower()
     path = p.path.strip("/")
-    from . import broadcasts, browser_results, catalogs
+    from . import account_catalogs, broadcasts, browser_results, catalogs
 
-    if catalog_file is not None and not (catalogs.recognizes(url) or broadcasts.recognizes(url) == "ec_audiovisual"):
-        raise ProviderError("--catalog-file requires a LoC, DVIDS, Europeana, NARA or EC item URL.")
+    if catalog_file is not None and not (
+        catalogs.recognizes(url)
+        or broadcasts.recognizes(url) == "ec_audiovisual"
+        or account_catalogs.recognizes(url) in account_catalogs.NAMES
+    ):
+        raise ProviderError("--catalog-file requires a catalog item URL with an actual file/attachment identity.")
     if archive_file is not None and host not in ("archive.org", "www.archive.org"):
         raise ProviderError("--archive-file requires an Archive.org item URL.")
+    if account_catalogs.recognizes(url):
+        return account_catalogs.resolve(url, catalog_file)
     if browser_results.recognizes(url):
         return browser_results.locator(url)
     if catalogs.recognizes(url):
@@ -905,14 +986,17 @@ def resolve(url, archive_file=None, catalog_file=None):  # noqa: C901, PLR0912, 
     return item
 
 
-def refresh(item):  # noqa: C901, PLR0911 - source-specific refresh contracts with explicit identity preservation
+def refresh(item):  # noqa: C901, PLR0911, PLR0912 - source-specific refresh contracts with explicit identity preservation
     """Refresh public stock file URLs without changing selection or approval."""
     import copy
 
     name = item["provider"]
     ident = str(item["source_id"])
     current = copy.deepcopy(item)
-    from . import broadcasts, catalogs
+    from . import account_catalogs, broadcasts, catalogs
+
+    if name in account_catalogs.NAMES:
+        return account_catalogs.refresh(item)
 
     if name in broadcasts.NAMES:
         return broadcasts.refresh(item)

@@ -1627,6 +1627,7 @@ class CatalogConfiguration(unittest.TestCase):
         capabilities = providers.capabilities()
         self.assertEqual(21, len(capabilities))
         self.assertTrue(capabilities["archive"]["search"])
-        self.assertEqual("planned", capabilities["telegram"]["implementation"])
+        self.assertEqual("supported", capabilities["telegram"]["implementation"])
         self.assertEqual("unverified", capabilities["telegram"]["live"])
+        self.assertFalse(capabilities["telegram"]["access_verified"])
         self.assertFalse(capabilities["instagram"]["search"])

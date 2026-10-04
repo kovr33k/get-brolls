@@ -28,10 +28,10 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 | NARA | US national archival records and media | Catalog API key; separate API/storage conditions | Search + explicit NAID/digital-object selection; common preview/review gates |
 | Pexels | Illustrative atmosphere and context | Pexels API key; current adapter searches video | Search |
 | Pixabay | Illustrative atmosphere and context | Pixabay API key; current adapter searches video | Search |
-| Mapillary | Images of a particular street or place | Client token and geographic search | Planned |
-| Telegram | Posts and attachments in selected public channels | Telethon, application credentials, user session | Planned |
+| Mapillary | Images of a particular street or place | Client token and geographic search | Geographic image search, URL/preview |
+| Telegram | Posts and attachments in selected public channels | Telethon, application credentials, user session | Bounded public whitelist route; live user access unverified |
 | GDELT TV | Locating a television segment and time reference | Public TV search API; separate linked original | Implemented; dated caption/locator sample, restricted original |
-| X | Public posts, exact quotations, attached media | Prior route: xAI X Search through agreed Grok OAuth | Planned |
+| X | Public posts, exact quotations, attached media | Retained xAI X Search through agreed Grok OAuth | OAuth unverified; original URL/local capture import |
 | EC Audiovisual Service | EU events, speeches, stockshots, institutional photos | AV Portal client endpoint, then portal backend | Implemented; one decoded shot sample |
 | UN Web TV | UN meetings, briefings, speeches | UN Transcripts API; catalog/direct links for older video | Implemented; transcript/player metadata sample, acquisition unverified |
 | UN Audiovisual Library | UN historical footage and high-quality originals | Browser attempt/import, asset URL/ID and supplied original | URL/browser; original request remains manual |
@@ -122,12 +122,16 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 
 ## Mapillary
 
+Implemented geographic image search and original refresh enter the [common workflow](GUIDE.md#providers--mapillary-telegram-and-x-access). Topic labels alone cannot dispatch; only normalized geography/media/date changes create another geographic query. A dated acquired street panorama passed technical decoding but was visually unsuitable for the named square. This does not establish complete place coverage or reuse rights.
+
 - **Search:** geographic/bounding-box search using a client token. Supply a real location or coordinates; generic topic keywords alone are insufficient for the retained route.
 - **Result:** street-level images of a place, not a general source of moving footage.
 - **Keep:** image/sequence ID, coordinates, capture date, creator, source link, and applicable conditions. Confirm the image actually shows the requested place.
 - **Reference:** [API examples](https://github.com/mapillary/api-demo/blob/main/README.md).
 
 ## Telegram via Telethon
+
+Implemented optional Telethon route uses local interactive login/2FA, an explicit public whitelist, date bounds, saved cursor/results and bounded FloodWait recovery through the [existing CLI](GUIDE.md#providers--mapillary-telegram-and-x-access). Metadata and fixture success do not establish an authorized live session or acquisition. Signed/session material and private forwarded peer details do not enter public provenance.
 
 - **Search:** bounded history/text search within an explicit whitelist of public channels, using `api_id`, `api_hash`, and an authorized user session.
 - **Scope from prior research:** a whitelist was derived from a selected channel folder. Preserve an explicit channel list for this project; authorization does not mean access to all subscriptions or private conversations is in scope.
@@ -148,7 +152,7 @@ Implemented as `gdelt_tv` with shared planned-query accounting and explicit Arch
 
 ## X
 
-- **Retained route:** discovery through xAI `x_search` using the previously agreed Grok OAuth mode. The old research records a successful search, not complete proof of media download or token refresh. This route is not integrated or live-verified here.
+- **Retained route:** discovery through xAI `x_search` using the previously agreed Grok OAuth mode. The old research records a successful search, not complete proof of media download or token refresh. Live OAuth/model/tool access remains unverified; `x-access` diagnoses prerequisites without inference, refresh or billing. Canonical original post URLs and separately supplied local captures can enter the [common workflow](GUIDE.md#providers--mapillary-telegram-and-x-access); this does not claim automated X discovery or media retrieval.
 - **Search:** use supported account/date filters and preserve the post URLs returned. Confirm exact quotations against the original post.
 - **Acquisition:** original-post retrieval, screenshot capture, and media download are separate operations. X Search is not a downloader; Grok OAuth does not substitute for credentials of a separate X API integration.
 - **Access:** verify supported model/tool, login, expiry, and refresh/re-login independently. Preserve the chosen OAuth mode rather than silently switching to API billing or a different model. Provider subscription limits still apply.
@@ -259,7 +263,7 @@ Local files are an import route rather than another catalog. Import them with th
 
 ## Integration design
 
-The accepted [fragment-specific search chain planning decision](adr/0001-fragment-catalog-search-chain.md) records the search behavior and an integrated rollout covering the complete target inventory. [CONTEXT.md](../CONTEXT.md) defines its domain terms; neither document establishes additional implemented provider capabilities. LoC, DVIDS, Europeana and NARA join the common route with [explicit original selection and access/filter requirements](GUIDE.md#providers--loc-dvids-europeana-and-nara). GDELT TV, EC Audiovisual and UN Web TV now have implemented bounded adapters. Mapillary, Telegram and X remain planned; browser import and source-specific acquisition limits still apply to the implemented locator routes.
+The accepted [fragment-specific search chain planning decision](adr/0001-fragment-catalog-search-chain.md) records the search behavior and an integrated rollout covering the complete target inventory. [CONTEXT.md](../CONTEXT.md) defines its domain terms; neither document establishes additional implemented provider capabilities. LoC, DVIDS, Europeana and NARA join the common route with [explicit original selection and access/filter requirements](GUIDE.md#providers--loc-dvids-europeana-and-nara). GDELT TV, EC Audiovisual and UN Web TV have implemented bounded adapters. Mapillary geographic images and Telegram's optional public-whitelist user-session route are implemented. X OAuth discovery remains explicitly unverified; original references/local captures have their own supported entry. Browser/locator limits and dated live evidence remain separate from implementation.
 
 The accepted [catalog integration specification](SPEC-CATALOG-INTEGRATION.md) defines implementation contracts and offline/live acceptance checks for this scope.
 

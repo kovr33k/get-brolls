@@ -3,10 +3,12 @@
 import contextlib
 import json
 import logging
+import mimetypes
 import os
 import tempfile
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from . import logs
 from .ledger import digest
@@ -113,10 +115,11 @@ def direct_media(candidate):
     item, e mandá-la ao yt-dlp devolve "Unsupported URL". Quem tem `media_url` e não
     é rota de yt-dlp se lê pelo próprio arquivo.
     """
-    return bool(candidate.get("media_url")) and (candidate.get("acquisition") or {}).get("method") != "yt-dlp"
+    method = (candidate.get("acquisition") or {}).get("method")
+    return method in ("mapillary", "telethon") or (bool(candidate.get("media_url")) and method != "yt-dlp")
 
 
-def cache_direct_media(ledger, candidate, refresh=True):
+def cache_direct_media(ledger, candidate, refresh=True):  # noqa: C901, PLR0915 - identity/access checks and private typed-media cache transaction
     """Baixa uma vez o arquivo direto no cache privado e devolve o caminho local.
 
     Só mexe no cache: nada é gravado no candidato nem em `brolls/`, então `inspect`
@@ -147,24 +150,44 @@ def cache_direct_media(ledger, candidate, refresh=True):
         )
         return reused_path
     url = candidate.get("media_url")
-    if refresh:
+    account_transport = candidate.get("acquisition", {}).get("method") in ("mapillary", "telethon")
+    if refresh and not account_transport:
         from .providers import refresh as refresh_candidate
 
         refreshed = refresh_candidate(candidate) or {}
         if candidate["provider"] == "archive" and refreshed.get("acquisition", {}).get("status") == "unavailable":
             raise ValueError("Selected Archive.org file requires separate access; public acquisition is unavailable.")
         url = refreshed.get("media_url") if candidate["provider"] in NAMES else refreshed.get("media_url") or url
-    if not url:
+    if not url and not account_transport:
         raise ValueError("Arquivo do provedor não está mais disponível.")
     from .http import download
 
     started = time.monotonic()
     with tempfile.TemporaryDirectory(dir=cache) as work:
         target = Path(work) / "source.bin"
-        download(url, target)
+        if account_transport:
+            from .account_catalogs import acquire
+
+            acquire(candidate, target)
+        else:
+            download(url, target)
         info = probe(target)
         sha = digest(target)
-        final = cache / (id_stem(candidate["id"]) + "-" + sha + ".mp4")
+        suffix = ".mp4"
+        if (candidate.get("media") or {}).get("kind") == "image":
+            from .catalogs import IMAGE
+
+            extension = Path(urlsplit(url or "").path).suffix.lower()
+            catalog = candidate.get("catalog") or {}
+            representation = next(
+                (r for r in catalog.get("representations", []) if r.get("file") == catalog.get("selected_file")), {}
+            )
+            suffix = (
+                extension
+                if extension in IMAGE
+                else mimetypes.guess_extension(representation.get("mime_type") or "") or ".img"
+            )
+        final = cache / (id_stem(candidate["id"]) + "-" + sha + suffix)
         if not final.exists():
             target.replace(final)
             final.chmod(0o600)
@@ -263,6 +286,11 @@ def prepare_source(ledger, candidate, start, end, tolerant=False):  # noqa: C901
             else:
                 download_segment(c["source_url"], target, start, end)
             offset = start
+        elif c["acquisition"].get("method") in ("mapillary", "telethon"):
+            from .account_catalogs import acquire
+
+            acquire(c, target)
+            offset = 0
         elif c["acquisition"].get("method") == "https":
             from .http import download
             from .providers import refresh
