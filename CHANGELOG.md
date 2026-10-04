@@ -15,6 +15,8 @@ tags: [get-brolls]
 - Catalog batch: LoC, DVIDS, Europeana and NARA search/resolve actual item resources and digital objects through the existing fragment, preview, Storyboard and delivery gates. Multi-object records use `resolve --catalog-file`; refresh preserves the selected original. References without a supported public original remain manual and visible. Item rights stay unknown until separate permission; capture and publication dates remain distinct.
 - Search filters: catalog-specific filters share the saved query allowance and replay identity. Unknown, credential and paging overrides are refused. Europeana requires the issued key type to be confirmed for development versus operational use. Credentials remain private, including Europeana `wskey` and optional DVIDS server secrets.
 - Inspection and provenance: preserve resource/file identities, institution links, geometry and restrictions; read supplied bounded captions/plain transcripts without inventing timings. Storyboard exposes record, institution, selected original and access/rights information. Existing project signatures and commands stay compatible.
+- Compatibility: direct-media caching still accepts minimal legacy records without a provider field. Cache creation is tested on every operating system, with private permission-bit checks retained on POSIX systems.
+- CI policy: maintained validation is Windows, with Python 3.11/3.13 tests and the quality job on Windows. Pull requests and pushes to `main` trigger CI; feature-branch pushes no longer duplicate an open PR's jobs. Bash syntax remains checked with Git Bash on Windows.
 
 ## 2.9.0 — 2026-10-04
 

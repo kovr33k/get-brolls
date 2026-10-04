@@ -169,7 +169,6 @@ class LiveChecksClassificationTests(unittest.TestCase):
 
 
 class PrivateSourcesCachePermissionTests(unittest.TestCase):
-    @skip_on_windows
     def test_cache_direct_media_creates_the_cache_dir_0700_and_the_file_0600(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "project" / "brolls"
@@ -185,10 +184,12 @@ class PrivateSourcesCachePermissionTests(unittest.TestCase):
                 download_mock.side_effect = lambda url, target: Path(target).write_bytes(b"x")
                 acquisition.cache_direct_media(ledger, candidate, refresh=False)
             cache = root.parent / ".getbrolls-sources"
-            self.assertEqual(0o700, stat.S_IMODE(cache.stat().st_mode))
+            if os.name != "nt":
+                self.assertEqual(0o700, stat.S_IMODE(cache.stat().st_mode))
             media_files = [p for p in cache.iterdir() if p.suffix == ".mp4"]
             self.assertEqual(1, len(media_files))
-            self.assertEqual(0o600, stat.S_IMODE(media_files[0].stat().st_mode))
+            if os.name != "nt":
+                self.assertEqual(0o600, stat.S_IMODE(media_files[0].stat().st_mode))
 
     @skip_on_windows
     def test_an_existing_looser_cache_dir_is_tightened_on_reuse(self):

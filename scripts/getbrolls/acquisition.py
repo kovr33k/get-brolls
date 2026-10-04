@@ -125,7 +125,7 @@ def cache_direct_media(ledger, candidate, refresh=True):
     cache = ledger.root.parent / ".getbrolls-sources"
     from .catalogs import NAMES
 
-    if candidate["provider"] in NAMES and candidate.get("acquisition", {}).get("status") != "available":
+    if candidate.get("provider") in NAMES and candidate.get("acquisition", {}).get("status") != "available":
         raise ValueError("Catalog original is unavailable; cached thumbnails do not establish original access.")
     _ensure_private_cache_dir(cache)
     reused = _reuse_from_index(cache, candidate["id"], 0, 0)
