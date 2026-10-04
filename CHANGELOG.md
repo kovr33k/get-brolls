@@ -10,7 +10,10 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.13.1 — 2026-10-05
+
 - LoC: browser-verification challenges have a separate diagnostic and an audited browser fallback. Reuse the failed query's allowance, import observed item references, and link a locally supplied original without exporting browser cookies or bypassing protection.
+- Telegram login: prompts clarify international phone format and the current request's code; rejected numbers, codes and 2FA passwords have actionable private messages. Expected login failures omit terminal tracebacks and unrelated project-review advice; interruption retains the session and asks for a local retry.
 
 ## 2.13.0 — 2026-10-04
 

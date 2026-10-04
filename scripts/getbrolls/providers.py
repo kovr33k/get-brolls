@@ -178,6 +178,24 @@ def capabilities():
         "visual_verdict": "unsuitable",
         "limitations": "One dated street panorama, not the requested Plaza Mayor square. No complete place coverage, current access, reuse rights or human acceptance established.",
     }
+    result["telegram"]["live"] = "sample_verified"
+    result["telegram"]["live_observation"] = {
+        "date": "2026-10-05",
+        "version": "2.13.1",
+        "status": "passed_sample",
+        "source_url": "https://t.me/clashreport/99598",
+        "selected_file": "document:5915681395648241719",
+        "operations": ["search", "preview", "decode"],
+        "session_authorization": "passed_sample",
+        "attachment_access": "acquired_sample",
+        "bytes": 6626073,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30,
+        "duration_s": 30.656,
+        "interval_s": [0, 3],
+        "limitations": "One dated bounded public-channel query and acquired attachment. Viewed speaker at a lectern, not bridge imagery. Original authorship, current session access, editorial acceptance, human approval and reuse rights remain unverified.",
+    }
     result["archive"]["live"] = "sample_verified"
     result["archive"]["live_observation"] = {
         "date": "2026-10-03",

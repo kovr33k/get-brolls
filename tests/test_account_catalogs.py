@@ -16,7 +16,7 @@ from test_existing_catalog_fragments import call, confirm, image_rules, progress
 from getbrolls import account_catalogs as accounts
 from getbrolls import providers
 from getbrolls.ledger import Ledger
-from getbrolls.runtime import OperationError
+from getbrolls.runtime import OperationError, audited
 
 BBOX = "-3.709,40.414,-3.706,40.416"
 PERIOD = ["from_date=2026-10-01", "to_date=2026-10-04"]
@@ -258,6 +258,89 @@ class AccountContracts(unittest.TestCase):
         self.assertEqual(3, prompt.call_count)
         self.assertTrue(result["session_authorized"])
         self.assertNotIn(SECRET, json.dumps(result))
+
+    def test_login_errors_are_actionable_private_and_leave_the_session_intact(self):
+        session = self.project / "private.session"
+        session.write_bytes(b"synthetic existing session")
+        for name, phrase in (
+            ("PhoneNumberInvalidError", "international number"),
+            ("PhoneCodeInvalidError", "latest code"),
+            ("PhoneCodeEmptyError", "requires a login code"),
+            ("PhoneCodeExpiredError", "expired"),
+            ("PasswordHashInvalidError", "two-step verification password"),
+        ):
+            with self.subTest(error=name):
+                error = type(name, (Exception,), {})(SECRET)
+                fake = SimpleNamespace(start=AsyncMock(side_effect=error), disconnect=AsyncMock())
+                with (
+                    patch.object(accounts, "_client", return_value=fake),
+                    patch.object(accounts.sys.stdin, "isatty", return_value=True),
+                    self.assertRaises(OperationError) as ctx,
+                ):
+                    audited(
+                        SimpleNamespace(command="telegram-login", project=str(self.project)),
+                        lambda args: accounts.telegram_login(),
+                    )
+                payload = ctx.exception.payload
+                self.assertIn(phrase, payload["message"])
+                self.assertFalse(payload["state_committed"])
+                self.assertNotIn("traceback", payload)
+                self.assertNotIn("repr", payload)
+                self.assertNotIn("RULES.md", payload["message"])
+                self.assertNotIn("review", payload["hint"])
+                fake.disconnect.assert_awaited_once()
+                self.assertEqual(b"synthetic existing session", session.read_bytes())
+        diagnostic = json.loads((self.project / "brolls" / "diagnostics.jsonl").read_text().splitlines()[-1])
+        self.assertIn("traceback", diagnostic)
+        self.assertNotIn(SECRET, json.dumps(diagnostic))
+
+    def test_exhausted_login_code_attempts_explain_the_retry_without_rpc_secrets(self):
+        for error, expected in (
+            (RuntimeError("3 consecutive sign-in attempts failed. Aborting"), "latest code for the new request"),
+            (RuntimeError(SECRET), "RuntimeError"),
+        ):
+            fake = SimpleNamespace(start=AsyncMock(side_effect=error), disconnect=AsyncMock())
+            with (
+                patch.object(accounts, "_client", return_value=fake),
+                patch.object(accounts.sys.stdin, "isatty", return_value=True),
+                self.assertRaisesRegex(ValueError, expected) as ctx,
+            ):
+                accounts.telegram_login()
+            self.assertNotIn(SECRET, str(ctx.exception))
+            fake.disconnect.assert_awaited_once()
+
+    def test_login_prompts_trim_phone_and_code_but_preserve_2fa_password(self):
+        observed = {}
+
+        class LoginClient(FakeClient):
+            async def start(self, **kwargs):
+                observed.update({key: kwargs[key]() for key in ("phone", "code_callback", "password")})
+
+        with (
+            patch.object(accounts, "_client", return_value=LoginClient()),
+            patch.object(accounts.sys.stdin, "isatty", return_value=True),
+            patch(
+                "getpass.getpass", side_effect=["  +12345678901  ", "  fixture code  ", " password with spaces "]
+            ) as prompt,
+        ):
+            accounts.telegram_login()
+        self.assertEqual("+12345678901", observed["phone"])
+        self.assertEqual("fixture code", observed["code_callback"])
+        self.assertEqual(" password with spaces ", observed["password"])
+        self.assertIn("+country code", prompt.call_args_list[0].args[0])
+
+    def test_interrupted_login_disconnects_without_project_recovery_advice(self):
+        fake = SimpleNamespace(start=AsyncMock(side_effect=KeyboardInterrupt), disconnect=AsyncMock())
+        with (
+            patch.object(accounts, "_client", return_value=fake),
+            patch.object(accounts.sys.stdin, "isatty", return_value=True),
+            self.assertRaises(OperationError) as ctx,
+        ):
+            audited(SimpleNamespace(command="telegram-login"), lambda args: accounts.telegram_login())
+        self.assertEqual("INTERRUPTED", ctx.exception.payload["error_code"])
+        self.assertIn("telegram-login again locally", ctx.exception.payload["message"])
+        self.assertNotIn("gravação", ctx.exception.payload["message"])
+        fake.disconnect.assert_awaited_once()
 
     def test_whitelist_message_identity_and_public_channel_boundary(self):
         fake = FakeClient([message(30)])

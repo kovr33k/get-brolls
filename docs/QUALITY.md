@@ -6,13 +6,21 @@ updated: 2026-10-05
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.13.0
+# Qualidade e evidências — GET B-ROLLS 2.13.1
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
 **Current validation policy — 2026-10-04.** Maintained CI validation is Windows, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Tests cover Python 3.11 and 3.13; the quality job also runs on Windows. Pull requests and pushes to `main` trigger CI, avoiding duplicate feature-push and PR runs. Historical sections retain the platforms and requirements recorded at their dates.
 
-## Catalog access follow-up — 2026-10-05, 2.13.0 plus unreleased LoC browser fallback
+## Telegram access and login diagnostics — 2026-10-05, 2.13.1 candidate
+
+**Live access sample.** The private user session authenticated. One bounded `bridge` search in the explicitly whitelisted public channel returned two posts. The selected [public message](https://t.me/clashreport/99598) retained attachment `document:5915681395648241719`; the normal CLI acquired the 6,626,073-byte MP4. ffprobe measured 1920×1080, 30 fps and 30.656 seconds. The 0–3 second preview generated a contact sheet/GIF and decoded with exit 0. The viewed frames show a speaker at a lectern with flags, rather than bridge imagery. Original authorship/context, editorial acceptance and reuse rights are unverified; approval remains pending and rights unknown. No DMs, private groups or subscription enumeration were accessed. Session files, credentials, raw reports and media remain outside distributed source.
+
+**Login diagnostics.** Prompts clarify international phone format and the current request's code. Rejected numbers, invalid/empty/expired codes, incorrect 2FA passwords and exhausted SDK code retries have specific safe explanations. Expected login errors omit terminal tracebacks and unrelated project-review advice; private project diagnostics remain redacted. Phone/code input trims surrounding whitespace, while password whitespace is preserved. Interrupted login disconnects without deleting the session. Unexpected command bugs retain internal diagnostics.
+
+**Local verification limit.** Eighteen account-route tests and thirteen runtime-diagnostic tests passed. The complete Windows check passed Ruff, formatting, Pyright, the skill mirror and documentation anchors; its 1,198-test sweep finished with 30 skips and four errors in background-server test cleanup (`WinError 32` on `.serve.log`). A separate 32-test server run reproduced those four errors, and the unchanged production checkout reproduced them too. After version synchronization and the dated access observation, 119 focused account/runtime, provider, CLI, version and skill tests passed; lint, formatting, Pyright, mirror and documentation checks also passed. No full green gate or production integration is claimed for this candidate.
+
+## Catalog access follow-up — 2026-10-05, 2.13.0 plus LoC browser fallback
 
 **LoC.** A bounded JSON image query still received HTTP 403 with a browser-verification challenge. The recognized response has a separate diagnostic; it is not reported as a missing key, quota or empty results. Authorized browser search opened the actual [Britannia Bridge item](https://www.loc.gov/item/90710744/). Its observed description is Menai Bridge Village, Wales; date is `[between 1895 and 1905?]`, and the card states that full online access is only available at the Library of Congress. Audited `search-browser` converted the failed API query into the browser reservation, and `search-import` recorded that canonical image locator. Persisted query usage stayed at one. No browser cookies were exported, no protection was bypassed, and no original, decoded preview or visual suitability is claimed for this restricted item. Separate synthetic tests cover local-original linking/decoded preview, approval/rights refusal, restart, dry-run, the third-query handoff, and refusal to rewrite an ordinary permission failure as a challenge.
 

@@ -245,6 +245,15 @@ async def _disconnect(client):
 
 def _telegram_error(error):
     name = type(error).__name__
+    login_messages = {
+        "PhoneNumberInvalidError": "Telegram rejected the phone number. Enter the account's full international number: +country code followed by the number. Enter it only in the local terminal.",
+        "PhoneCodeInvalidError": "Telegram rejected the login code. Enter the latest code for this login request in the local terminal.",
+        "PhoneCodeEmptyError": "Telegram requires a login code. Enter the latest code for this login request in the local terminal.",
+        "PhoneCodeExpiredError": "Telegram login code expired. Run telegram-login locally again and use the new code.",
+        "PasswordHashInvalidError": "Telegram rejected the 2FA password. Enter the account's two-step verification password, not the login code, in the local terminal.",
+    }
+    if name in login_messages:
+        return ProviderError(login_messages[name])
     if name in ("AuthKeyUnregisteredError", "SessionRevokedError", "AuthKeyDuplicatedError", "UserDeactivatedError"):
         return ProviderError(
             "Telegram session is expired or revoked; run telegram-login locally to authenticate again."
@@ -497,8 +506,10 @@ def telegram_login():
             # Prompt secrets locally; never return them in JSON, diagnostics or project state.
             with contextlib.redirect_stdout(io.StringIO()):
                 await client.start(
-                    phone=lambda: getpass.getpass("Telegram phone: "),
-                    code_callback=lambda: getpass.getpass("Telegram login code: "),
+                    phone=lambda: getpass.getpass("Telegram phone (+country code and number; input hidden): ").strip(),
+                    code_callback=lambda: getpass.getpass(
+                        "Telegram login code (latest request; input hidden): "
+                    ).strip(),
                     password=lambda: getpass.getpass("Telegram 2FA password: "),
                 )
             await _authorized(client)
@@ -509,6 +520,13 @@ def telegram_login():
         except ProviderError:
             raise
         except Exception as error:  # noqa: BLE001 - interactive secrets/RPC failures must stay local
+            # Telethon reports exhausted code retries as RuntimeError, not an RPC error.
+            if isinstance(error, RuntimeError) and re.fullmatch(
+                r"\d+ consecutive sign-in attempts failed\. Aborting", str(error)
+            ):
+                raise ProviderError(
+                    "Telegram rejected the login code after repeated attempts. Run telegram-login locally again and enter the latest code for the new request. Check the Telegram service notification or the delivery method used by Telegram."
+                ) from None
             raise _telegram_error(error) from None
         finally:
             await _disconnect(client)

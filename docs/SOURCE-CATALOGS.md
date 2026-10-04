@@ -29,7 +29,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 | Pexels | Illustrative atmosphere and context | Pexels API key; current adapter searches video | Search |
 | Pixabay | Illustrative atmosphere and context | Pixabay API key; current adapter searches video | Search |
 | Mapillary | Images of a particular street or place | Client token and geographic search | Geographic image search, URL/preview |
-| Telegram | Posts and attachments in selected public channels | Telethon, application credentials, user session | Bounded public whitelist route; live user access unverified |
+| Telegram | Posts and attachments in selected public channels | Telethon, application credentials, user session | Bounded public whitelist route; one dated video acquisition/preview sample in QUALITY |
 | GDELT TV | Locating a television segment and time reference | Public TV search API; separate linked original | Implemented; dated caption/locator sample, restricted original |
 | X | Public posts, exact quotations, attached media | Retained xAI X Search through agreed Grok OAuth | OAuth unverified; original URL/local capture import |
 | EC Audiovisual Service | EU events, speeches, stockshots, institutional photos | AV Portal client endpoint, then portal backend | Implemented; one decoded shot sample |
