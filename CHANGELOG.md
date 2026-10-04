@@ -2,13 +2,19 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-03
+updated: 2026-10-04
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+## 2.7.0 — 2026-10-04
+
+- Suitable options: `search-confirm` records the generated preview or acquired file that was actually viewed, with its path and hash, the representation, the interval or still, and why it matches the fragment. Name the opened preview with `--preview gif`, `contact-sheet`, or `poster`. Identical stills count once across reposts and representations, including when the only shared identity is the provider and source id. `preview --option` keeps several scenes of one resolved source as separate selections without copying approval, rejection, output, or rights. Three current suitable options stop further search queries. Rejection, from `reject` or Storyboard import, stays out of the count until a new visual confirmation; a later approval does not restore the old one. A format-only revision change does not drop unchanged visual evidence. Whether a confirmed option that still needs a separately requested original counts toward the three remains deferred.
+- Raw hits: status and Storyboard list each returned, resolved, or imported source once. Scene selections stay in suitable options, viewing evidence, and pending human decisions, and do not increase the discovery count. Separate returned recordings, including reposts, stay separate there.
+- Image preview: a downloaded or reused still records its measured width and height. Duration and frame rate stay unknown, and the still keeps an empty interval.
 
 ## 2.6.0 — 2026-10-03
 

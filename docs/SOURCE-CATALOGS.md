@@ -2,7 +2,7 @@
 type: reference
 status: current
 created: 2026-10-01
-updated: 2026-10-03
+updated: 2026-10-04
 tags: [get-brolls, catalogs, providers, search, access]
 ---
 
@@ -10,7 +10,7 @@ tags: [get-brolls, catalogs, providers, search, access]
 
 Use this reference when choosing a catalog or implementing a provider. It consolidates the supplied 18-source inventory, the researched EC/UN/Destockd routes, and Instagram/TikTok. Catalog descriptions guide the agent's selection; they are not fixed topic-to-provider rules.
 
-**Status scope:** `Search` and `URL/browser` below describe code present in this get-brolls checkout on 2026-10-03, not a live availability guarantee. `Planned` means the route is retained from prior research but has no adapter here. Statements that an integration was implemented in the supplied notes refer to the previous project. Credentials and sessions from that project are not assumed to be available here. Dated Archive.org observations are recorded separately in [QUALITY.md](QUALITY.md); other retained endpoints were not re-probed for this update.
+**Status scope:** `Search` and `URL/browser` below describe code present in this get-brolls checkout on 2026-10-04, not a live availability guarantee. `Planned` means the route is retained from prior research but has no adapter here. Statements that an integration was implemented in the supplied notes refer to the previous project. Credentials and sessions from that project are not assumed to be available here. Dated Archive.org observations are recorded separately in [QUALITY.md](QUALITY.md); other retained endpoints were not re-probed for this update.
 
 Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection and the personal library are covered in [providers.md](../references/providers.md).
 
@@ -62,7 +62,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 - **Inside a video:** collect captions when present. Use a smaller proxy for exploration and a suitable high-quality representation for the selected interval. A catalog match does not supply shot boundaries automatically.
 - **Access/acquisition:** public metadata is generally readable without login; restricted files require their own access check. Preserve item ID, file identity, and the canonical item page.
 - **Keep:** item/asset provenance and rights. FedFlix or a collection name alone does not establish the rights of every included fragment.
-- **Implemented slice:** `archive` search, actual file/representation selection, associated captions, restrictions, and a one-catalog resumable fragment plan use the common ledger and review route. Suitable-option counting, catalog chains, and other planned adapters remain separate tickets. [Operational commands](GUIDE.md#provider--archiveorg-and-fragment-search).
+- **Implemented slice:** `archive` search, actual file/representation selection, associated captions, restrictions, and a one-catalog resumable fragment plan use the common ledger and review route. Suitable-option confirmation names the viewed preview or acquired file, groups identical stills and near-duplicate trims, and can keep several scenes of one source with `preview --option`. Three current distinct options stop additional queries. Rejection leaves the count until a new visual confirmation; approval alone does not restore it. Catalog chains, the additional pass, other planned adapters, and whether a preview-confirmed requested original counts remain separate. [Operational commands](GUIDE.md#provider--archiveorg-and-fragment-search).
 - **References:** [search guide](https://archivesupport.zendesk.com/hc/en-us/articles/360018359991-Search-A-Basic-Guide), [Metadata API](https://archive.org/developers/metadata.html).
 
 ## NASA Image and Video Library

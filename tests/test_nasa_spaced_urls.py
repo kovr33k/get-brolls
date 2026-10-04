@@ -18,10 +18,12 @@ from unittest.mock import patch
 
 # A pasta pessoal da skill vai para um temporário: nenhum teste toca ~/.getbrolls.
 import _isolation  # noqa: F401  (efeito de import: define GB_HOME)
-from _media import synth_video
+from _media import synth_image, synth_video
 from _paths import ROOT  # noqa: F401  (efeito de import: insere scripts/ em sys.path)
 
 from getbrolls import cli, http, providers
+from getbrolls.ledger import Ledger
+from getbrolls.runtime import OperationError
 
 NASA_ID = "Artemis I Launch 2022 CU tracking from Press Site_compressed"
 BASE = "https://images-assets.nasa.gov/video/" + NASA_ID + "/" + NASA_ID
@@ -142,6 +144,144 @@ class NasaSpacedUrlFlow(unittest.TestCase):
             "https://host.example/a%20b?q=a b",
             http.encoded_url("https://host.example/a b?q=a b"),
         )
+
+
+@unittest.skipUnless(shutil.which("ffmpeg"), "FFmpeg required")
+class NasaStillDimensions(unittest.TestCase):
+    """A provider size is not the file. Preview stores the measured still and keeps timings unknown."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        source = Path(cls._tmp.name) / "fixture.jpg"
+        synth_image(source, size="320x180")
+        cls.media_bytes = source.read_bytes()
+        cls.actual = probe_size(source)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def test_preview_persists_measured_size_for_download_and_cache_reuse(self):
+        requested = []
+        media = self.media_bytes
+
+        class _Opener:
+            def open(self, request, timeout=None):
+                requested.append(request.full_url)
+                return _Response(media)
+
+        def get_json(url, params=None, headers=None, cache_ttl=0):
+            if url.startswith("https://images-api.nasa.gov/search"):
+                return {
+                    "collection": {
+                        "items": [
+                            {
+                                "data": [
+                                    {
+                                        "nasa_id": "still-fixture",
+                                        "title": "Synthetic still",
+                                        "media_type": "image",
+                                        "center": "JSC",
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            if url.startswith("https://images-api.nasa.gov/asset/"):
+                return {
+                    "collection": {
+                        "items": [
+                            {"href": "https://images-assets.nasa.gov/image/still-fixture/still-fixture~medium.jpg"}
+                        ]
+                    }
+                }
+            raise AssertionError(url)
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch.object(providers, "get_json", side_effect=get_json),
+            patch.object(http, "_opener", _Opener),
+        ):
+            env = Path(tmp) / "empty.env"
+            env.touch()
+            resolved = cli.main(
+                [
+                    "--env-file",
+                    str(env),
+                    "resolve",
+                    "--url",
+                    "https://images.nasa.gov/details/still-fixture",
+                    "--project",
+                    tmp,
+                ]
+            )
+            ident = resolved["id"]
+            self.assertEqual("image", resolved["media"]["kind"])
+            self.assertIsNone(resolved["media"]["width"])
+            self.assertIsNone(resolved["media"]["height"])
+            self.assertEqual("unknown", resolved["rights"]["status"])
+            self.assertEqual("pending", resolved["approval"]["status"])
+            ledger = Ledger(tmp, recover=False)
+            stale = ledger.get(ident)
+            stale["media"]["width"] = 10
+            stale["media"]["height"] = 20
+            ledger.save("test-stale-size", stale)
+
+            first = cli.main(["--env-file", str(env), "preview", "--candidate", ident, "--project", tmp])
+            self._assert_measured_still(tmp, first, ident)
+            self.assertEqual(1, len(requested))
+            self.assertTrue((Path(tmp) / "brolls" / first["preview"]["poster_path"]).is_file())
+
+            second = cli.main(["--env-file", str(env), "preview", "--candidate", ident, "--project", tmp])
+            self._assert_measured_still(tmp, second, ident)
+            self.assertEqual(1, len(requested))
+
+            reused = Ledger(tmp, recover=False)
+            cached = reused.get(ident)
+            cached.pop("local_path", None)
+            cached.pop("local_sha256", None)
+            cached["media"]["width"] = 10
+            cached["media"]["height"] = 20
+            reused.save("test-clear-local-still", cached)
+            third = cli.main(["--env-file", str(env), "preview", "--candidate", ident, "--project", tmp])
+            self._assert_measured_still(tmp, third, ident)
+            self.assertEqual(1, len(requested))
+
+            manifest = Path(tmp) / "brolls" / "manifest.json"
+            before = manifest.read_bytes()
+            cli.main(["--env-file", str(env), "status", "--project", tmp])
+            self.assertEqual(before, manifest.read_bytes())
+            with self.assertRaisesRegex(OperationError, "Aprovação humana ausente"):
+                cli.main(["--env-file", str(env), "fetch", "--candidate", ident, "--project", tmp])
+            self._assert_measured_still(tmp, Ledger(tmp, recover=False).get(ident), ident)
+
+    def _assert_measured_still(self, project, result, ident):
+        stored = Ledger(project, recover=False).get(ident)
+        self.assertEqual(self.actual, (stored["media"]["width"], stored["media"]["height"]))
+        self.assertEqual(stored["media"]["width"], result["media"]["width"])
+        self.assertEqual(stored["media"]["height"], result["media"]["height"])
+        self.assertEqual("image", stored["media"]["kind"])
+        self.assertIsNone(stored["media"]["duration_s"])
+        self.assertIsNone(stored["media"]["fps"])
+        self.assertIsNone(result["media"]["duration_s"])
+        self.assertIsNone(result["media"]["fps"])
+        self.assertIsNone(stored["segment"]["start_s"])
+        self.assertIsNone(stored["segment"]["end_s"])
+        self.assertEqual("pending", stored["approval"]["status"])
+        self.assertNotIn("signature", stored["approval"])
+        self.assertEqual("unknown", stored["rights"]["status"])
+        self.assertFalse(stored["output"]["verified"])
+        poster = stored["preview"].get("poster_path")
+        self.assertTrue(poster and (Path(project) / "brolls" / poster).is_file())
+
+
+def probe_size(path):
+    from getbrolls.media import probe
+
+    measured = probe(path)
+    return measured["width"], measured["height"]
 
 
 if __name__ == "__main__":  # pragma: no cover

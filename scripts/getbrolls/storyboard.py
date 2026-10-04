@@ -17,6 +17,7 @@ def render_page(
     title="Collection Storyboard",
     subtitle="Review each clip and decide whether it works. This takes about 2 minutes.",
     note="Approval means you want this clip. Before publishing your video, check each source's license using the original link on its card.",
+    extra_html="",
 ):
     def esc(value):
         return escape(str(value or ""), quote=True)
@@ -89,4 +90,4 @@ def render_page(
         f'<div class="header-meta"><span>{quadros}</span><span>B-roll Storyboard</span></div></div></div></header>'
     )
     film = any(x.get("gif") or (x.get("presenter") and not x.get("no_preview")) for x in items)
-    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GET B-ROLLS — {esc(title)}</title><style>{(ASSETS / "storyboard.css").read_text(encoding="utf-8")}</style></head><body class="{"film-board" if film else ""}">{header}<main><div class="intro"><span class="count" id="position" hidden></span></div>{board}{f"<footer>{esc(note)}</footer>" if note else ""}<noscript>Enable JavaScript to browse the shots.</noscript></main><script>{(ASSETS / "storyboard.js").read_text(encoding="utf-8")}</script></body></html>'''
+    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GET B-ROLLS — {esc(title)}</title><style>{(ASSETS / "storyboard.css").read_text(encoding="utf-8")}</style></head><body class="{"film-board" if film else ""}">{header}<main><div class="intro"><span class="count" id="position" hidden></span></div>{extra_html}{board}{f"<footer>{esc(note)}</footer>" if note else ""}<noscript>Enable JavaScript to browse the shots.</noscript></main><script>{(ASSETS / "storyboard.js").read_text(encoding="utf-8")}</script></body></html>'''

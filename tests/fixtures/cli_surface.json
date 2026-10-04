@@ -1156,6 +1156,18 @@
             "--reason"
           ],
           "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "option",
+          "help": "Create or reuse an independent scene of this source; the same name edits that selection",
+          "nargs": null,
+          "option_strings": [
+            "--option"
+          ],
+          "required": false
         }
       ]
     },
@@ -2073,6 +2085,166 @@
             "--assessment"
           ],
           "required": true
+        }
+      ]
+    },
+    "search-confirm": {
+      "help": "Record that a fragment option was actually viewed and whether it matches",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "confirm_format_change",
+          "help": "==SUPPRESS==",
+          "nargs": 0,
+          "option_strings": [
+            "--confirm-format-change"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "shot",
+          "help": "Existing BRIEF fragment ID",
+          "nargs": null,
+          "option_strings": [
+            "--shot"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "candidate",
+          "help": "Candidate whose material or preview was actually viewed",
+          "nargs": null,
+          "option_strings": [
+            "--candidate"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "material",
+            "preview"
+          ],
+          "default": null,
+          "dest": "viewed",
+          "help": "preview: a generated preview file; material: the acquired representation",
+          "nargs": null,
+          "option_strings": [
+            "--viewed"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "contact-sheet",
+            "gif",
+            "poster"
+          ],
+          "default": null,
+          "dest": "preview",
+          "help": "Generated preview you opened. Required with --viewed preview; not a disk path",
+          "nargs": null,
+          "option_strings": [
+            "--preview"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "observation",
+          "help": "What is visible in the viewed preview or material",
+          "nargs": null,
+          "option_strings": [
+            "--observation"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "match",
+          "help": "Why the viewed material matches or misses the fragment",
+          "nargs": null,
+          "option_strings": [
+            "--match"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "suitable",
+            "unsuitable"
+          ],
+          "default": "suitable",
+          "dest": "verdict",
+          "help": "suitable counts when distinct and current; unsuitable stays search history",
+          "nargs": null,
+          "option_strings": [
+            "--verdict"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "distinctness",
+          "help": "Why this is a different scene, angle, action, or moment from other options of the same recording",
+          "nargs": null,
+          "option_strings": [
+            "--distinctness"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "duplicate_of",
+          "help": "Another fragment candidate that is a repost, near-identical trim, or the same shot",
+          "nargs": null,
+          "option_strings": [
+            "--duplicate-of"
+          ],
+          "required": false
         }
       ]
     },
