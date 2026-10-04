@@ -111,6 +111,22 @@ def source_card(c, source, sheet, poster, esc):
         ("Institution", catalog.get("institution")),
         ("Institution record", catalog.get("institution_record")),
         ("Selected original file", catalog.get("selected_file")),
+        ("Parent recording", catalog.get("parent_id")),
+        ("Shot source start (seconds)", catalog.get("provider_source_start")),
+        ("Shot duration (seconds)", catalog.get("provider_shot_duration")),
+        ("Catalog coverage", catalog.get("coverage")),
+        ("Station", catalog.get("station")),
+        ("Station date coverage", catalog.get("station_coverage")),
+        ("Program", catalog.get("show")),
+        ("Broadcast time", catalog.get("broadcast_time")),
+        ("Caption match", catalog.get("matching_text")),
+        ("Transcript language", catalog.get("language")),
+        ("Transcript matches", catalog.get("matches")),
+        ("Transcript disclaimer", catalog.get("disclaimer")),
+        ("Item conditions", catalog.get("copyrights")),
+        ("Conditions scope", catalog.get("scope")),
+        ("Source location", catalog.get("location")),
+        ("Higher-quality original request", catalog.get("original_request_url")),
         ("Published on", catalog.get("published_at")),
         ("Unit", catalog.get("unit")),
         ("Item rights", c["rights"].get("license_name") if catalog else None),
@@ -128,7 +144,7 @@ def source_card(c, source, sheet, poster, esc):
         ("Source language", observed.get("language")),
         ("Source description", observed.get("description")),
     ):
-        if value:
+        if value is not None and value not in ("", [], {}):
             details.append(f"<p>{label}: {esc(value)}</p>")
     details.append(f"<p>Why this was selected: {esc(c.get('match', {}).get('reason') or 'not recorded yet')}</p>")
     if c["rights"].get("attribution"):

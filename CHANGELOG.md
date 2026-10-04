@@ -10,6 +10,13 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.12.0 — 2026-10-04
+
+- Broadcast catalogs: GDELT TV caption/time locators, EC exact-shot discovery and UN localized full-text transcript search join existing fragment chains, replay accounting and Storyboard. GDELT station/date coverage and separately linked originals remain distinct from visual search or acquired editing media.
+- EC source windows: preserve shot versus parent identity, actual selected MP4/HLS/photo representations and conditions. Provider source start is used by default; `--source-start` overrides it. Nonzero section-cache offsets are subtracted once during preview/final cuts, and changed parent/conditions invalidate review.
+- Access decisions: `access --candidate --by --evidence` records an explicit EC/UN asset-and-brief decision before restricted/UN acquisition, including cached media. Rights and human approval stay separate. UN retains timed matches and its nonofficial transcript disclaimer; older direct assets do not depend on recent-search coverage.
+- Validation: synthetic CLI/media tests cover all three routes and independent gates. Dated EC MP4 decoding, UN transcript/player metadata and restricted GDELT original observations are recorded in QUALITY; unverified acquisition paths remain explicit.
+
 ## 2.11.0 — 2026-10-04
 
 - Browser discovery: `search-browser` durably reserves Instagram, TikTok, UN and Destockd attempts before external search; `search-import` records observed results, empty outcomes or access failures. Replay, interruptions and imports share the existing query allowance and recoverable journal. Imported posts preserve canonical identity and public context; private Instagram stream pairs and TikTok acquisition remain on their established routes.

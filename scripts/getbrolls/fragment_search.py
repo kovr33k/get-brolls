@@ -1515,7 +1515,7 @@ def _refuse_new_dispatch(ledger, plan, args, browser=False):
 def reserve_attempt(ledger, plan, args, query, browser=False):
     from .catalogs import filters
 
-    selected_filters = filters(plan["catalog"], getattr(args, "catalog_filter", None))
+    selected_filters = filters(plan["catalog"], getattr(args, "catalog_filter", None), getattr(args, "language", None))
     key = _query_key(query, args.media, selected_filters)
     existing = next(
         (attempt for attempt in _catalog_attempts(plan, plan["catalog"], plan["pass"]) if attempt["query_key"] == key),
@@ -1560,6 +1560,7 @@ def _dispatch(ledger, plan, args, rules, query):
             args.limit,
             media=args.media,
             **({"catalog_filters": args.catalog_filter} if selected_filters else {}),
+            **({"language": args.language} if plan["catalog"] == "un_webtv" else {}),
         )
     except (ValueError, OSError) as error:
         attempt.update(status="access_or_provider_error", outcome="access_failure", error=redact(error))
@@ -1584,6 +1585,20 @@ def _dispatch(ledger, plan, args, rules, query):
         excluded_count=len(rows) - len(added),
         assessed_at=None,
     )
+    if plan["catalog"] == "un_webtv":
+        # The same video can match different localized speech; retain each query's
+        # evidence without replacing its existing media/review candidate.
+        attempt["source_matches"] = [
+            {
+                "source_id": row["source_id"],
+                "source_url": row["source_url"],
+                "language": row["catalog"]["language"],
+                "matches": row["catalog"]["matches"],
+                "transcript_url": row["catalog"]["transcript_url"],
+            }
+            for row in rows
+            if allowed(row, rules)
+        ]
     ledger.save_many("search-outcome", added)
     return attempt, False
 
@@ -1592,7 +1607,11 @@ def _planned_dry_run(ledger, plan, args):
     """Validate a prospective dispatch without contacting the catalog or spending a query."""
     from .catalogs import filters
 
-    query_key = _query_key(args.query, args.media, filters(plan["catalog"], getattr(args, "catalog_filter", None)))
+    query_key = _query_key(
+        args.query,
+        args.media,
+        filters(plan["catalog"], getattr(args, "catalog_filter", None), getattr(args, "language", None)),
+    )
     replayed = any(
         attempt["query_key"] == query_key for attempt in _catalog_attempts(plan, plan["catalog"], plan["pass"])
     )

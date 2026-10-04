@@ -16,7 +16,7 @@ from .rules import allowed, format_report
 from .runtime import redact
 
 BROWSER_CATALOGS = ("instagram", "tiktok", "un_avlibrary", "destockd")
-LOCATORS = ("un_avlibrary", "destockd")
+LOCATORS = ("un_avlibrary", "destockd", "gdelt_tv")
 REQUEST_URL = "https://media.un.org/avlibrary/en/contact/request_footage"
 MAX_IMPORT_BYTES = 524288
 FIELDS = {
@@ -336,7 +336,9 @@ def import_command(ledger, args, rules):
 def link_original(ledger, args, row, rules):
     source = ledger.get(args.original_for)
     if source["provider"] not in LOCATORS or row["provider"] not in ("local", "archive"):
-        raise ValueError("--original-for links a local supplied original or Archive.org file to a UN/Destockd locator.")
+        raise ValueError(
+            "--original-for links a local supplied original or Archive.org file to a UN/Destockd/GDELT locator."
+        )
     if source["provider"] == "un_avlibrary" and row["provider"] != "local":
         raise ValueError("UN requested originals must be supplied explicitly as a local --file.")
     if args.shot and source.get("shot") and args.shot != source["shot"]:

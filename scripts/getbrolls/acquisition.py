@@ -122,6 +122,11 @@ def cache_direct_media(ledger, candidate, refresh=True):
     Só mexe no cache: nada é gravado no candidato nem em `brolls/`, então `inspect`
     continua somente leitura sobre decisão, intervalo e direitos.
     """
+    from .broadcasts import refresh_working_item, require_access
+
+    if refresh:
+        refresh_working_item(ledger, candidate)
+    require_access(ledger, candidate)
     cache = ledger.root.parent / ".getbrolls-sources"
     from .catalogs import NAMES
 
@@ -206,6 +211,10 @@ def prepare_source(ledger, candidate, start, end, tolerant=False):  # noqa: C901
     `tolerant` precisa reler `local_duration_s` antes de montar a grade.
     """
     c = candidate
+    from .broadcasts import refresh_working_item, require_access
+
+    refresh_working_item(ledger, c)
+    require_access(ledger, c)
     if c["provider"] == "archive" and c.get("acquisition", {}).get("status") == "unavailable":
         raise ValueError("Selected Archive.org file requires separate access; public acquisition is unavailable.")
     remote = c["provider"] != "local"
@@ -248,7 +257,11 @@ def prepare_source(ledger, candidate, start, end, tolerant=False):  # noqa: C901
         if c["acquisition"].get("method") == "yt-dlp":
             from .social import download_segment
 
-            download_segment(c["source_url"], target, start, end)
+            media_url = c.get("media_url") if c["provider"] == "ec_audiovisual" else None
+            if media_url:
+                download_segment(media_url, target, start, end, source_url=c["source_url"])
+            else:
+                download_segment(c["source_url"], target, start, end)
             offset = start
         elif c["acquisition"].get("method") == "https":
             from .http import download

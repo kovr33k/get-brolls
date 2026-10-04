@@ -1610,6 +1610,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                         args.limit - len(items),
                         media=getattr(args, "media", "any"),
                         **({"catalog_filters": args.catalog_filter} if getattr(args, "catalog_filter", None) else {}),
+                        **({"language": args.language} if name == "un_webtv" else {}),
                     )
                 except ValueError as e:
                     errors.append({"provider": name, "error": str(e)})
@@ -1946,7 +1947,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             return reject_all(ledger, chosen, getattr(args, "reason", None))
         args.candidate = chosen[0]
     c = ledger.get(args.candidate)
-    if not allowed(c, rules) and cmd in ("preview", "approve", "permit", "fetch"):
+    if not allowed(c, rules) and cmd in ("preview", "approve", "permit", "access", "fetch"):
         raise ValueError("Asset bloqueado pelas regras atuais do usuário.")
     if cmd == "preview" and getattr(args, "option", None):
         if args.scan:
@@ -1961,6 +1962,11 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
     if cmd == "preview" and args.scan:
         return scan_candidate(ledger, c, config)
     if cmd in ("preview", "approve"):
+        if cmd == "preview" and not args.reference_only:
+            from .broadcasts import preview_window, refresh_working_item
+
+            refresh_working_item(ledger, c)
+            args.start, args.end = preview_window(c, args.start, args.end)
         # `--reference-only` não pede mídia nenhuma: é o cartaz estático de um vídeo que
         # a fonte não deixa baixar. Exigir intervalo aqui obrigaria a inventar um.
         reference_without_range = cmd == "preview" and args.reference_only and args.start is None and args.end is None
@@ -1987,6 +1993,10 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
     approval_invalidated = False
     if cmd == "approve":
         approve(c, args.by, args.channel, args.statement)
+    elif cmd == "access":
+        from .broadcasts import record_access
+
+        record_access(ledger, c, args.by, args.evidence)
     elif cmd == "permit":
         preset = getattr(args, "preset", None)
         if preset and (args.declaration or args.declared_by or args.declaration_text):
@@ -2076,6 +2086,10 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             approval_invalidated = True
     elif cmd == "fetch":
         _fetch_started_at = time.monotonic()
+        from .broadcasts import refresh_working_item, require_access
+
+        refresh_working_item(ledger, c)
+        require_access(ledger, c)
         require_fetch(c)
         src = c.get("local_path")
         temp = None
@@ -2089,7 +2103,12 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                 c.update(fresh)
                 ledger.save("fetch-refresh", c)
                 require_fetch(c)
-            url = fresh.get("media_url")
+            if c["provider"] == "ec_audiovisual":
+                c.update(fresh)
+                ledger.save("fetch-refresh", c)
+                require_access(ledger, c)
+                require_fetch(c)
+            url = fresh.get("media_url") if fresh.get("acquisition", {}).get("method") == "https" else None
             if not url:
                 raise ValueError(
                     "Esta fonte não disponibilizou arquivo por transporte permitido; "
@@ -2227,6 +2246,10 @@ def _acquire_preview_source(ledger, c, args, config):
     """Download the working file for a preview. A still has no interval to cap."""
     if args.reference_only or c["provider"] == "local":
         return
+    from .broadcasts import refresh_working_item, require_access
+
+    refresh_working_item(ledger, c)
+    require_access(ledger, c)
     from . import catalogs
 
     if c["provider"] in catalogs.NAMES:
@@ -2443,7 +2466,6 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
     """
     from .acquisition import direct_media
     from .inspecting import candidate_windows
-    from .social import probe_remote
 
     if args.max_windows is not None and not 1 <= args.max_windows <= 20:  # noqa: PLR2004 - matches the "--max-windows entre 1 e 20" message below
         raise ValueError("Use --max-windows entre 1 e 20.")
@@ -2468,7 +2490,9 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
         source = providers.resolve(url)
     if source.get("provider") == "archive" and source.get("acquisition", {}).get("status") == "unavailable":
         raise ValueError("Selected Archive.org file requires separate access; public inspection is unavailable.")
-    from . import catalogs
+    from . import broadcasts, catalogs
+
+    broadcasts.prepare_inspection(ledger, source)
 
     if source.get("provider") in catalogs.NAMES:
         source = catalogs.refresh(source)
@@ -2487,7 +2511,7 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
             if source.get("catalog"):
                 probe["source_transcripts"] = catalogs.inspect_transcripts(source)
     else:
-        probe = probe_remote(url, cache=ledger.root.parent / ".getbrolls-sources")
+        probe = broadcasts.inspect_remote(source, url, ledger.root.parent / ".getbrolls-sources")
     cap = float((config or {}).get("max_seconds") or 0)
     windows = clamp_windows(candidate_windows(probe, args.query, args.max_windows or 3), cap)
     if c is not None and (probe["duration_s"] or c["provider"] in catalogs.NAMES):
@@ -2521,6 +2545,7 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
         "subtitle_langs_total": probe.get("subtitle_langs_total", len(probe["subtitle_langs"])),
         "limitations": list(probe.get("limitations") or []),
         "candidate_windows": windows,
+        **({"representation_status": probe["representation_status"]} if "representation_status" in probe else {}),
         **({"source_transcripts": probe["source_transcripts"]} if "source_transcripts" in probe else {}),
     }
 

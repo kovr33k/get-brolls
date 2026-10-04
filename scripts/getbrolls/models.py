@@ -76,6 +76,23 @@ def signature(c):
                             "selected_rights": c["catalog"].get("selected_rights"),
                             "access_restricted": c["catalog"].get("access_restricted"),
                             "institution_record": c["catalog"].get("institution_record"),
+                            **(
+                                {
+                                    key: c["catalog"].get(key)
+                                    for key in (
+                                        "parent_id",
+                                        "provider_source_start",
+                                        "provider_shot_duration",
+                                        "download_enabled",
+                                        "is_downloadable",
+                                        "copyrights",
+                                        "scope",
+                                        "cc_by",
+                                    )
+                                }
+                                if c.get("provider") == "ec_audiovisual"
+                                else {}
+                            ),
                         }
                     ]
                     if c.get("catalog")

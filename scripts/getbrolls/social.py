@@ -366,17 +366,26 @@ def metadata(url):
     }
 
 
-def probe_remote(url, langs=SUBTITLE_LANGS, cache=None):  # noqa: C901 - existing size; one branch per cache/retry/subtitle-language outcome
+def _validate_transport(url, source_url=None):
+    from .providers import resolve
+
+    if source_url is None:
+        resolve(url)
+    else:
+        source = resolve(source_url, catalog_file=url)
+        if source["provider"] != "ec_audiovisual" or source.get("media_url") != url:
+            raise ProviderError("Transport must match the selected public EC media representation.")
+
+
+def probe_remote(url, langs=SUBTITLE_LANGS, cache=None, *, source_url=None):  # noqa: C901 - existing size; one branch per cache/retry/subtitle-language outcome
     """O que a fonte conta sobre si: duração, capítulos, legendas e descrição.
 
     Um único pedido ao yt-dlp, sem baixar vídeo, com as mesmas pausas de
     `GB_YTDLP_SLEEP` do resto da skill. O VTT das legendas fica na pasta privada
     `.getbrolls-sources/` com 0600, nunca dentro de `brolls/`.
     """
-    from .providers import resolve
-
     # Só páginas reconhecidas, nunca uma URL qualquer vinda do chat.
-    resolve(url)
+    _validate_transport(url, source_url)
     cache = Path(cache) if cache is not None else None
     if cache is not None:
         cache.mkdir(parents=True, exist_ok=True)
@@ -498,13 +507,12 @@ def probe_remote(url, langs=SUBTITLE_LANGS, cache=None):  # noqa: C901 - existin
     }
 
 
-def download_segment(url, target, start, end):
+def download_segment(url, target, start, end, *, source_url=None):
     from .media import probe
     from .media import run as media_run
-    from .providers import resolve
 
     # Only recognized social pages, never a user-provided command or arbitrary URL.
-    resolve(url)
+    _validate_transport(url, source_url)
     if not all(math.isfinite(v) for v in (start, end)) or start < 0 or end <= start:
         raise ProviderError("Intervalo inválido para download social.")
     target = Path(target)

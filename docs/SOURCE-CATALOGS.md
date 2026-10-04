@@ -30,10 +30,10 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 | Pixabay | Illustrative atmosphere and context | Pixabay API key; current adapter searches video | Search |
 | Mapillary | Images of a particular street or place | Client token and geographic search | Planned |
 | Telegram | Posts and attachments in selected public channels | Telethon, application credentials, user session | Planned |
-| GDELT TV | Locating a television segment and time reference | Public TV search API; locator role | Planned |
+| GDELT TV | Locating a television segment and time reference | Public TV search API; separate linked original | Implemented; dated caption/locator sample, restricted original |
 | X | Public posts, exact quotations, attached media | Prior route: xAI X Search through agreed Grok OAuth | Planned |
-| EC Audiovisual Service | EU events, speeches, stockshots, institutional photos | AV Portal client endpoint, then portal backend | Planned |
-| UN Web TV | UN meetings, briefings, speeches | UN Transcripts API; catalog/direct links for older video | Planned |
+| EC Audiovisual Service | EU events, speeches, stockshots, institutional photos | AV Portal client endpoint, then portal backend | Implemented; one decoded shot sample |
+| UN Web TV | UN meetings, briefings, speeches | UN Transcripts API; catalog/direct links for older video | Implemented; transcript/player metadata sample, acquisition unverified |
 | UN Audiovisual Library | UN historical footage and high-quality originals | Browser attempt/import, asset URL/ID and supplied original | URL/browser; original request remains manual |
 | Destockd | Individual shots from FedFlix films | Browser attempt/import, shot preview and Archive original link | URL/browser; no undocumented API calls |
 | Instagram | Reels, participant posts, contemporary event footage | Authorized browser; video/audio acquisition route | URL/browser; no CLI keyword search |
@@ -138,6 +138,8 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 
 ## GDELT TV
 
+Implemented as `gdelt_tv` with shared planned-query accounting and explicit Archive/local original linking. See [commands](GUIDE.md#providers--gdelt-tv-ec-audiovisual-and-un-web-tv). A 2026-10-04 StationDetails observation reports CNN coverage from 2009-07-02 through 2024-10-10. This dated range is queried and retained per station; it is not a universal GDELT limit. No visual route is implemented. The historical sample's Archive files require separate access.
+
 - **Search:** public TV API for finding a broadcast segment and temporal reference.
 - **Result:** a locator. Treat caption-based matches and any visual/AI search route as separate capabilities with their own actual channel/date coverage.
 - **Acquisition:** establish where the underlying broadcast can be viewed and obtained. A search hit is not a promise of a downloadable or cleared editing file.
@@ -155,7 +157,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 
 ## EC Audiovisual Service
 
-**Retained provider ID:** `ec_audiovisual`. The supplied integration note describes an implementation in the old project; the route still needs an adapter and validation in this checkout.
+**Provider ID:** `ec_audiovisual`. Implemented in this checkout with bounded public discovery, exact-shot identity and existing review/acquisition gates. The primary client/schema and a selected decoded MP4 were revalidated on 2026-10-04; see [commands](GUIDE.md#providers--gdelt-tv-ec-audiovisual-and-un-web-tv) and [evidence](QUALITY.md). Fallback and HLS paths have offline coverage; live fallback/HLS acquisition remain unverified.
 
 ### Researched access route
 
@@ -176,7 +178,7 @@ The supplied note reports credential-free read-only calls: no API key, OAuth, or
 ### Search and shot metadata
 
 - Video-first search: **`VIDEOSHOT` → `VIDEO`**. Search exact catalog segments before whole videos.
-- Retained adapter options: `kind=video` searches both; `segments=false` searches whole videos only; `kind=image` searches `PHOTO`/`REPORTAGE`; `kind=all` searches all four record types. These are proposed adapter options, not get-brolls CLI flags.
+- CLI: `--media video` searches shots then videos, `--media image` searches `PHOTO`/`REPORTAGE`, and `any` allows all four. `--catalog-filter type=VIDEO` selects whole recordings. Keywords use the client parameter `kwgg`; `q` does not filter this endpoint.
 - Preferred metadata/media language: `EN`; retained fallback order: `INT`, English, French, then the first available language.
 - Preserve shot reference as the candidate identity, parent/document reference as the public page, `timecodeIn` as `provider_source_start`, and `shotduration` as `provider_shot_duration`/candidate duration.
 - A shot's media representation may be the parent video. Apply its source start exactly once; an explicitly chosen `source_start` overrides the provider start.
@@ -193,6 +195,8 @@ The supplied note reports credential-free read-only calls: no API key, OAuth, or
 ## UN Web TV
 
 **Retained provider ID:** `un_webtv`. Keep this separate from the Audiovisual Library.
+
+Implemented with shared locale/query accounting, public timed-transcript inspection and separate player metadata checks. A dated sample passed transcript discovery and yt-dlp player inspection; media acquisition/decoding remains unverified without an explicit access decision. See [commands](GUIDE.md#providers--gdelt-tv-ec-audiovisual-and-un-web-tv).
 
 - **Full-text route:** public UN Transcripts search; use `ft=1` to search transcript content rather than only meeting titles:
 
@@ -255,7 +259,7 @@ Local files are an import route rather than another catalog. Import them with th
 
 ## Integration design
 
-The accepted [fragment-specific search chain planning decision](adr/0001-fragment-catalog-search-chain.md) records the search behavior and an integrated rollout covering the complete target inventory. [CONTEXT.md](../CONTEXT.md) defines its domain terms; neither document establishes additional implemented provider capabilities. LoC, DVIDS, Europeana and NARA now join the common route with [explicit original selection and access/filter requirements](GUIDE.md#providers--loc-dvids-europeana-and-nara). Eight remaining catalog adapters are planned.
+The accepted [fragment-specific search chain planning decision](adr/0001-fragment-catalog-search-chain.md) records the search behavior and an integrated rollout covering the complete target inventory. [CONTEXT.md](../CONTEXT.md) defines its domain terms; neither document establishes additional implemented provider capabilities. LoC, DVIDS, Europeana and NARA join the common route with [explicit original selection and access/filter requirements](GUIDE.md#providers--loc-dvids-europeana-and-nara). GDELT TV, EC Audiovisual and UN Web TV now have implemented bounded adapters. Mapillary, Telegram and X remain planned; browser import and source-specific acquisition limits still apply to the implemented locator routes.
 
 The accepted [catalog integration specification](SPEC-CATALOG-INTEGRATION.md) defines implementation contracts and offline/live acceptance checks for this scope.
 

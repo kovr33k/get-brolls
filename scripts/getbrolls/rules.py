@@ -157,7 +157,21 @@ def load_rules(project):  # noqa: C901, PLR0912 - existing size; validator with 
         )
     if r.get("video_format") not in ("native", "reels", "horizontal"):
         raise ValueError('Em RULES.md, "video_format" tem que ser "native", "reels" ou "horizontal".')
-    providers = {"youtube", "pexels", "pixabay", "commons", "nasa", "archive", "loc", "dvids", "europeana", "nara"}
+    providers = {
+        "youtube",
+        "pexels",
+        "pixabay",
+        "commons",
+        "nasa",
+        "archive",
+        "loc",
+        "dvids",
+        "europeana",
+        "nara",
+        "gdelt_tv",
+        "ec_audiovisual",
+        "un_webtv",
+    }
     if not isinstance(r.get("preferred_providers"), dict):
         raise ValueError(
             'Em RULES.md, "preferred_providers" tem que ter as chaves "literal" e '
