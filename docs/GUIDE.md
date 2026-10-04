@@ -293,7 +293,7 @@ Workflow commands (`search`, `resolve`, `preview`, `review`, `import-review`, `p
 | TikTok | navegador/URL completa | yt-dlp |
 | Pexels | API, PEXELS_API_KEY | HTTPS e cache de original para prévia |
 | Pixabay | API, PIXABAY_API_KEY; cache 24 h | HTTPS e cache de original para prévia |
-| Commons / NASA | APIs sem chave | HTTPS |
+| Commons / NASA | APIs sem chave; imagem e vídeo | HTTPS |
 | Archive.org | Public search and item/file metadata | Selected public file via HTTPS; restrictions remain explicit |
 | Local | resolve --file | arquivo local |
 
@@ -303,7 +303,7 @@ Fluxo único: descobrir → obter mídia de trabalho/mostrar sequência → revi
 
 ## Provedor — YouTube
 
-Motor: yt-dlp + FFmpeg, **sem API key**. `search --provider youtube` usa ytsearch. `resolve --url` aceita URL de vídeo/shorts; `preview` obtém o intervalo e gera GIF/contact sheet, mantendo aprovação pendente. `fetch` publica os bytes revisados após decisão humana e registro de condições do projeto.
+Motor: yt-dlp + FFmpeg, **sem API key**. `search --provider youtube` usa ytsearch. `resolve --url` aceita URL de vídeo/shorts; `preview` obtém o intervalo e gera GIF/contact sheet, mantendo aprovação pendente. `fetch` publica os bytes revisados após decisão humana e registro de condições do projeto. Canal, id do vídeo e o intervalo escolhido ficam no candidato. `inspect` lê capítulos e legendas quando o yt-dlp as entrega. Se a página reportar disponibilidade diferente de pública, limite de idade ou transmissão ao vivo, isso entra em `limitations`; campo ausente continua desconhecido. `--media image` neste provedor é recusado: YouTube não faz busca de foto.
 
 Fluxo: `search --provider youtube --query "..."` → `preview --candidate ID --start ... --end ...` → `fetch --candidate ID` → `verify --project ...`. Configure EJS/runtime conforme este guia. Se o site exigir sessão ou negar mídia, reporte o erro real; não troque silenciosamente para API com chave. Os scripts `.sh` de `scripts/getbrolls/tools/youtube/` que usam `VIDEO_ID` direto continuam existindo como utilitários avulsos, fora do ledger/revisão — ver [Apêndice — utilitários legados](#apêndice--utilitários-legados).
 
@@ -325,25 +325,25 @@ Desde a 2.4.0, `resolve --url` de um post do TikTok faz **um** pedido de metadad
 
 ## Provedor — Pexels
 
-PEXELS_API_KEY no ambiente. API de vídeos, poster e variante MP4. Reconsulta ID no fetch. Verifique licença e requisitos da API. https://www.pexels.com/api/documentation/
+PEXELS_API_KEY no ambiente. API de vídeos, poster e variante MP4 até 1080p. A busca não usa o cache de um dia. Reconsulta o id na prévia e no fetch, troca a URL e as dimensões anunciadas, e preserva aprovação e intervalo. `video_pictures[].nr` é índice de quadro de poster, não um segundo do vídeo. O candidato fica `stock: true` e `match.kind: illustrative`: a correspondência visual não está confirmada e a licença não é permissão de uso. `--media image` é recusado. https://www.pexels.com/api/documentation/
 
 Diagnóstico: `python3 scripts/gb.py providers`. Falha de credencial não ativa scraping ou outra conta.
 
 ## Provedor — Pixabay
 
-PIXABAY_API_KEY no ambiente. Busca de vídeos com cache 24 horas. Reconsulta ID no fetch. Verifique licença e autoria. https://pixabay.com/api/docs/
+PIXABAY_API_KEY no ambiente. Busca de vídeos com cache de 24 horas, também na reconsulta por id. A miniatura da variante escolhida é cartaz; não é um segundo do vídeo. O candidato fica `stock: true` e `match.kind: illustrative`. `--media image` é recusado. Verifique licença e autoria. https://pixabay.com/api/docs/
 
 Diagnóstico: `python3 scripts/gb.py providers`. Falha de credencial não ativa scraping ou outra conta.
 
 ## Provedor — Wikimedia Commons
 
-Action API pública filtra vídeos, preserva autor e licença por arquivo. Licença desconhecida nunca vira domínio público. https://commons.wikimedia.org/wiki/Commons:API/MediaWiki
+Action API pública aceita imagem e vídeo. A busca, o resolve e o refresh pedem `mediatype` no `imageinfo`, junto com URL, tamanho e MIME; busca e resolve também pedem `extmetadata`. `VIDEO` entra como vídeo. `BITMAP` e `DRAWING` entram como imagem. `AUDIO`, office, texto, executável e os demais tipos declarados ficam de fora, mesmo quando o MIME parece imagem ou vídeo. Sem `mediatype`, só MIME que começa com `video/` ou `image/` entra, então `application/ogg` sozinho não vira vídeo. O MIME gravado continua o valor da API. O nome do arquivo não escolhe o tipo. A busca usa um `imageinfo` e escolhe a URL do arquivo; `thumburl`, mesmo com `time=`, é só cartaz e não prova corte no servidor. A busca não pede `videoinfo`. O `resolve` de um vídeo grava derivatives com `transcodekey` e faixas com `srclang` nesse candidato. A prévia baixa de novo o arquivo original e não copia esse detalhe para o candidato salvo na busca. Ao resolver ou atualizar um vídeo, derivatives e timed text entram só se `videoinfo` responder. A lista `derivatives` pode repetir o arquivo original sem `transcodekey`, às vezes só com parâmetros de rastreio na URL: esse arquivo continua um único `original`. Linha com `transcodekey` é um transcode e guarda essa chave. Um vídeo que não é o original e não tem `transcodekey` fica como representação utilizável, sem um papel inventado. Imagem nessa lista continua cartaz. O TimedMediaHandler publica cada faixa com `srclang`, `src`, `kind`, `type`, `label` e `dir`. O candidato guarda `srclang` em `commons.timed_text[].lang` e o `src` em `url`, mais esses campos quando vêm preenchidos; `lang` e `language` continuam aceitos como apelidos. Isso é o endereço da faixa descoberta: a CLI não baixa nem lê o VTT e não inventa tempos de legenda. Se o módulo faltar, a resposta vier vazia ou o metadado opcional vier malformado, o arquivo original continua utilizável e `videoinfo` fica `absent` quando a consulta não responde. Autor, licença e atribuição são os da página do arquivo. Licença desconhecida nunca vira domínio público. https://commons.wikimedia.org/wiki/Commons:API/MediaWiki e https://www.mediawiki.org/wiki/Extension:TimedMediaHandler/API
 
 Diagnóstico: `python3 scripts/gb.py providers`. Falha de credencial não ativa scraping ou outra conta.
 
 ## Provedor — NASA
 
-Images API pública consulta vídeos e assets MP4. Autoria de terceiros e condições precisam de verificação antes de permit. https://images.nasa.gov/docs/images.nasa.gov_api_docs.pdf
+Images API pública, sem chave geral de desenvolvedor, resolve imagem e vídeo pelo `nasa_id` e pela lista `/asset/`. Essa lista publica os arquivos de `images-assets.nasa.gov` em `http://`. O `get_json` já troca `http` por `https` só nesse host, sem usuário e sem porta, ao limpar o JSON, antes de devolver o corpo e antes da validação de URL pública. Outro host, credencial ou consulta assinada continua rejeitado. A miniatura de busca é cartaz, mesmo quando o link de preview já é `https://`. O candidato guarda centro, data e autoria de terceiros em `nasa`; `creator.name` usa o terceiro quando existe, senão o centro. Direitos ficam `unknown` até `permit`. A descrição do item não é evidência de uso. Essa troca de esquema no transporte não baixa nem decodifica o arquivo. https://images.nasa.gov/docs/images.nasa.gov_api_docs.pdf
 
 Diagnóstico: `python3 scripts/gb.py providers`. Falha de credencial não ativa scraping ou outra conta.
 
@@ -384,6 +384,8 @@ Changing `--media` changes the source query and uses the same allowance. If iden
 `preview --option <name>` creates or reuses one interval selection of the source you already resolved. Repeating the name edits that selection and does not add a candidate. A preview without `--option` still edits the named candidate. The selection keeps the original source and representation, including a local file hash when one exists, and does not inherit approval, rejection, verified output, or rights permission from the source candidate. `--option` cannot be combined with `--scan`. Status and the Storyboard count one raw hit for each returned, resolved, or imported source. A scene selection stays visible as a suitable option, viewing evidence, and a pending human decision, and it does not add another raw hit. Separate returned recordings, including reposts of the same shot, remain separate raw hits even when suitability groups them.
 
 Three current suitable distinct options set the target and refuse additional search queries, including a prospective dry-run. Replaying a recorded query does not count as an additional query. Confirmation is bound to the fragment context, representation, and interval. Changing that context, representation, or interval removes the record from the current count until `search-confirm` is recorded again for the current material. Rejecting the candidate, with `reject` or a Storyboard `import-review`, does the same: a later human approval does not make the old viewing count again. Restoring the same context makes the matching record current again. A later confirmation supersedes the older one. Human approval invalidation stays independent: a format change that only bumps `segment.revision` does not drop suitability.
+
+YouTube, Wikimedia Commons, NASA, Pexels, and Pixabay use the same bounded fragment commands and catalog chains. A still records measured width and height and keeps duration, frame rate, and the interval empty. Planned Pexels and Pixabay hits stay `stock: true` and illustrative. YouTube, Pexels, and Pixabay have no photo search, so a planned `--media image` request is refused before a query is spent. Image-only project rules likewise refuse a saved video-only catalog before a query is spent.
 
 Visual confirmation never sets approval, rights, or fetch permission. `fetch` still requires a valid human approval signature, permit evidence, and available acquisition. A preview-confirmed option whose original needs separate access is stored and shown, and whether it counts toward the three options stays deferred. The planned chain stops at three confirmed suitable options. A raw-hit count does not stop it and does not fulfill it. The Storyboard review lists raw hits, confirmed suitable options, viewing evidence, the pass and current catalog, a shortfall when the search is finished short of three, and pending human decisions in English, keeps the original scenario narration, and still limits `--ready-only` gallery shots to prepared previews. The search block is a short summary; identities, intervals, and hashes stay in an optional details section.
 

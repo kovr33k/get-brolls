@@ -10,6 +10,12 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.9.0 — 2026-10-04
+
+- Existing catalogs: YouTube, Wikimedia Commons, NASA, Pexels, and Pixabay use the shared bounded fragment and confirmation workflow. Stock search hits stay illustrative under project policy; planned photo requests on video-only catalogs are refused before spending a query. Measured stills and independent human/rights gates remain unchanged.
+- Commons: search, resolve, and refresh preserve the API MIME and classify `application/ogg` using `mediatype: VIDEO`; audio and unsupported file types stay out. Actual originals, keyed transcodes, discovered `srclang` tracks, exact file-page licensing, and attribution remain distinct from posters and parsed captions.
+- Provenance and reporting: retain item-specific YouTube limitations, NASA center/date/third-party information, and refreshed stock media dimensions. Capability cards separate configured access from dated technical samples. Four sampled files were acquired and decoded; the selected Pexels window was visually unsuitable. One YouTube sample resolved and inspected but preview acquisition returned HTTP 403. No sample implies current availability, human approval, or reuse permission.
+
 ## 2.8.0 — 2026-10-04
 
 - Fragment catalog chains: `search-plan` persists one to five ordered, allowed catalogs with a reason and expected material for each. Explicit advances preserve options and history. Each catalog allows three meaningful queries, including translations and query-shortening fallback; replay and restart never refill the allowance.

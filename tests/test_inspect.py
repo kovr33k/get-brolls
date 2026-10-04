@@ -90,6 +90,8 @@ WITH_EVERYTHING = {
     ],
     "automatic_captions": {"pt": [{"ext": "vtt"}], "en": [{"ext": "vtt"}]},
     "subtitles": {},
+    "availability": "unlisted",
+    "age_limit": 18,
 }
 
 BARE = {
@@ -308,6 +310,7 @@ class ProbeRemoteTests(unittest.TestCase):
         self.assertEqual(["pt", "en"], probe["subtitle_langs"])
         self.assertEqual(2, probe["subtitle_langs_total"])
         self.assertIn("poeira", probe["description"])
+        self.assertEqual(["availability: unlisted", "age_limit: 18"], probe["limitations"])
 
     def test_the_vtt_lands_in_the_private_sources_folder_with_0600(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -370,6 +373,7 @@ class ProbeRemoteTests(unittest.TestCase):
         self.assertEqual([], probe["chapters"])
         self.assertEqual([], probe["subtitle_langs"])
         self.assertEqual({}, probe["subtitles"])
+        self.assertEqual([], probe["limitations"])
 
     def test_without_an_info_json_the_metadata_comes_from_a_second_simulated_call(self):
         """Sem `.info.json`, o probe ainda responde — e o erro de verdade não some."""
@@ -843,6 +847,7 @@ class DirectMediaSourceTests(unittest.TestCase):
             self.assertAlmostEqual(8.0, payload["duration_s"], places=1)
             self.assertEqual([], payload["subtitle_langs"])
             self.assertEqual([], payload["chapters"])
+            self.assertEqual([], payload["limitations"])
             self.assertTrue(payload["candidate_windows"])
             for window in payload["candidate_windows"]:
                 self.assertLessEqual(window["end_s"], 8.05)

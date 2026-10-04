@@ -1961,7 +1961,7 @@
           ],
           "default": "any",
           "dest": "media",
-          "help": "Tipo de arquivo na fonte: image, video ou any (padrão); só NASA e Commons têm os dois",
+          "help": "Source media type: image, video, or any (default); NASA, Commons, and Archive.org support both",
           "nargs": null,
           "option_strings": [
             "--media"

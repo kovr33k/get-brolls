@@ -3,7 +3,7 @@ name: get-brolls
 description: 'Coleta, pré-visualiza e entrega B-rolls com revisão humana e origem registrada. Use quando alguém pedir b-roll, vídeos de apoio, imagens de apoio, cutaways, inserts, footage, "um corte do X falando Y", um print da tela de um site ou de uma notícia, ou material para ilustrar um vídeo, Reel ou aula — buscando em YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org ou bancos (Pexels, Pixabay), gerando prévias para revisão humana e entregando os trechos com origem e condições de uso. Also in English: collect B-roll, cutaways, inserts, supporting footage, stock video, screen grabs. Não serve para editar, montar ou renderizar o vídeo final. Not for editing or rendering the finished video.'
 license: MIT
 metadata:
-  version: "2.8.0"
+  version: "2.9.0"
   type: "skill"
   status: "current"
   created: "2026-09-15"
@@ -47,7 +47,7 @@ Use `brief --beat <ID>` and `--shot <beat.id>`. Check `library --search` first; 
 
 **Checkpoint C2.** Ordinary search: list 5 to 8 and ask "sigo com estes?". A planned chain does not stop on raw hits.
 
-Planned search: [workflow](docs/GUIDE.md#provider--archiveorg-and-fragment-search). One to five catalogs; two or three, not padding. Three queries, in the agent's language, including translations and shortening; retries add none. Stop at three confirmed across catalogs. One later chain; no third pass. Unplanned `search` is one call. `search-confirm` is not approval or `fetch`. A shortfall is not missing footage. [Catalogs](docs/SOURCE-CATALOGS.md).
+YouTube, Commons, NASA, Pexels, Pixabay, Archive share [workflow](docs/GUIDE.md#provider--archiveorg-and-fragment-search): one to five catalogs, three queries each, in the agent's language, translations/shortening included. One disjoint second chain; no third. Stop at three visually confirmed options. Unplanned `search` stays one call. Stills measured; stock illustrative. `search-confirm` is not approval or `fetch`. A shortfall is not missing footage. [Catalogs](docs/SOURCE-CATALOGS.md).
 
 ## Passo 4 — Analise e pré-visualize
 

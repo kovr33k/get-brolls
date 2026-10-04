@@ -763,6 +763,24 @@ def approve_all(ledger, args, rules, only=None):  # noqa: C901, PLR0912 - existi
     }
 
 
+def _search_annotation(name, intent):
+    """Stock hits stay illustrative. Other catalogs keep the intent the person asked for."""
+    if name in ("pexels", "pixabay"):
+        return {
+            "stock": True,
+            "match": {
+                "kind": "illustrative",
+                "reason": "Stock catalog result. Visual match is unconfirmed and this is not reuse permission.",
+            },
+        }
+    return {
+        "match": {
+            "kind": intent,
+            "reason": "Candidato de busca: correspondência visual deve ser revisada.",
+        }
+    }
+
+
 def _search_row(c):
     """A cópia que sai no JSON: o candidato mais o que a fonte já sabe e o manifesto não guarda.
 
@@ -1502,6 +1520,29 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
     if cmd == "search" and getattr(args, "planned", False):
         from .fragment_search import search_command
 
+        media = getattr(args, "media", "any") or "any"
+        catalog = args.provider
+        if catalog == "auto":
+            saved_plan = (ledger.data.get("search_plans") or {}).get(args.shot)
+            if isinstance(saved_plan, dict) and saved_plan.get("catalog"):
+                catalog = saved_plan["catalog"]
+        # YouTube and the stock banks have no photo search. Refuse before a query is spent.
+        if catalog not in (*providers.MEDIA_AWARE, "auto"):
+            if "video" not in rules["asset_types"]:
+                return {
+                    "items": [],
+                    "errors": [],
+                    "note": "This catalog searches video. Image-only projects need an image catalog or a browser/local import route.",
+                }
+            if media == "image":
+                return {
+                    "items": [],
+                    "errors": [],
+                    "note": (
+                        "Photo search is not implemented for this catalog. "
+                        "Commons, NASA, and Archive.org accept --media image."
+                    ),
+                }
         return search_command(ledger, args, rules)
     if cmd == "deliver":
         return deliver_report(ledger, rules, getattr(args, "dry_run", False))
@@ -1519,13 +1560,18 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
     if cmd == "search":
         from getbrolls import library
 
-        if "video" not in rules["asset_types"] and args.provider not in providers.MEDIA_AWARE:
-            return {
-                "items": [],
-                "errors": [],
-                "note": "APIs atuais pesquisam vídeos. Para imagem/notícia use importação local ou browser-plan.",
-            }
         args.provider = {"pixel": "pexels", "getbrolls": "auto"}.get(args.provider, args.provider)
+        media = getattr(args, "media", "any") or "any"
+        video_disabled = "video" not in rules["asset_types"]
+        video_note = "APIs atuais pesquisam vídeos. Para imagem/notícia use importação local ou browser-plan."
+        photo_note = (
+            "Photo search is not implemented for this catalog. Commons, NASA, and Archive.org accept --media image."
+        )
+        if args.provider not in (*providers.MEDIA_AWARE, "auto"):
+            if video_disabled:
+                return {"items": [], "errors": [], "note": video_note}
+            if media == "image":
+                return {"items": [], "errors": [], "note": photo_note}
         if not 1 <= args.limit <= 50:  # noqa: PLR2004 - matches the "--limit entre 1 e 50" message below
             raise ValueError("Use --limit entre 1 e 50.")
         shot = (getattr(args, "shot", None) or "").strip() or None
@@ -1539,6 +1585,10 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             raise ValueError(
                 "Nenhuma fonte configurada: use resolve --file, Commons/NASA ou configure a chave de um banco."
             )
+        if args.provider == "auto" and (media == "image" or video_disabled):
+            names = [name for name in names if name in providers.MEDIA_AWARE]
+            if not names:
+                return {"items": [], "errors": [], "note": photo_note if media == "image" else video_note}
 
         def sweep(query, retry=False):
             """Uma varredura pelos provedores escolhidos, com esta query exata."""
@@ -1571,10 +1621,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                         excluded += 1
                         continue
                     c["format"] = format_report(c, rules)
-                    c["match"] = {
-                        "kind": args.intent,
-                        "reason": "Candidato de busca: correspondência visual deve ser revisada.",
-                    }
+                    c.update(_search_annotation(name, args.intent))
                     if shot:
                         c["id"] += ":shot:" + shot
                         c["shot"] = shot
@@ -2263,6 +2310,8 @@ def fill_remote_metadata(c):
         c["creator"]["url"] = found["creator_url"]
     if found.get("duration_s"):
         c["media"]["duration_s"] = found["duration_s"]
+    if found.get("limitations"):
+        c["limitations"] = list(found["limitations"])
     return c
 
 
@@ -2424,6 +2473,7 @@ def inspect_source(ledger, args, config=None):
         "chapters": probe["chapters"],
         "subtitle_langs": probe["subtitle_langs"],
         "subtitle_langs_total": probe.get("subtitle_langs_total", len(probe["subtitle_langs"])),
+        "limitations": list(probe.get("limitations") or []),
         "candidate_windows": windows,
     }
 
@@ -2457,6 +2507,7 @@ def probe_direct(ledger, source, url=None):
         "description": "",
         "tags": [],
         "subtitles": {},
+        "limitations": [],
     }
 
 
