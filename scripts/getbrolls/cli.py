@@ -23,7 +23,7 @@ SUMMARIES = {
     "doctor": "Diagnosticar dependências, caminhos fixados e fontes utilizáveis",
     "status": "Resumir onde o projeto está por etapa, sem alterar arquivos",
     "search": "Pesquisar candidatos numa fonte e registrá-los no projeto (--shot liga ao beat; --dry-run não grava)",
-    "search-plan": "Save a one-catalog search plan for a BRIEF fragment without resetting its query allowance",
+    "search-plan": "Save an ordered catalog chain for a BRIEF fragment without resetting query allowances",
     "search-assess": "Record the managing agent's assessment of a fragment search attempt",
     "search-confirm": "Record that a fragment option was actually viewed and whether it matches",
     "resolve": "Registrar um candidato a partir de URL pública ou arquivo local",
@@ -396,9 +396,48 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         if name in ("search-plan", "search-assess"):
             p.add_argument("--shot", required=True, help="Existing BRIEF fragment ID")
             if name == "search-plan":
-                p.add_argument("--provider", required=True, help="One supported catalog allowed by the fragment")
-                p.add_argument("--reason", required=True, help="Why this catalog fits the fragment")
-                p.add_argument("--expected-material", required=True, help="Material expected in this catalog")
+                p.add_argument(
+                    "--provider",
+                    action="append",
+                    help="Catalog in this ordered chain. Repeat once per catalog, from one to five",
+                )
+                p.add_argument(
+                    "--reason",
+                    action="append",
+                    help="Why this catalog belongs, in the same order. Also the advance or shortfall explanation",
+                )
+                p.add_argument(
+                    "--expected-material",
+                    action="append",
+                    help="Material expected in this catalog, in the same order",
+                )
+                p.add_argument(
+                    "--pass",
+                    dest="search_pass",
+                    type=int,
+                    choices=(1, 2),
+                    help="Pass 1 is the initial chain. Pass 2 is the one additional chain of other catalogs",
+                )
+                p.add_argument(
+                    "--advance",
+                    action="store_true",
+                    help="Close the named current catalog and keep its attempts, options, and allowance",
+                )
+                p.add_argument(
+                    "--because",
+                    choices=(
+                        "allowance-exhausted",
+                        "unavailable-access",
+                        "unsuitable-source",
+                        "route-unimplemented",
+                    ),
+                    help="Why the current catalog is closed: allowance, access, unsuitable source, or unimplemented route",
+                )
+                p.add_argument(
+                    "--no-further-catalog",
+                    action="store_true",
+                    help="Record that no other suitable catalog remains. This does not prove footage is missing",
+                )
                 p.add_argument("--dry-run", action="store_true", help="Validate and show the plan without saving it")
             else:
                 p.add_argument(
@@ -406,6 +445,15 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                     choices=("image", "video", "any"),
                     default=None,
                     help="Recorded media filter when the same wording was used more than once",
+                )
+                p.add_argument(
+                    "--provider",
+                    help="Catalog when the same wording was recorded on more than one catalog",
+                )
+                p.add_argument(
+                    "--coverage",
+                    choices=("incomplete", "assessed"),
+                    help="incomplete: the results do not cover the needed dates or collections",
                 )
                 p.add_argument("--query", required=True, help="Query wording of the recorded attempt")
                 p.add_argument(
@@ -443,7 +491,9 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
         if name == "search":
             p.add_argument(
-                "--planned", action="store_true", help="Use the saved fragment plan and durable three-query allowance"
+                "--planned",
+                action="store_true",
+                help="Use the saved fragment chain and the current catalog's three-query allowance",
             )
             p.add_argument("--language", help="Agent-selected source query language; does not renew the allowance")
             p.add_argument(

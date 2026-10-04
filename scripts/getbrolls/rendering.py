@@ -304,7 +304,16 @@ def _fragment_article(row):
             f"<p>Suitable options: {row['suitable_count']} of 3. "
             f"Target reached: {'yes' if row['target_reached'] else 'no'}.</p>"
         ),
+        (
+            f"<p>Pass {_esc(row.get('pass'))}, catalog {_esc(row.get('catalog'))}, next {_esc(row.get('next')).replace('_', ' ')}.</p>"
+        ),
     ]
+    shortfall = row.get("shortfall")
+    if shortfall:
+        parts.append(
+            f'<p class="search-shortfall">Shortfall: {_esc(shortfall.get("suitable_count"))} of 3. '
+            f"{_esc(shortfall.get('reason'))} {_esc(shortfall.get('note'))}</p>"
+        )
     if narration:
         parts.append(
             f'<p class="scenario-narration"><span class="script-label">Scenario narration</span> {_esc(narration)}</p>'

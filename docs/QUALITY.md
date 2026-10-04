@@ -6,7 +6,7 @@ updated: 2026-10-04
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.7.0
+# Qualidade e evidências — GET B-ROLLS 2.8.0
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
@@ -31,6 +31,16 @@ Este documento reúne o estado de qualidade, as regressões cobertas, os limites
 **Image still dimensions.** On 2026-10-04 the real CLI resolved and previewed the public NASA still [PIA23645](https://images.nasa.gov/details/PIA23645), its HTTPS medium JPEG, 63,836 bytes, with no interval. Preview succeeded. Approval stayed pending and rights stayed unknown. The persisted candidate left width and height null; the acquired file measures 1280×1266. A one-frame probe can also report a duration and a frame rate. Preview now stores the measured width and height for a newly downloaded or reused still and leaves duration and frame rate unknown. An independent repeat of the actual cached preview then persisted 1280×1266, with duration and frame rate still null, an empty interval, approval pending, and rights unknown. The generated poster was opened and visually inspected. This is not rights clearance or acceptance of a creator scenario.
 
 **Limits.** The deferred requested-original count is unchanged. Unsupported distinctness claims stay visible for a person to review. Grouping uses asset identity, file hashes, and the interval thresholds in the guide; it does not use an embedding model. This section does not claim human acceptance or rights clearance.
+
+## Search chains — 2026-10-04
+
+**Implemented scope.** A fragment can keep an ordered chain of one to five allowed catalogs. Each catalog has three meaningful queries, and one additional disjoint pass is allowed. Confirmed suitable options carry across catalogs. Three current suitable options stop later dispatches. Empty results, access failures, and incomplete coverage stay separate and do not establish that matching footage is absent. A returned result or an interrupted dispatch on an otherwise exhausted catalog blocks the additional pass and a shortfall until the existing `search-assess` step. Assessment does not add a query or move the attempt to another catalog or pass. Status stays read-only. Ordinary search and dry-run do not become a chain. A catalog without an implemented keyword-search route can be planned, and a query there is refused. Version remains 2.7.0 in this working tree. Release metadata stays with the root review.
+
+**Offline evidence.** The full Windows `scripts/check.ps1` passes: 1,100 tests in 177.181 seconds, 31 skips, no failures or errors. Ruff lint and formatting, Pyright 1.1.414 (0 errors, 0 warnings, 0 informations), skill-mirror synchronization, and documentation anchors pass. `scripts/install.ps1 -Check` exits 0. It reports that the installer prerequisites are present and that the check does not install or test network or login. `python scripts/gb.py doctor` exits 0 with `summary.missing` empty, `get_brolls` 2.7.0, Python 3.14.4, and contact-sheet labels available. Deno and the Pexels and Pixabay keys remain optional and absent. `doctor --live` was not run. The chain tests use the audited CLI, synthetic media, and transport fixtures. They cover independent fragments, plan errors, early skip, per-catalog allowance, language replay, shortening, cross-catalog retention, the stop at three suitable options, a disjoint second pass, no third pass, shortfalls of zero, one, and two options, interrupted recovery, read-only status, dry-run, and thirty meaningful queries across two five-catalog chains. At the third query, both an interrupted dispatch and unassessed results refuse a new pass and a shortfall through a restarted ledger. After `search-assess`, that transition succeeds and does not dispatch another query. These tests do not view live media, and they do not grant human approval or rights.
+
+**Live observation.** Live catalog probes were not repeated for this change. The Archive observation of 2026-10-03 and the Archive scene windows and NASA still dimensions recorded on 2026-10-04 remain the recorded live evidence. A configured tool, a session, or a successful search is not acquired media or editorial quality.
+
+**Limits.** The thirty-query bound patches synthetic search capability onto retained catalog identifiers. It does not establish a live keyword-search route for the planned adapters. Browser and locator attempt lifecycles remain a separate ticket. Whether a preview-confirmed option that still needs a separately requested original counts toward the three remains deferred.
 
 ## Blind tests
 

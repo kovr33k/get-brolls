@@ -1882,7 +1882,7 @@
           "choices": null,
           "default": false,
           "dest": "planned",
-          "help": "Use the saved fragment plan and durable three-query allowance",
+          "help": "Use the saved fragment chain and the current catalog's three-query allowance",
           "nargs": 0,
           "option_strings": [
             "--planned"
@@ -2059,6 +2059,33 @@
           "nargs": null,
           "option_strings": [
             "--media"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "provider",
+          "help": "Catalog when the same wording was recorded on more than one catalog",
+          "nargs": null,
+          "option_strings": [
+            "--provider"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "assessed",
+            "incomplete"
+          ],
+          "default": null,
+          "dest": "coverage",
+          "help": "incomplete: the results do not cover the needed dates or collections",
+          "nargs": null,
+          "option_strings": [
+            "--coverage"
           ],
           "required": false
         },
@@ -2249,7 +2276,7 @@
       ]
     },
     "search-plan": {
-      "help": "Save a one-catalog search plan for a BRIEF fragment without resetting its query allowance",
+      "help": "Save an ordered catalog chain for a BRIEF fragment without resetting query allowances",
       "options": [
         {
           "action": "_HelpAction",
@@ -2301,40 +2328,96 @@
           "required": true
         },
         {
-          "action": "_StoreAction",
+          "action": "_AppendAction",
           "choices": null,
           "default": null,
           "dest": "provider",
-          "help": "One supported catalog allowed by the fragment",
+          "help": "Catalog in this ordered chain. Repeat once per catalog, from one to five",
           "nargs": null,
           "option_strings": [
             "--provider"
           ],
-          "required": true
+          "required": false
         },
         {
-          "action": "_StoreAction",
+          "action": "_AppendAction",
           "choices": null,
           "default": null,
           "dest": "reason",
-          "help": "Why this catalog fits the fragment",
+          "help": "Why this catalog belongs, in the same order. Also the advance or shortfall explanation",
           "nargs": null,
           "option_strings": [
             "--reason"
           ],
-          "required": true
+          "required": false
         },
         {
-          "action": "_StoreAction",
+          "action": "_AppendAction",
           "choices": null,
           "default": null,
           "dest": "expected_material",
-          "help": "Material expected in this catalog",
+          "help": "Material expected in this catalog, in the same order",
           "nargs": null,
           "option_strings": [
             "--expected-material"
           ],
-          "required": true
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "1",
+            "2"
+          ],
+          "default": null,
+          "dest": "search_pass",
+          "help": "Pass 1 is the initial chain. Pass 2 is the one additional chain of other catalogs",
+          "nargs": null,
+          "option_strings": [
+            "--pass"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "advance",
+          "help": "Close the named current catalog and keep its attempts, options, and allowance",
+          "nargs": 0,
+          "option_strings": [
+            "--advance"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "allowance-exhausted",
+            "route-unimplemented",
+            "unavailable-access",
+            "unsuitable-source"
+          ],
+          "default": null,
+          "dest": "because",
+          "help": "Why the current catalog is closed: allowance, access, unsuitable source, or unimplemented route",
+          "nargs": null,
+          "option_strings": [
+            "--because"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "no_further_catalog",
+          "help": "Record that no other suitable catalog remains. This does not prove footage is missing",
+          "nargs": 0,
+          "option_strings": [
+            "--no-further-catalog"
+          ],
+          "required": false
         },
         {
           "action": "_StoreTrueAction",

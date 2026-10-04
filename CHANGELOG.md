@@ -10,6 +10,12 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.8.0 — 2026-10-04
+
+- Fragment catalog chains: `search-plan` persists one to five ordered, allowed catalogs with a reason and expected material for each. Explicit advances preserve options and history. Each catalog allows three meaningful queries, including translations and query-shortening fallback; replay and restart never refill the allowance.
+- Bounded continuation: one additional disjoint chain is allowed after the first is exhausted or skipped. The fragment limit is thirty meaningful queries across two passes. Results and uncertain dispatches must be assessed before an advance, another pass, or a shortfall, including the third query. Unsupported keyword routes remain explicit limitations.
+- Progress and compatibility: status reports catalog/pass attribution, remaining allowances, actual access and coverage outcomes, and zero-, one-, or two-option shortfalls. English Storyboard progress keeps original narration. Legacy one-catalog plans and ordinary single-provider commands remain usable; human approval and rights gates are unchanged.
+
 ## 2.7.0 — 2026-10-04
 
 - Suitable options: `search-confirm` records the generated preview or acquired file that was actually viewed, with its path and hash, the representation, the interval or still, and why it matches the fragment. Name the opened preview with `--preview gif`, `contact-sheet`, or `poster`. Identical stills count once across reposts and representations, including when the only shared identity is the provider and source id. `preview --option` keeps several scenes of one resolved source as separate selections without copying approval, rejection, output, or rights. Three current suitable options stop further search queries. Rejection, from `reject` or Storyboard import, stays out of the count until a new visual confirmation; a later approval does not restore the old one. A format-only revision change does not drop unchanged visual evidence. Whether a confirmed option that still needs a separately requested original counts toward the three remains deferred.
