@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-04
+updated: 2026-10-05
 tags: [get-brolls, guide, installation, providers, storyboard]
 ---
 
@@ -421,6 +421,8 @@ python3 scripts/gb.py resolve --url https://catalog.archives.gov/id/<NAID> --cat
 ```
 
 `inspect` reads supplied, credential-free SRT/VTT captions through the existing bounded reader (three files, 2 MiB each). LoC plain `.txt` transcripts appear in `source_transcripts` with a 32,768-character excerpt and explicit truncation; untimed text never becomes invented timed cues. Inspection of a catalog search asset records the actual selected file before cache reuse; changed source context invalidates stale approval without approving anything. HLS-only, credential-bearing links and unconfirmed LoC streaming services remain unsupported/manual. Missing keys, rejected access, empty results and incomplete coverage stay distinct. `providers` separates implementation, configuration and dated live evidence; see [QUALITY.md](QUALITY.md).
+
+**LoC browser verification.** A recognized CAPTCHA/Cloudflare challenge reports `BROWSER_VERIFICATION_REQUIRED`, not invalid credentials or an empty catalog. Complete the challenge yourself in the authorized browser. Its clearance belongs to that browser; the CLI does not export cookies or bypass protection. For a planned query, run `search-browser` with the same fragment, query, language, media and catalog filters, then perform the browser search and use `search-import`. The failed API attempt becomes the browser reservation without spending another query, even when it was the third attempt; a closed fragment/catalog stays closed. The original API error remains in the history. Browser imports require an observed canonical LoC `/item/<id>/` URL and `media_kind: image` or `video`, with public title/creator/date/description when observed. They are manual locators, not API-resolved originals. Download the actual selected file through its normal item-page control and import it with `resolve --file <file> --original-for <locator-id> --original-conditions "<observed file/source conditions>"`. Preview, visual confirmation, human review and rights gates stay separate. Replaying the reservation/import does not reset allowance or rewrite the saved outcome.
 
 ## Providers — GDELT TV, EC Audiovisual and UN Web TV
 

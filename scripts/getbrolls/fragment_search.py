@@ -9,6 +9,7 @@ import uuid
 
 from . import providers
 from .brief import QUERY_MAX_TOKENS, load_brief, search_query, validate_brief
+from .http import BrowserVerificationError
 from .models import empty_output, now
 from .rules import allowed, format_report, load_rules
 from .runtime import redact
@@ -398,7 +399,7 @@ def _validate_attempts(plan):
             or (
                 attempt.get("route") == "browser"
                 and (
-                    catalog not in ("instagram", "tiktok", "un_avlibrary", "destockd")
+                    catalog not in ("instagram", "tiktok", "un_avlibrary", "destockd", "loc")
                     or not isinstance(attempt.get("id"), str)
                     or not re.fullmatch(r"[0-9a-f]{20}", attempt["id"])
                 )
@@ -979,6 +980,15 @@ def _catalog_next(plan):
         for item in _catalog_attempts(plan, plan.get("catalog"), plan.get("pass"))
     ):
         return "complete_browser_attempt"
+    if (
+        _entry_state(_current_entry(plan)) == "current"
+        and any(
+            item.get("error_code") == "BROWSER_VERIFICATION_REQUIRED" and item.get("route") != "browser"
+            for item in _catalog_attempts(plan, plan.get("catalog"), plan.get("pass"))
+        )
+        and _browser_search(plan.get("catalog"))
+    ):
+        return "reserve_browser_query"
     if _entry_state(_current_entry(plan)) == "current" and QUERY_ALLOWANCE - used > 0:
         if not _keyword_search(plan.get("catalog")) and not needs:
             if _browser_search(plan.get("catalog")):
@@ -1585,6 +1595,8 @@ def _dispatch(ledger, plan, args, rules, query):
         )
     except (ValueError, OSError) as error:
         attempt.update(status="access_or_provider_error", outcome="access_failure", error=redact(error))
+        if isinstance(error, BrowserVerificationError):
+            attempt["error_code"] = error.error_code
         ledger.save("search-outcome")
         return attempt, False
     added = []

@@ -15,8 +15,8 @@ from .models import candidate, now
 from .rules import allowed, format_report
 from .runtime import redact
 
-BROWSER_CATALOGS = ("instagram", "tiktok", "un_avlibrary", "destockd")
-LOCATORS = ("un_avlibrary", "destockd", "gdelt_tv", "x")
+BROWSER_CATALOGS = ("instagram", "tiktok", "un_avlibrary", "destockd", "loc")
+LOCATORS = ("un_avlibrary", "destockd", "gdelt_tv", "x", "loc")
 REQUEST_URL = "https://media.un.org/avlibrary/en/contact/request_footage"
 MAX_IMPORT_BYTES = 524288
 FIELDS = {
@@ -37,6 +37,7 @@ FIELDS = {
     "archive_url",
     "archive_file",
     "film_title",
+    "media_kind",
 }
 
 
@@ -93,7 +94,15 @@ def locator(url):
     if url is None:
         raise ValueError("A complete public locator URL is required.")
     parts = urlsplit(url)
-    if parts.hostname == "media.un.org":
+    if parts.hostname in ("loc.gov", "www.loc.gov"):
+        match = re.fullmatch(r"/item/([^/]+)/?", parts.path)
+        if not match or parts.query or parts.fragment:
+            raise ValueError("Use the observed canonical LoC /item/<id>/ page, not a search or media URL.")
+        row = candidate(
+            "loc", "item/" + match[1], "LoC item · " + match[1], "https://www.loc.gov/item/" + match[1] + "/"
+        )
+        row["locator"] = {"item_id": match[1], "license_required": None}
+    elif parts.hostname == "media.un.org":
         match = re.fullmatch(r"/avlibrary/[a-z]{2}/asset/([a-z][a-z0-9]{3})/([a-z][a-z0-9]{4,12})/?", parts.path)
         if not match:
             raise ValueError("Use the complete UN Audiovisual Library asset card URL.")
@@ -121,12 +130,22 @@ def locator(url):
         row["locator"] = {"film_key": film_key, "shot_id": match[2], "license_required": None}
     else:
         raise ValueError("This URL is not a supported archive locator card.")
-    row["media"]["kind"] = "video"
+    row["media"]["kind"] = None if row["provider"] == "loc" else "video"
     row["acquisition"].update(
         method="manual",
         restriction="Import a separately supplied or verified original; preview is a viewing reference.",
     )
     return row
+
+
+def _observed_kind(row, entry):
+    kind = entry.get("media_kind")
+    if row["provider"] == "loc":
+        if kind not in ("image", "video"):
+            raise ValueError("LoC browser results require the observed media_kind: image or video.")
+        row["media"]["kind"] = row["asset_type"] = kind
+    elif kind is not None:
+        raise ValueError("media_kind is only supported for observed LoC browser results.")
 
 
 def _observed_row(entry, catalog):
@@ -141,6 +160,7 @@ def _observed_row(entry, catalog):
         row = locator(url) if catalog in LOCATORS else providers.resolve(url)
     if row["provider"] != catalog:
         raise ValueError("A browser result must belong to its reserved catalog.")
+    _observed_kind(row, entry)
     asset_id = _text(entry.get("asset_id"), "asset_id")
     if asset_id is not None and (catalog != "un_avlibrary" or asset_id != row["source_id"]):
         raise ValueError("Observed Asset ID must match the UN asset card.")
@@ -240,6 +260,28 @@ def reserve_command(ledger, args, rules):
     ):
         raise ValueError("This browser route or project does not support image search.")
     attempt, replayed = fragments.reserve_attempt(ledger, plan, args, query, browser=True)
+    if attempt.get("route") != "browser":
+        if plan["catalog"] != "loc" or attempt.get("error_code") != "BROWSER_VERIFICATION_REQUIRED":
+            raise ValueError("This query already has an API attempt; it cannot be rewritten as a browser search.")
+        if (
+            fragments._target_reached(ledger, args.project, args.shot)
+            or plan.get("shortfall")
+            or fragments._entry_state(fragments._current_entry(plan)) != "current"
+        ):
+            raise ValueError("The fragment/catalog is closed; its browser fallback cannot resume.")
+        if args.dry_run:
+            attempt = copy.deepcopy(attempt)
+        attempt.update(
+            route="browser",
+            id=hashlib.sha256(
+                json.dumps([args.shot, plan["catalog"], plan["pass"], attempt["query_key"]]).encode()
+            ).hexdigest()[:20],
+            status="dispatched",
+            api_error=attempt["error"],
+        )
+        attempt.pop("outcome", None)
+        if not args.dry_run:
+            ledger.save("browser-fallback-dispatch")
     return {
         "attempt": copy.deepcopy(attempt),
         "replayed": replayed,
@@ -337,10 +379,10 @@ def link_original(ledger, args, row, rules):
     source = ledger.get(args.original_for)
     if source["provider"] not in LOCATORS or row["provider"] not in ("local", "archive"):
         raise ValueError(
-            "--original-for links a local supplied original or Archive.org file to a UN/Destockd/GDELT locator."
+            "--original-for links a local supplied original or Archive.org file to an observed catalog locator."
         )
-    if source["provider"] in ("un_avlibrary", "x") and row["provider"] != "local":
-        raise ValueError("UN requested originals and X post captures must be supplied explicitly as a local --file.")
+    if source["provider"] in ("un_avlibrary", "x", "loc") and row["provider"] != "local":
+        raise ValueError("UN/LoC originals and X post captures must be supplied explicitly as a local --file.")
     if args.shot and source.get("shot") and args.shot != source["shot"]:
         raise ValueError("The linked original must retain its locator's fragment.")
     data = source.get("locator") or {}

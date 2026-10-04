@@ -2,7 +2,7 @@
 type: reference
 status: current
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-05
 tags: [get-brolls, catalogs, providers, search, access]
 ---
 
@@ -22,7 +22,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 | Wikimedia Commons | Historical photos, documents, video | Public MediaWiki Action API | Search |
 | Internet Archive | Archival films, newsreels, FedFlix, images | Public search and item Metadata API | Search + explicit item/file URL; inspect/preview/common delivery |
 | NASA Image and Video Library | Space, science, NASA media | Public Images API; no general NASA API key | Search |
-| Library of Congress | Historical films, photos, maps, documents | Public JSON API and item resources | Search + item/resource originals; multi-resource selection; live access unverified |
+| Library of Congress | Historical films, photos, maps, documents | Public JSON API and item resources; authorized browser for verification challenges | Search + item/resource originals; bounded browser fallback + supplied-original import; API live access unverified |
 | DVIDS | Official military footage, exercises, briefings | Application API key; optional server secret | Search + selected asset/files; common inspect/preview/review gates |
 | Europeana | European cultural and historical collections | Confirmed personal/project key type according to use | Search + Record API and institution media; absent originals stay manual locators |
 | NARA | US national archival records and media | Catalog API key; separate API/storage conditions | Search + explicit NAID/digital-object selection; common preview/review gates |

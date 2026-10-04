@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-04
+updated: 2026-10-05
 tags: [get-brolls, quality, qa, evidence]
 ---
 
@@ -11,6 +11,16 @@ tags: [get-brolls, quality, qa, evidence]
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
 **Current validation policy — 2026-10-04.** Maintained CI validation is Windows, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Tests cover Python 3.11 and 3.13; the quality job also runs on Windows. Pull requests and pushes to `main` trigger CI, avoiding duplicate feature-push and PR runs. Historical sections retain the platforms and requirements recorded at their dates.
+
+## Catalog access follow-up — 2026-10-05, 2.13.0 plus unreleased LoC browser fallback
+
+**LoC.** A bounded JSON image query still received HTTP 403 with a browser-verification challenge. The recognized response has a separate diagnostic; it is not reported as a missing key, quota or empty results. Authorized browser search opened the actual [Britannia Bridge item](https://www.loc.gov/item/90710744/). Its observed description is Menai Bridge Village, Wales; date is `[between 1895 and 1905?]`, and the card states that full online access is only available at the Library of Congress. Audited `search-browser` converted the failed API query into the browser reservation, and `search-import` recorded that canonical image locator. Persisted query usage stayed at one. No browser cookies were exported, no protection was bypassed, and no original, decoded preview or visual suitability is claimed for this restricted item. Separate synthetic tests cover local-original linking/decoded preview, approval/rights refusal, restart, dry-run, the third-query handoff, and refusal to rewrite an ordinary permission failure as a challenge.
+
+**Europeana.** The issued key type was confirmed as personal and used for a development access probe. One bounded `bridge` image search returned two actual institution references. Resolving the selected [Royal Museums Greenwich record](https://www.europeana.eu/item/2022362/_Royal_Museums_Greenwich__http___collections_rmg_co_uk_collections_objects_125092) passed, but supplied no supported public original. It remains a manual locator. API search/record access is evidenced; institution acquisition, decoding, editorial match, human approval and reuse rights remain unverified.
+
+**YouTube.** A fresh audited resolution/preview of [B_7EUmCxcvE](https://www.youtube.com/watch?v=B_7EUmCxcvE) acquired the 0–3 second window: 352,385 bytes, 1920×1080, 25 fps, measured duration 3.0 seconds. ffprobe and FFmpeg decoding exited 0. The opened contact sheet shows a rocket and launch tower before liftoff. The previous dated CDN 403 did not recur. This is a working acquired preview, not a complete-source acquisition, representative-scenario acceptance, approval or reuse grant. Rights remain unknown and approval pending. Raw probes, caches, media and reports remain outside distributed source.
+
+**Local verification.** The complete Windows `scripts/check.ps1` passed 1,193 tests in 204.911 seconds, with 30 skips and no failures/errors. Ruff lint/format, Pyright, skill mirror and documentation anchors passed. Installer prerequisite and version synchronization checks passed. This local result is separate from hosted PR CI and live acquisition/editorial acceptance.
 
 ## Mapillary, Telegram and retained X access — 2026-10-04, 2.13.0
 

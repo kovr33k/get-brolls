@@ -262,7 +262,7 @@ def audited(args, execute):  # noqa: C901, PLR0912, PLR0915 - existing size; wra
             from .http import ProviderError  # local: avoids a runtime<->http import cycle
 
             if isinstance(exc, ProviderError):
-                event["error_code"] = "INVALID_DATA"
+                event["error_code"] = getattr(exc, "error_code", "INVALID_DATA")
                 event["message"] = redact(exc) + " Confira docs/RULES.md."
                 current = ACTIVE.get()
                 if current is not None:

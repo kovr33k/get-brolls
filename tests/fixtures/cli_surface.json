@@ -1672,7 +1672,7 @@
           "choices": null,
           "default": null,
           "dest": "original_for",
-          "help": "UN, Destockd, GDELT or X locator candidate linked to this supplied original",
+          "help": "UN, Destockd, GDELT, X or LoC locator candidate linked to this supplied original",
           "nargs": null,
           "option_strings": [
             "--original-for"

@@ -61,7 +61,7 @@ def capabilities():
                 "un_webtv",
                 *NAMES,
             ),
-            "browser_search": name in ("instagram", "tiktok", "un_avlibrary", "destockd"),
+            "browser_search": name in ("instagram", "tiktok", "un_avlibrary", "destockd", "loc"),
             "account_library": False,
             "embed": False,
             "seek": "local" if name == "local" else "unsupported",
@@ -76,7 +76,7 @@ def capabilities():
             "configured": not key or bool(os.environ.get(key)),
             "env_key": key,
             "preview": True,
-            "manual": name in ("instagram", "tiktok", "un_avlibrary", "destockd", "gdelt_tv"),
+            "manual": name in ("instagram", "tiktok", "un_avlibrary", "destockd", "gdelt_tv", "loc"),
             "implementation": "supported",
             "live": "unverified",
             "live_observation": None,
@@ -227,15 +227,29 @@ def capabilities():
                 else "One dated technical sample; not current access, catalog-wide quality, human approval, or reuse rights."
             ),
         }
+    result["youtube"]["live"] = "sample_verified"
     result["youtube"]["live_observation"] = {
-        "date": "2026-10-04",
-        "version": "2.7.0",
-        "status": "partial_sample",
+        "date": "2026-10-05",
+        "version": "2.13.0",
+        "status": "passed_sample",
         "source_url": "https://www.youtube.com/watch?v=B_7EUmCxcvE",
-        "operations": ["resolve_url", "inspect"],
-        "preview": "failed_http_403",
-        "decode": "unverified",
-        "limitations": "One dated CDN denial; no acquired preview, visual confirmation, or permanent availability verdict.",
+        "operations": ["resolve_url", "preview", "decode"],
+        "preview": "passed",
+        "decode": "passed",
+        "bytes": 352385,
+        "width": 1920,
+        "height": 1080,
+        "duration_s": 3.0,
+        "interval_s": [0, 3],
+        "limitations": "One dated acquired 0-3s preview, not the complete recording. Viewed rocket and launch tower before liftoff. Previous CDN 403 did not recur; future access, editorial acceptance, human approval and reuse rights remain unverified.",
+    }
+    result["europeana"]["live_observation"] = {
+        "date": "2026-10-05",
+        "version": "2.13.0",
+        "status": "partial_sample",
+        "operations": ["search", "resolve_url"],
+        "preview": "unverified",
+        "limitations": "Confirmed personal key enabled one bounded two-result image query. Selected institution record supplied no supported public original; it remains a manual locator. No acquired media, decode or editorial acceptance is claimed.",
     }
     for name, url, width, height, duration, size in (
         ("nara", "https://catalog.archives.gov/id/115446171", 3152, 4728, None, 5070979),
@@ -257,12 +271,14 @@ def capabilities():
             "limitations": "One dated technical sample. Viewed preview is unsuitable for a literal bridge shot; no human approval or reuse rights. Current access and complete catalog coverage remain unverified.",
         }
     result["loc"]["live_observation"] = {
-        "date": "2026-10-04",
-        "version": "2.9.0",
-        "status": "failed_http_403",
-        "operations": ["search"],
+        "date": "2026-10-05",
+        "version": "2.13.0",
+        "status": "partial_sample",
+        "source_url": "https://www.loc.gov/item/90710744/",
+        "operations": ["search-browser", "search-import"],
+        "api_search": "browser_verification_required",
         "preview": "unverified",
-        "limitations": "One bounded JSON search was denied. No original was acquired; no permanent platform availability verdict.",
+        "limitations": "JSON search still received a browser-verification 403. Authorized browser search/item viewing and audited import passed with one shared attempt. The selected photograph restricts full online access to the Library of Congress; no original, decoded preview or visual match is claimed.",
     }
     for name, url, status, limit in (
         (
@@ -1002,6 +1018,8 @@ def refresh(item):  # noqa: C901, PLR0911, PLR0912 - source-specific refresh con
         return broadcasts.refresh(item)
 
     if name in catalogs.NAMES:
+        if name == "loc" and item.get("locator"):
+            return current
         return catalogs.refresh(item)
     if name == "archive":
         from .archive import refresh as archive_refresh

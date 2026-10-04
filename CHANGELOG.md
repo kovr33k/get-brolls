@@ -2,13 +2,15 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-04
+updated: 2026-10-05
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+- LoC: browser-verification challenges have a separate diagnostic and an audited browser fallback. Reuse the failed query's allowance, import observed item references, and link a locally supplied original without exporting browser cookies or bypassing protection.
 
 ## 2.13.0 — 2026-10-04
 

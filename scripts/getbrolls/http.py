@@ -35,6 +35,10 @@ class ProviderError(ValueError):
     pass
 
 
+class BrowserVerificationError(ProviderError):
+    error_code = "BROWSER_VERIFICATION_REQUIRED"
+
+
 SECRET_NAMES = {
     "key",
     "api_key",
@@ -281,6 +285,16 @@ def get_json(url, params=None, headers=None, cache_ttl=0):  # noqa: C901, PLR091
                     cache=cache_mode,
                     attempt=attempt + 1,
                 )
+                if code == 403 and (  # noqa: PLR2004 - HTTP Forbidden can carry a browser challenge
+                    (getattr(error, "headers", None) or {}).get("cf-mitigated") == "challenge"
+                    or b"<title>just a moment" in body.lower()
+                    or b"cf-chl-" in body.lower()
+                ):
+                    raise BrowserVerificationError(
+                        "Browser verification/CAPTCHA required (HTTP 403). Complete it yourself in the authorized "
+                        "browser. Browser clearance does not authorize the separate CLI connection. "
+                        "For LoC, continue the same query with search-browser and search-import; do not renew its allowance."
+                    ) from None
                 raise ProviderError(
                     f"Autenticação/permissão ou quota recusada pelo provedor (HTTP {code}){suffix}"
                 ) from None

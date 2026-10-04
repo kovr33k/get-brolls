@@ -7,7 +7,7 @@ metadata:
   type: "skill"
   status: "current"
   created: "2026-09-15"
-  updated: "2026-10-04"
+  updated: "2026-10-05"
   tags: "b-roll, youtube, instagram, tiktok, storyboard"
 ---
 
@@ -49,7 +49,7 @@ Use `brief --beat <ID>` and `--shot <beat.id>`. Check `library --search` first; 
 
 Catalog search follows [workflow](docs/GUIDE.md#provider--archiveorg-and-fragment-search): 1–5 catalogs, three queries/catalog, agent-selected languages. Translations/shortening count. One disjoint second chain; no third. Stop at three visually confirmed options. Unplanned `search`: one call. Measured stills; illustrative stock. `search-confirm` grants no approval/rights. Shortfalls do not prove absent footage. Multi-object records: `resolve --catalog-file`. [Catalogs](docs/SOURCE-CATALOGS.md).
 
-Browser: [Instagram/TikTok, UN/Destockd](docs/GUIDE.md#browser-attempts-and-archive-locators). [EC/UN/GDELT](docs/GUIDE.md#providers--gdelt-tv-ec-audiovisual-and-un-web-tv): source-clock windows, coverage, access decisions.
+Browser: [Instagram/TikTok, UN/Destockd](docs/GUIDE.md#browser-attempts-and-archive-locators); [LoC CAPTCHA](docs/GUIDE.md#providers--loc-dvids-europeana-and-nara). [EC/UN/GDELT](docs/GUIDE.md#providers--gdelt-tv-ec-audiovisual-and-un-web-tv): source-clock windows, coverage, access decisions.
 
 [Mapillary/Telegram/X](docs/GUIDE.md#providers--mapillary-telegram-and-x-access): geography, whitelist; X unverified.
 
