@@ -219,7 +219,8 @@ def telegram_config():
 def _client() -> Any:
     api_id, api_hash, session, _ = telegram_config()
     try:
-        from telethon import TelegramClient
+        # Optional SDK: base quality environments intentionally omit Telegram dependencies.
+        from telethon import TelegramClient  # pyright: ignore[reportMissingImports]
     except ImportError:
         raise ProviderError(
             "Telegram requires the optional Telethon dependency; install requirements-telegram.txt in the private runtime."

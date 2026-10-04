@@ -227,6 +227,12 @@ class AccountContracts(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "interactive"),
         ):
             accounts.telegram_login()
+        with (
+            patch.dict(accounts.sys.modules, {"telethon": None}),
+            patch.object(accounts.sys.stdin, "isatty", return_value=True),
+            self.assertRaisesRegex(ValueError, "requirements-telegram.txt"),
+        ):
+            accounts.telegram_login()
         self.assertNotIn(
             SECRET,
             (self.project / "brolls" / "manifest.json").read_text()
