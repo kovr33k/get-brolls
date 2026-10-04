@@ -1423,6 +1423,17 @@ def attach_fragment_context(ledger, args, rules, row):
         row["narration"] = plan["context"]["narration"]
 
 
+def _annotate_dispatch(row, plan):
+    """Keep a stock hit illustrative. Other catalogs keep the fragment intent."""
+    from .commands import _search_annotation
+
+    annotation = _search_annotation(row.get("provider"), plan["context"]["intent"])
+    if annotation.get("stock"):
+        row.update(annotation)
+        return
+    row["match"] = {"kind": plan["context"]["intent"], "reason": "Search hit; visual confirmation required."}
+
+
 def _query_key(query, media):
     return " ".join(query.split()).casefold() + " [" + media + "]"
 
@@ -1491,7 +1502,7 @@ def _dispatch(ledger, plan, args, rules, query):
         row["shot"] = args.shot
         row["narration"] = plan["context"]["narration"]
         row["format"] = format_report(row, rules)
-        row["match"] = {"kind": plan["context"]["intent"], "reason": "Search hit; visual confirmation required."}
+        _annotate_dispatch(row, plan)
         added.append(ledger.add(row))
     attempt.update(
         status="results" if added else "empty",

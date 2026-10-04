@@ -214,6 +214,7 @@ class ProvidersTests(unittest.TestCase):
         original["segment"]["start_s"] = 5
         get.return_value = {
             "id": 1,
+            "duration": 14,
             "video_files": [
                 {
                     "file_type": "video/mp4",
@@ -227,6 +228,10 @@ class ProvidersTests(unittest.TestCase):
         self.assertEqual(result["approval"], original["approval"])
         self.assertEqual(result["segment"], original["segment"])
         self.assertEqual(result["media_url"], "https://videos.pexels.com/new.mp4")
+        self.assertEqual(1920, result["media"]["width"])
+        self.assertEqual(1080, result["media"]["height"])
+        self.assertEqual(14, result["media"]["duration_s"])
+        self.assertIsNone(original["media"]["duration_s"])
 
     @patch.dict(os.environ, {}, clear=True)
     def test_missing_key_and_unsupported_search(self):

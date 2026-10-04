@@ -10,7 +10,7 @@ tags: [get-brolls, catalogs, providers, search, access]
 
 Use this reference when choosing a catalog or implementing a provider. It consolidates the supplied 18-source inventory, the researched EC/UN/Destockd routes, and Instagram/TikTok. Catalog descriptions guide the agent's selection; they are not fixed topic-to-provider rules.
 
-**Status scope:** `Search` and `URL/browser` below describe code present in this get-brolls checkout on 2026-10-04, not a live availability guarantee. `Planned` means the route is retained from prior research but has no adapter here. Statements that an integration was implemented in the supplied notes refer to the previous project. Credentials and sessions from that project are not assumed to be available here. Dated Archive.org observations are recorded separately in [QUALITY.md](QUALITY.md); other retained endpoints were not re-probed for this update.
+**Status scope:** `Search` and `URL/browser` below describe code present in this get-brolls checkout on 2026-10-04, not a live availability guarantee. `Planned` means the route is retained from prior research but has no adapter here. Statements that an integration was implemented in the supplied notes refer to the previous project. Credentials and sessions from that project are not assumed to be available here. Dated Archive.org and existing-catalog samples are recorded separately in [QUALITY.md](QUALITY.md), including the YouTube preview HTTP 403 limitation. The remaining planned endpoints were not re-probed for this update.
 
 Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection and the personal library are covered in [providers.md](../references/providers.md).
 
@@ -41,19 +41,19 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 
 ## YouTube
 
-- **Search:** yt-dlp `ytsearch` with a query selected by the agent. The current adapter retrieves titles, creators, duration, thumbnails, and canonical video URLs. YouTube Data API is optional in the old design, not a requirement of this checkout.
+- **Search:** yt-dlp `ytsearch` with a query selected by the agent. The current adapter retrieves titles, creators, duration, thumbnails, and canonical video URLs. YouTube Data API is optional in the old design, not a requirement of this checkout. `--media image` is refused by the shared search command; the provider function itself still ignores that flag rather than failing.
 - **Inside a video:** current `inspect` uses subtitles, chapters, and description timestamps; previews confirm what is visible. The prior design's Gemini timestamp finder is an extension, not implemented automatic visual search here.
 - **Access/acquisition:** yt-dlp and FFmpeg; a specific video may require a session or have regional restrictions. Register the canonical video ID and actual source interval.
-- **Keep:** channel, event/date context, source URL, interval, real dimensions, and item-specific conditions. A news upload can contain archive footage or third-party inserts.
+- **Keep:** channel, event/date context, source URL, interval, real dimensions, and item-specific conditions. When yt-dlp reports non-public availability, an integer age limit, or a live/upcoming/post-live status, that list is stored on `limitations`. A missing field stays unknown. A news upload can contain archive footage or third-party inserts.
 - **Reference:** [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
 ## Wikimedia Commons
 
-- **Search:** public Action API, file namespace, media-type filtering, then file metadata. Current code uses `imageinfo` with URL, dimensions, MIME type, and `extmetadata`; images and videos are supported.
-- **Video detail:** the prior research also calls for derivatives, `videoinfo`, and timed text when available. These are capabilities to inspect per file, not a claim that the current search adapter collects all of them.
-- **Acquisition:** choose a real downloadable representation; the original may be WebM or another format rather than MP4. A timestamped thumbnail/preview does not prove server-side video cutting.
+- **Search:** public Action API, file namespace, media-type filtering, then file metadata. Current code uses `imageinfo` with URL, size, MIME type, `mediatype`, and `extmetadata`. Declared `VIDEO` is video. `BITMAP` and `DRAWING` are images. Declared `AUDIO`, office, text, executable, and other non-image/non-video types stay out even when the MIME looks familiar. When `mediatype` is absent, only a `video/` or `image/` MIME is accepted, so bare `application/ogg` stays out. The stored MIME remains the API value. A filename does not choose the kind.
+- **Video detail:** search records the file from one `imageinfo` response and marks `videoinfo` absent. Resolving a video stores derivatives and `srclang` tracks on that candidate. Preview downloads the refreshed original file and does not copy that video detail onto the saved search candidate. Refresh returns the same detail on its copy. A failed or empty `videoinfo` response does not drop the file. Image derivatives are poster frames, not representations and not timestamps. The `derivatives` list can repeat the original file first, with no `transcodekey`, and the `src` may differ only by tracking query parameters. That file stays a single `original`. A row with `transcodekey` is a transcode and keeps that key. A video that is neither the original nor a transcode stays as a usable representation without an invented role. TimedMediaHandler tracks use `srclang`, `src`, `kind`, `type`, `label`, and `dir`. The candidate stores `srclang` as `commons.timed_text[].lang` and `src` as `url`, plus those fields when they are non-empty strings. `lang` and `language` remain aliases. A discovered track URL is not a downloaded or parsed caption, and no cue timings are stored. Malformed optional metadata leaves the original file URL in place.
+- **Acquisition:** the selected representation is the file URL from `imageinfo`, for an image or a video. A transcode is recorded beside it and does not replace that file. The original may be WebM or another format rather than MP4. A timestamped thumbnail does not prove a server-side cut and is never copied into `media_url` or the segment.
 - **Keep:** the file page, creator, exact license, attribution, and chosen representation. Unknown license stays unknown.
-- **Reference:** [Commons API](https://commons.wikimedia.org/wiki/Commons:API/MediaWiki).
+- **Reference:** [Commons API](https://commons.wikimedia.org/wiki/Commons:API/MediaWiki), [API:Imageinfo](https://www.mediawiki.org/wiki/API:Imageinfo), [MIME type detection](https://www.mediawiki.org/wiki/Manual:MIME_type_detection), [TimedMediaHandler API](https://www.mediawiki.org/wiki/Extension:TimedMediaHandler/API).
 
 ## Internet Archive / Archive.org
 
@@ -69,8 +69,8 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 
 - **Search:** `https://images-api.nasa.gov/search`, using text and media type; resolve the selected `nasa_id` through `/asset/{nasa_id}`.
 - **Access:** this media catalog does not require the general NASA developer API key. Current code supports images and video.
-- **Acquisition:** inspect the asset list for an appropriate original/representation rather than using the search thumbnail as the final media.
-- **Keep:** creator/center, date, NASA ID, source page, and item conditions, including third-party authorship.
+- **Acquisition:** inspect the asset list for an appropriate original/representation rather than using the search thumbnail as the final media. The asset API publishes `images-assets.nasa.gov` file hrefs as `http://`. `get_json` already rewrites that exact host, with no userinfo and no port, to `https://` while scrubbing the JSON, before it returns the body. Public URL validation and path encoding then see the HTTPS URL. Other HTTP hosts, credentials, and signed queries are rejected. The scheme change stays in that transport scrub and does not download or decode the file.
+- **Keep:** creator/center, date, NASA ID, source page, and item conditions, including third-party authorship. The candidate stores those on `nasa`. `creator.name` is the third party when one is named, otherwise the center. Rights stay unknown; the item description is not permission evidence. The search thumbnail is the poster. The selected file comes from the asset list. When both a `~medium` and a `~orig` file are listed, the current selector keeps `~medium`. Search metadata may already give `https://` preview links on the same host; those stay posters.
 - **References:** [API documentation](https://images.nasa.gov/docs/images.nasa.gov_api_docs.pdf), [media conditions](https://www.nasa.gov/nasa-brand-center/images-and-media/).
 
 ## Library of Congress
@@ -107,17 +107,17 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 
 ## Pexels
 
-- **Search:** Pexels video API with `PEXELS_API_KEY`. The current adapter searches video; the wider catalog's photos are not an implemented photo-search route here.
-- **Acquisition:** select a suitable MP4 variant and refresh the asset by ID before final acquisition.
-- **Use:** illustrative atmosphere/context when stock has been explicitly requested; preserve that distinction from footage of a named event.
+- **Search:** Pexels video API with `PEXELS_API_KEY`. The adapter searches video only. `search --media image` returns an explicit refusal and does not call the API. Search responses are not cached for a day.
+- **Acquisition:** select an MP4 at or below 1920 pixels on the long side and refresh the asset by ID before preview or final acquisition. Refresh replaces the file URL and the reported width, height, and duration, and it keeps approval and the selected interval. `video_pictures[].nr` is not a video second.
+- **Use:** a saved hit is `stock: true` and `match.kind: illustrative`, including when the command was asked for a literal intent. That mark is not visual confirmation and not reuse permission. Illustrative atmosphere/context still requires the project's stock policy.
 - **Keep:** creator, asset ID/page, real dimensions, and Pexels license/API conditions.
 - **Reference:** [API documentation](https://www.pexels.com/api/documentation/).
 
 ## Pixabay
 
-- **Search:** video API with `PIXABAY_API_KEY`; current search responses are cached for 24 hours. Photo search is not implemented by this adapter.
-- **Acquisition:** resolve by ID and choose the actual video variant. Respect request limits and restrictions on mass downloading.
-- **Use/keep:** illustrative stock only under the project's stock policy; record creator, source page, dimensions, and usage conditions. A preview-image sequence number is not a known video second without an explicit mapping.
+- **Search:** video API with `PIXABAY_API_KEY`; search and id refresh use a 24-hour cache. Photo search is not implemented. `search --media image` is refused and does not call the API.
+- **Acquisition:** resolve by ID and choose the actual video variant. Refresh copies the new URL and reported dimensions and keeps approval and the interval. Respect request limits and restrictions on mass downloading.
+- **Use/keep:** a saved hit is `stock: true` and `match.kind: illustrative`. That is stock policy, not visual confirmation or reuse permission. Record creator, source page, dimensions, and usage conditions. The selected variant's thumbnail is a poster. A preview-image sequence number is not a known video second without an explicit mapping.
 - **Reference:** [API documentation](https://pixabay.com/api/docs/).
 
 ## Mapillary
@@ -258,3 +258,5 @@ Local files are an import route rather than another catalog. Import them with th
 The accepted [fragment-specific search chain planning decision](adr/0001-fragment-catalog-search-chain.md) records the search behavior and an integrated rollout covering the complete target inventory. [CONTEXT.md](../CONTEXT.md) defines its domain terms; neither document establishes additional implemented provider capabilities.
 
 The accepted [catalog integration specification](SPEC-CATALOG-INTEGRATION.md) defines implementation contracts and offline/live acceptance checks for this scope.
+
+YouTube, Wikimedia Commons, NASA, Pexels, and Pixabay share Archive's implemented bounded fragment commands and catalog chains: `search-plan`, `search --planned`, preview, `search-confirm`, and `search-assess`. Stills use the measured poster. Planned Pexels and Pixabay hits stay stock and illustrative. Planned photo search on YouTube and the stock banks is refused before a query is spent. One additional disjoint chain is supported. The remaining planned adapters are not implemented. Dated samples for these five are in [QUALITY.md](QUALITY.md).

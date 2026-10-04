@@ -98,6 +98,52 @@ def capabilities():
         "duration_s": 783.071995,
         "limitations": "One public movie item; no rights permission, human acceptance, or editorial suitability established.",
     }
+    samples = {
+        "commons": ("https://commons.wikimedia.org/wiki/File:Folgers.ogv", 352, 264, 60, 4775695, "suitable"),
+        "nasa": ("https://images.nasa.gov/details/PIA23645", 1280, 1266, None, 63836, "suitable"),
+        "pexels": (
+            "https://www.pexels.com/video/man-holding-a-cup-of-coffee-6343885/",
+            720,
+            1366,
+            23.366667,
+            1870196,
+            "unsuitable",
+        ),
+        "pixabay": ("https://pixabay.com/videos/id-46989/", 1920, 1080, 34.538333, 12258063, "suitable"),
+    }
+    for name, (url, width, height, duration, size, verdict) in samples.items():
+        result[name]["live"] = "sample_verified"
+        result[name]["live_observation"] = {
+            "date": "2026-10-04",
+            "version": "2.7.0",
+            "status": "passed_sample",
+            "source_url": url,
+            "operations": ["resolve_url"] if name in ("commons", "nasa") else ["search"],
+            "preview": "passed",
+            "decode": "passed",
+            "bytes": size,
+            "width": width,
+            "height": height,
+            "duration_s": duration,
+            "interval_s": None if name == "nasa" else [0, 3],
+            "visual_verdict": verdict,
+            "limitations": (
+                "One dated technical sample; not current access, catalog-wide quality, human approval, or reuse rights. "
+                "The Pexels window did not show coffee preparation."
+                if name == "pexels"
+                else "One dated technical sample; not current access, catalog-wide quality, human approval, or reuse rights."
+            ),
+        }
+    result["youtube"]["live_observation"] = {
+        "date": "2026-10-04",
+        "version": "2.7.0",
+        "status": "partial_sample",
+        "source_url": "https://www.youtube.com/watch?v=B_7EUmCxcvE",
+        "operations": ["resolve_url", "inspect"],
+        "preview": "failed_http_403",
+        "decode": "unverified",
+        "limitations": "One dated CDN denial; no acquired preview, visual confirmation, or permanent availability verdict.",
+    }
     return result
 
 
@@ -266,10 +312,47 @@ def _youtube(query, limit):
         item["title"] = row.get("title") or item["title"]
         item["creator"]["name"] = row.get("channel") or row.get("uploader")
         item["media"]["duration_s"] = row.get("duration")
+        limits = social.source_limitations(row)
+        if limits:
+            item["limitations"] = limits
         thumbs = row.get("thumbnails") or []
         _poster(item, thumbs[-1].get("url") if thumbs else None)
         out.append(item)
     return out
+
+
+# imageinfo props. `mediatype` is separate from MIME: application/ogg is VIDEO or AUDIO.
+_COMMONS_IIPROP = "url|size|mime|mediatype|extmetadata"
+_COMMONS_REFRESH_IIPROP = "url|size|mime|mediatype"
+# DRAWING is an SVG or diagram still. AUDIO, office, text, archive, and executable stay out.
+_COMMONS_KIND_BY_TYPE = {"VIDEO": "video", "BITMAP": "image", "DRAWING": "image"}
+
+
+def _commons_mediatype(info):
+    value = info.get("mediatype") if isinstance(info, dict) else None
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _commons_kind(info):
+    """Prefer MediaWiki mediatype. MIME applies only when that field is absent.
+
+    `application/ogg` names a container, so VIDEO and AUDIO stay different files.
+    A filename or a generic application type is not a kind. Office, text, audio,
+    archive, and executable mediatypes stay out even when the MIME looks familiar.
+    """
+    if not isinstance(info, dict):
+        return None
+    declared = _commons_mediatype(info)
+    if declared:
+        return _COMMONS_KIND_BY_TYPE.get(declared.upper())
+    mime = str(info.get("mime") or "")
+    if mime.startswith("video/"):
+        return "video"
+    if mime.startswith("image/"):
+        return "image"
+    return None
 
 
 def _commons(query, limit, media="any"):
@@ -284,17 +367,186 @@ def _commons(query, limit, media="any"):
             "gsrnamespace": 6,
             "gsrlimit": limit,
             "prop": "imageinfo",
-            "iiprop": "url|size|mime|extmetadata",
+            "iiprop": _COMMONS_IIPROP,
         },
     )
-    wanted = {"image": ("image/",), "video": ("video/",)}.get(media, ("video/", "image/"))
     out = []
     for row in data.get("query", {}).get("pages", {}).values():
         info = (row.get("imageinfo") or [{}])[0]
-        if not info.get("mime", "").startswith(wanted):
+        kind = _commons_kind(info)
+        if kind is None or (media in ("image", "video") and kind != media):
             continue
         out.append(_commons_item(row, info))
     return out
+
+
+def _remember_commons(item, info):
+    """The selected representation is the file URL. Videoinfo starts absent."""
+    mime = str(info.get("mime") or "")
+    record = {
+        "file_title": item.get("title"),
+        "mime": mime or None,
+        "representations": [
+            {
+                "role": "original",
+                "url": public_url(info.get("url")),
+                "mime": mime or None,
+                "width": info.get("width"),
+                "height": info.get("height"),
+            }
+        ],
+        "videoinfo": "absent",
+    }
+    mediatype = _commons_mediatype(info)
+    if mediatype:
+        record["mediatype"] = mediatype
+    item["commons"] = record
+    return item
+
+
+def _videoinfo_block(data):
+    for page in ((data.get("query") or {}).get("pages") or {}).values():
+        info = page.get("videoinfo") if isinstance(page, dict) else None
+        if isinstance(info, list) and info and isinstance(info[0], dict):
+            return info[0]
+    return None
+
+
+def _same_remote_file(left, right):
+    """Same file when only the query differs. Tracking parameters are not a new file."""
+    if not left or not right:
+        return False
+    a = urlsplit(left)
+    b = urlsplit(right)
+    return (
+        a.scheme == b.scheme
+        and (a.hostname or "").lower() == (b.hostname or "").lower()
+        and unquote(a.path) == unquote(b.path)
+    )
+
+
+def _video_row(derivative, original_url):
+    """Keep a transcode or a distinct video file. The original is already recorded."""
+    if not isinstance(derivative, dict):
+        return None
+    kind = str(derivative.get("type") or derivative.get("mime") or "")
+    url = public_url(derivative.get("src") or derivative.get("url"))
+    # Image derivatives are poster frames. They are not a representation or a timestamp.
+    if not url or not kind.startswith("video/") or _same_remote_file(url, original_url):
+        return None
+    row = {
+        "url": url,
+        "mime": kind,
+        "width": derivative.get("width"),
+        "height": derivative.get("height"),
+    }
+    key = derivative.get("transcodekey")
+    if isinstance(key, str) and key.strip():
+        row["role"] = "derivative"
+        row["transcodekey"] = key.strip()
+    return row
+
+
+def _video_derivatives(block, original_url):
+    found = []
+    for derivative in block.get("derivatives") or []:
+        row = _video_row(derivative, original_url)
+        if row:
+            found.append(row)
+    return found
+
+
+def _track_language(track):
+    """TimedMediaHandler publishes `srclang`. `lang` and `language` are older aliases."""
+    for key in ("srclang", "lang", "language"):
+        value = track.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _timed_text_row(track):
+    """Keep the discovered track. Do not invent cue timings or read the caption file."""
+    if not isinstance(track, dict):
+        return None
+    url = public_url(track.get("src") or track.get("url"))
+    lang = _track_language(track)
+    if not url or not lang:
+        return None
+    row = {"lang": lang, "url": url}
+    for key in ("kind", "type", "label", "dir"):
+        value = track.get(key)
+        if isinstance(value, str) and value.strip():
+            row[key] = value.strip()
+    return row
+
+
+def _timed_text(block):
+    tracks = block.get("timedtext") if isinstance(block, dict) else None
+    if not isinstance(tracks, list):
+        return []
+    found = []
+    for track in tracks:
+        row = _timed_text_row(track)
+        if row:
+            found.append(row)
+    return found
+
+
+def _commons_videoinfo(item):
+    """Best-effort derivatives and timed text. A missing module does not drop the file."""
+    title = (item.get("commons") or {}).get("file_title") or item.get("title")
+    if not title:
+        return item
+    try:
+        data = get_json(
+            "https://commons.wikimedia.org/w/api.php",
+            {
+                "action": "query",
+                "format": "json",
+                "titles": title,
+                "prop": "videoinfo",
+                "viprop": "derivatives|timedtext",
+            },
+        )
+    except ProviderError:
+        return item
+    block = _videoinfo_block(data)
+    if not block:
+        return item
+    record = item.setdefault("commons", {})
+    original = next(
+        (
+            row.get("url")
+            for row in record.get("representations") or []
+            if isinstance(row, dict) and row.get("role") == "original"
+        ),
+        None,
+    )
+    record["representations"] = list(record.get("representations") or []) + _video_derivatives(block, original)
+    record["videoinfo"] = "present"
+    timed = _timed_text(block)
+    if timed:
+        record["timed_text"] = timed
+    return item
+
+
+def _remember_nasa(item, meta):
+    """Keep center, date and third-party authorship. Rights stay unknown."""
+    third = _text(meta.get("secondary_creator")) or None
+    center = _text(meta.get("center")) or None
+    item["creator"]["name"] = third or center
+    recorded = {
+        "nasa_id": str(meta.get("nasa_id") or item["source_id"]),
+        "center": center,
+        "date": _text(meta.get("date_created")) or None,
+        "secondary_creator": third,
+    }
+    description = _text(meta.get("description")) or None
+    if description:
+        recorded["description"] = description
+    item["nasa"] = recorded
+    return item
 
 
 def _commons_item(row, info):
@@ -312,14 +564,16 @@ def _commons_item(row, info):
         public_url(field("LicenseUrl")),
         field("Attribution") or field("Artist"),
     )
-    mime = str(info.get("mime") or "")
-    if mime.startswith("image/"):
+    kind = _commons_kind(info)
+    if kind == "image":
         item["media"]["kind"] = "image"
         item["asset_type"] = "image"
-    elif mime.startswith("video/"):
+    elif kind == "video":
         item["media"]["kind"] = "video"
+    # `thumburl` can carry `time=`. It is a poster, never the file and never a cut.
     _poster(item, info.get("thumburl"))
-    return _media(item, info.get("url"), info.get("width"), info.get("height"))
+    _media(item, info.get("url"), info.get("width"), info.get("height"))
+    return _remember_commons(item, info)
 
 
 def _commons_file(title):
@@ -335,7 +589,7 @@ def _commons_file(title):
             "format": "json",
             "titles": title,
             "prop": "imageinfo",
-            "iiprop": "url|size|mime|extmetadata",
+            "iiprop": _COMMONS_IIPROP,
         },
         cache_ttl=86400,
     )
@@ -344,10 +598,13 @@ def _commons_file(title):
     info = (row.get("imageinfo") or [{}])[0]
     if row.get("missing") is not None or not info.get("url") or not row.get("pageid"):
         raise ProviderError(f"O Commons não tem o arquivo {title!r}; confira o endereço da página.")
-    mime = str(info.get("mime") or "")
-    if not mime.startswith(("video/", "image/")):
+    if _commons_kind(info) is None:
         raise ProviderError(f"O arquivo {title!r} não é vídeo nem imagem; o Commons também guarda som e documento.")
-    return _commons_item(row, info)
+    item = _commons_item(row, info)
+    # Search stays one imageinfo response. Derivatives and timed text are per file.
+    if item["media"].get("kind") == "video":
+        _commons_videoinfo(item)
+    return item
 
 
 def _nasa(query, limit, media="any"):
@@ -374,7 +631,7 @@ def _nasa(query, limit, media="any"):
             meta.get("title") or ident,
             "https://images.nasa.gov/details/" + quote(ident, safe=""),
         )
-        item["creator"]["name"] = meta.get("secondary_creator") or meta.get("center")
+        _remember_nasa(item, meta)
         # Sem isto o relatório da busca mostrava `media.kind: None` para todo item da NASA.
         item["media"]["kind"] = kind
         if kind == "image":
@@ -435,7 +692,7 @@ def _nasa_details(ident):
         meta.get("title") or nasa_id,
         "https://images.nasa.gov/details/" + quote(nasa_id, safe=""),
     )
-    item["creator"]["name"] = meta.get("secondary_creator") or meta.get("center")
+    _remember_nasa(item, meta)
     _license(
         item,
         "Verificar condições NASA e autoria do item",
@@ -525,7 +782,7 @@ def resolve(url, archive_file=None):  # noqa: C901, PLR0912 - existing size; one
     return item
 
 
-def refresh(item):  # noqa: C901 - one bounded refresh branch per supported provider
+def refresh(item):
     """Refresh public stock file URLs without changing selection or approval."""
     import copy
 
@@ -564,27 +821,57 @@ def refresh(item):  # noqa: C901 - one bounded refresh branch per supported prov
         current["media_url"] = urls[0]
         return current
     elif name == "commons":
-        data = get_json(
-            "https://commons.wikimedia.org/w/api.php",
-            {
-                "action": "query",
-                "format": "json",
-                "pageids": ident,
-                "prop": "imageinfo",
-                "iiprop": "url|mime",
-            },
-        )
-        pages = data.get("query", {}).get("pages", {})
-        info = (pages.get(ident, {}).get("imageinfo") or [{}])[0]
-        media_url = public_url(info.get("url")) if info.get("mime", "").startswith("video/") else None
-        if not media_url:
-            raise ProviderError("Arquivo do provedor não está mais disponível")
-        current["media_url"] = media_url
-        return current
+        return _refresh_commons(current, ident)
     else:
         return current
     match = next((v for v in rows if v["source_id"] == ident), None)
     if not match or not match.get("media_url"):
         raise ProviderError("Arquivo do provedor não está mais disponível")
+    return _copy_refreshed_media(current, match)
+
+
+def _copy_refreshed_media(current, match):
+    """Replace the file URL and its reported size. Approval and the interval stay."""
     current["media_url"] = match["media_url"]
+    fresh = match.get("media") or {}
+    media = current.setdefault("media", {})
+    for key in ("width", "height", "duration_s"):
+        if fresh.get(key) is not None:
+            media[key] = fresh[key]
+    return current
+
+
+def _refresh_commons(current, ident):
+    data = get_json(
+        "https://commons.wikimedia.org/w/api.php",
+        {
+            "action": "query",
+            "format": "json",
+            "pageids": ident,
+            "prop": "imageinfo",
+            "iiprop": _COMMONS_REFRESH_IIPROP,
+        },
+    )
+    page = (data.get("query") or {}).get("pages", {}).get(ident, {})
+    info = (page.get("imageinfo") or [{}])[0]
+    kind = _commons_kind(info)
+    media_url = public_url(info.get("url")) if kind else None
+    if not media_url:
+        raise ProviderError("Arquivo do provedor não está mais disponível")
+    if page.get("title") and not current.get("title"):
+        current["title"] = page["title"]
+    _remember_commons(current, info)
+    if kind == "video":
+        _commons_videoinfo(current)
+    current["media_url"] = media_url
+    media = current.setdefault("media", {})
+    if kind == "image":
+        media["kind"] = "image"
+        current["asset_type"] = "image"
+    elif kind == "video":
+        media["kind"] = "video"
+    if info.get("width") is not None:
+        media["width"] = info["width"]
+    if info.get("height") is not None:
+        media["height"] = info["height"]
     return current

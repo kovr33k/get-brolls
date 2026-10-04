@@ -309,6 +309,26 @@ def relevant_langs(data, langs):
     return listed[:MAX_SUBTITLE_LANGS], len(every)
 
 
+def source_limitations(data):
+    """Item limits yt-dlp actually reports. A missing field stays unknown.
+
+    `age_limit` must be a real int: `bool` is an int subclass, and `True` is not an age.
+    """
+    if not isinstance(data, dict):
+        return []
+    found = []
+    availability = data.get("availability")
+    if isinstance(availability, str) and availability not in ("", "public"):
+        found.append(f"availability: {availability}")
+    age = data.get("age_limit")
+    if type(age) is int and age > 0:
+        found.append(f"age_limit: {age}")
+    live = data.get("live_status")
+    if live in ("is_live", "is_upcoming", "post_live"):
+        found.append(f"live_status: {live}")
+    return found
+
+
 def metadata(url):
     """Título, autoria e duração da página, num pedido só e sem baixar mídia.
 
@@ -342,6 +362,7 @@ def metadata(url):
         "handle": str(handle) if handle else None,
         "creator_url": data.get("uploader_url") or data.get("channel_url") or None,
         "duration_s": float(duration) if isinstance(duration, (int, float)) else None,
+        "limitations": source_limitations(data),
     }
 
 
@@ -473,6 +494,7 @@ def probe_remote(url, langs=SUBTITLE_LANGS, cache=None):  # noqa: C901 - existin
         # Só o que a fonte declara: serve para avisar sobre 360°/VR antes da prévia.
         "tags": [str(tag) for tag in (data.get("tags") or []) if tag],
         "subtitles": subtitles,
+        "limitations": source_limitations(data),
     }
 
 

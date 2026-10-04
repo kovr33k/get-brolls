@@ -15,7 +15,7 @@
     <img src="https://img.shields.io/badge/Playwright-browser-2EAD33?style=flat-square" alt="Playwright para fontes que pedem navegador">
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="Licença MIT">
     <img src="https://img.shields.io/github/actions/workflow/status/engenheirodevideo/get-brolls/test.yml?branch=main&style=flat-square&label=tests" alt="Status dos testes">
-    <img src="https://img.shields.io/badge/version-2.8.0-blue?style=flat-square" alt="Versão 2.8.0">
+    <img src="https://img.shields.io/badge/version-2.9.0-blue?style=flat-square" alt="Versão 2.9.0">
   </p>
 </div>
 

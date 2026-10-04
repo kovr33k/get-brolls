@@ -513,7 +513,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 "--media",
                 choices=["image", "video", "any"],
                 default="any",
-                help="Tipo de arquivo na fonte: image, video ou any (padrão); só NASA e Commons têm os dois",
+                help="Source media type: image, video, or any (default); NASA, Commons, and Archive.org support both",
             )
             p.add_argument(
                 "--shot",

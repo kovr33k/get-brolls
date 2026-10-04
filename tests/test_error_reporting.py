@@ -223,8 +223,25 @@ class RefreshRaisesInsteadOfNoneTests(unittest.TestCase):
         ):
             providers.refresh(item)
 
-    def test_commons_refresh_raises_when_file_is_not_video(self):
-        item = {"provider": "commons", "source_id": "42"}
+    def test_commons_refresh_keeps_an_image_and_rejects_other_files(self):
+        item = {"provider": "commons", "source_id": "42", "title": "File:X.jpg"}
+        with patch.object(
+            providers,
+            "get_json",
+            return_value={
+                "query": {
+                    "pages": {
+                        "42": {
+                            "title": "File:X.jpg",
+                            "imageinfo": [{"mime": "image/jpeg", "url": "https://commons.wikimedia.org/x.jpg"}],
+                        }
+                    }
+                }
+            },
+        ):
+            refreshed = providers.refresh(item)
+        self.assertEqual("https://commons.wikimedia.org/x.jpg", refreshed["media_url"])
+        self.assertEqual("image/jpeg", refreshed["commons"]["mime"])
         with (
             patch.object(
                 providers,
@@ -232,7 +249,7 @@ class RefreshRaisesInsteadOfNoneTests(unittest.TestCase):
                 return_value={
                     "query": {
                         "pages": {
-                            "42": {"imageinfo": [{"mime": "image/jpeg", "url": "https://commons.wikimedia.org/x.jpg"}]}
+                            "42": {"imageinfo": [{"mime": "audio/mpeg", "url": "https://commons.wikimedia.org/x.mp3"}]}
                         }
                     }
                 },
