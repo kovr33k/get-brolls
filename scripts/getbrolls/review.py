@@ -275,6 +275,9 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
             # Same reset as `commands.mark_rejected`: an already-fetched candidate must
             # stop counting as delivered/verified once rejected here too.
             c["output"] = empty_output()
+            from .fragment_search import invalidate_visual_confirmation
+
+            invalidate_visual_confirmation(c)
         else:
             c["approval"] = {
                 "status": "pending",

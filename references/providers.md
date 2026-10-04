@@ -2,7 +2,7 @@
 type: reference
 status: current
 created: 2026-09-17
-updated: 2026-10-03
+updated: 2026-10-04
 tags: [get-brolls, fontes, provedores]
 ---
 
@@ -75,7 +75,7 @@ Wikimedia Commons e NASA não pedem chave e costumam ser a rota literal mais rá
 
 Panorama completo em [Fontes e transportes](../docs/GUIDE.md#fontes-e-transportes).
 
-Archive.org is also implemented for public images/videos: `search --provider archive`, explicit item/file `resolve`, then the shared inspect and preview route. For resumable fragment search, use [the Archive workflow](../docs/GUIDE.md#provider--archiveorg-and-fragment-search). Consult [SOURCE-CATALOGS.md](../docs/SOURCE-CATALOGS.md) for all twenty retained routes and `providers` for current support. Planned entries are guidance, and an archive collection name does not clear rights.
+Archive.org is also implemented for public images/videos: `search --provider archive`, explicit item/file `resolve`, then the shared inspect and preview route. For resumable fragment search, use [the Archive workflow](../docs/GUIDE.md#provider--archiveorg-and-fragment-search). After actually viewing a preview or the acquired file, record `search-confirm` and name the opened preview with `--preview gif|contact-sheet|poster`. `preview --option` keeps another scene of that same source. Three current suitable distinct options stop further queries. That record is not approval or rights, and a rejection stays out of the count until you confirm the current material again. Consult [SOURCE-CATALOGS.md](../docs/SOURCE-CATALOGS.md) for all twenty retained routes and `providers` for current support. Planned entries are guidance, and an archive collection name does not clear rights.
 
 ## Quantidade
 

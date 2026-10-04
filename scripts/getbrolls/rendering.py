@@ -172,6 +172,173 @@ def contact_sheet_figure(candidate, sheet, esc):
     )
 
 
+_STALE_TEXT = {
+    "candidate_missing": "Candidate is no longer in the project.",
+    "rejected": "Rejected. This confirmation no longer counts.",
+    "context_unverified": "Fragment context could not be verified.",
+    "context_changed": "Fragment context changed. Confirm again for the current scenario.",
+    "representation_changed": "Representation changed. Confirm the current material again.",
+    "interval_changed": "Interval changed. Confirm the current interval again.",
+    "superseded": "Superseded by a later confirmation.",
+}
+
+
+def _interval_text(interval):
+    if not isinstance(interval, dict):
+        return "Interval not recorded"
+    if interval.get("kind") == "still":
+        return "Still image " + str(interval.get("file") or "")
+    return f"{interval.get('start_s')}–{interval.get('end_s')} s"
+
+
+def _hash_text(hashes):
+    parts = [f"{key} {value}" for key, value in (hashes or {}).items() if value]
+    return ", ".join(parts) if parts else "No hash recorded"
+
+
+def _esc(value):
+    return html.escape(str(value if value is not None else ""), quote=True)
+
+
+def _raw_hit_items(row):
+    if not row["raw_hits"]:
+        return ["<li>No raw hits recorded.</li>"]
+    return [
+        (
+            f'<li class="raw-hit">{_esc(hit.get("title"))} '
+            f"<code>{_esc(hit.get('candidate'))}</code> "
+            f"approval {_esc(hit.get('approval'))}, rights {_esc(hit.get('rights'))}</li>"
+        )
+        for hit in row["raw_hits"]
+    ]
+
+
+def _identity_paragraph(identity):
+    return (
+        "<p>"
+        f"Candidate <code>{_esc(identity['candidate'])}</code>; "
+        f"source {_esc(identity.get('source_id'))}; "
+        f"asset {_esc(identity.get('asset_file'))}; "
+        f"representation {_esc(identity.get('selected_file'))}; "
+        f"interval {_esc(_interval_text(identity.get('interval')))}; "
+        f"hashes {_esc(_hash_text(identity.get('hashes')))}."
+        "</p>"
+    )
+
+
+def _option_article(option):
+    viewing = option.get("viewing") or {}
+    identities = option.get("identities") or []
+    noun = "identity" if len(identities) == 1 else "identities"
+    viewed = viewing.get("viewed") or "unrecorded"
+    part = viewing.get("viewed_preview")
+    viewed_text = f"{viewed} {part}" if part else str(viewed)
+    parts = [
+        '<article class="suitable-option">',
+        f"<p>Option {_esc(option['option_id'])}: {len(identities)} {noun}. Viewed {_esc(viewed_text)}.</p>",
+        f"<p>{_esc(viewing.get('observation'))}</p>",
+        f"<p>{_esc(viewing.get('match'))}</p>",
+    ]
+    if option.get("grouped_reason"):
+        parts.append(f"<p>Grouped as {_esc(option['grouped_reason'])}.</p>")
+    if option.get("distinctness_support"):
+        parts.append(f"<p>Distinctness: {_esc(option.get('distinctness_support'))}.</p>")
+    if option.get("distinctness"):
+        parts.append(f"<p>{_esc(option['distinctness'])}</p>")
+    parts.extend(
+        f'<p class="unsupported-distinctness">Unsupported distinctness claim: {_esc(claim)}</p>'
+        for claim in option.get("unsupported_distinctness") or []
+    )
+    parts.append("<details><summary>Identities, intervals, and hashes</summary>")
+    parts.extend(_identity_paragraph(identity) for identity in identities)
+    parts.append("</details></article>")
+    return parts
+
+
+def _suitable_items(row):
+    if not row["suitable_options"]:
+        return ["<p>No confirmed suitable options yet.</p>"]
+    parts = []
+    for option in row["suitable_options"]:
+        parts.extend(_option_article(option))
+    return parts
+
+
+def _evidence_state(record):
+    if record.get("deferred") and record.get("current"):
+        return "Deferred: a separately requested original is not counted"
+    return _STALE_TEXT.get(record.get("stale_reason"), "Current")
+
+
+def _evidence_items(row):
+    if not row["viewing_evidence"]:
+        return ["<li>No viewing evidence recorded.</li>"]
+    return [
+        (
+            f'<li class="viewing-evidence">{_esc(record.get("verdict"))}; {_esc(_evidence_state(record))}; '
+            f"{_esc(record.get('observation'))}; interval {_esc(_interval_text(record.get('interval')))}; "
+            f"candidate <code>{_esc(record.get('candidate'))}</code></li>"
+        )
+        for record in row["viewing_evidence"]
+    ]
+
+
+def _decision_items(row):
+    if not row["pending_human_decisions"]:
+        return ["<li>No pending human decision.</li>"]
+    return [
+        (
+            f'<li class="pending-decision"><code>{_esc(decision["candidate"])}</code> '
+            f"approval {_esc(decision.get('approval'))}, rights {_esc(decision.get('rights'))}</li>"
+        )
+        for decision in row["pending_human_decisions"]
+    ]
+
+
+def _fragment_article(row):
+    narration = (row.get("context") or {}).get("narration")
+    parts = [
+        f'<article class="fragment-search" data-fragment="{_esc(row["fragment"])}">',
+        f"<h3>Fragment {_esc(row['fragment'])}</h3>",
+        (
+            f"<p>Suitable options: {row['suitable_count']} of 3. "
+            f"Target reached: {'yes' if row['target_reached'] else 'no'}.</p>"
+        ),
+    ]
+    if narration:
+        parts.append(
+            f'<p class="scenario-narration"><span class="script-label">Scenario narration</span> {_esc(narration)}</p>'
+        )
+    parts.append("<h4>Raw hits</h4><ul>")
+    parts.extend(_raw_hit_items(row))
+    parts.append("</ul><h4>Confirmed suitable options</h4>")
+    parts.extend(_suitable_items(row))
+    parts.append("<h4>Viewing evidence</h4><ul>")
+    parts.extend(_evidence_items(row))
+    parts.append("</ul><h4>Pending human decisions</h4><ul>")
+    parts.extend(_decision_items(row))
+    parts.append("</ul></article>")
+    return parts
+
+
+def _search_preface(ledger):
+    """English search summary. Scenario text and agent observations stay in their original language."""
+    from .fragment_search import progress
+
+    rows = progress(ledger.data, project=ledger.root.parent)
+    if not rows:
+        return ""
+    parts = [
+        '<section class="search-options" aria-label="Fragment search options">',
+        "<h2>Search options</h2>",
+        "<p>Visual confirmation is not human approval and does not grant usage rights.</p>",
+    ]
+    for row in rows:
+        parts.extend(_fragment_article(row))
+    parts.append("</section>")
+    return "".join(parts)
+
+
 def render(ledger, *, ready_only=False):
     records = []
     story_items = []
@@ -276,6 +443,9 @@ def render(ledger, *, ready_only=False):
     from .review import enhance
     from .storyboard import render_page
 
-    atomic_write(ledger.root / "review.html", enhance(render_page(story_items), ledger, records))
+    atomic_write(
+        ledger.root / "review.html",
+        enhance(render_page(story_items, extra_html=_search_preface(ledger)), ledger, records),
+    )
     atomic_write(ledger.root / "credits.md", "\n".join(credits_lines))
     return str(ledger.root / "review.html")

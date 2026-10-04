@@ -636,6 +636,9 @@ def mark_rejected(c, reason=None):
         "at": now(),
         "invalidated_review": had_review,
     }
+    from .fragment_search import invalidate_visual_confirmation
+
+    invalidate_visual_confirmation(c)
     return c
 
 
@@ -1247,7 +1250,7 @@ def status_report(ledger, rules=None, rules_error=None, queue=None):
         "rules_error": rules_error,
         "references": remembered,
         "references_error": references_error,
-        "search_progress": progress(ledger.data, recovery_pending=ledger.pending.exists()),
+        "search_progress": progress(ledger.data, recovery_pending=ledger.pending.exists(), project=ledger.root.parent),
         "queue": queue,
         "review_page": str(review_page) if review_page.is_file() else None,
         "journal": {
@@ -1477,10 +1480,14 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         return rules
     plan_dry_run = getattr(args, "dry_run", False) and (cmd == "search-plan" or getattr(args, "planned", False))
     ledger = Ledger(args.project, recover=not plan_dry_run)
-    if cmd in ("search-plan", "search-assess"):
-        from .fragment_search import assess_command, plan_command
+    if cmd in ("search-plan", "search-assess", "search-confirm"):
+        from .fragment_search import assess_command, confirm_command, plan_command
 
-        return {"search-plan": plan_command, "search-assess": assess_command}[cmd](ledger, args, rules)
+        return {
+            "search-plan": plan_command,
+            "search-assess": assess_command,
+            "search-confirm": confirm_command,
+        }[cmd](ledger, args, rules)
     from getbrolls.rules import sync_formats
 
     # Consultas (`references`, `inspect`) não decidem nada sobre formato: como o
@@ -1870,6 +1877,12 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
     c = ledger.get(args.candidate)
     if not allowed(c, rules) and cmd in ("preview", "approve", "permit", "fetch"):
         raise ValueError("Asset bloqueado pelas regras atuais do usuário.")
+    if cmd == "preview" and getattr(args, "option", None):
+        if args.scan:
+            raise ValueError("--option selects one interval of this recording. Use --start and --end, not --scan.")
+        from .fragment_search import select_preview_option
+
+        c = select_preview_option(ledger, c, args.option)
     if cmd == "remember":
         from getbrolls.memory import remember
 
@@ -1957,18 +1970,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         mark_rejected(c, getattr(args, "reason", None))
     elif cmd == "preview":
         context_before = signature(c)
-        if not args.reference_only and c["provider"] != "local":
-            # Vídeo sem --start/--end já parou antes, no guard de `preview`/`approve`.
-            asked = args.end - args.start  # pyright: ignore[reportOptionalOperand]
-            if asked > float(config["max_seconds"]) + CAP_EPSILON:
-                raise ValueError(
-                    f"Trecho de {asked:g} s excede o teto de prévia: GB_PREVIEW_MAX_SECONDS "
-                    f"está em {config['max_seconds']} s. Encurte o intervalo, ou aumente a "
-                    "variável se você realmente precisa de uma prévia mais longa."
-                )
-            from .acquisition import prepare_source
-
-            prepare_source(ledger, c, args.start, args.end)
+        _acquire_preview_source(ledger, c, args, config)
         if c.get("local_path") and not args.reference_only:
             from .previewing import prepare_preview
 
@@ -2137,6 +2139,42 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         # They live only in this response, never in the manifest.
         return {**c, "files": preview_files(ledger, c)}
     return c
+
+
+def _record_still_size(candidate, path):
+    """Measured still size. A one-frame probe is not duration or frame rate."""
+    measured = probe(path)
+    candidate["media"]["width"] = measured.get("width")
+    candidate["media"]["height"] = measured.get("height")
+
+
+def _acquire_preview_source(ledger, c, args, config):
+    """Download the working file for a preview. A still has no interval to cap."""
+    if args.reference_only or c["provider"] == "local":
+        return
+    if (c.get("media") or {}).get("kind") == "image":
+        path = c.get("local_path")
+        if path and Path(path).is_file() and c.get("local_sha256") and digest(path) == c["local_sha256"]:
+            _record_still_size(c, path)
+            return
+        from .acquisition import cache_direct_media
+
+        cached = cache_direct_media(ledger, c)
+        c["local_path"] = str(Path(cached).resolve())
+        c["local_sha256"] = digest(c["local_path"])
+        _record_still_size(c, c["local_path"])
+        return
+    # Vídeo sem --start/--end já parou antes, no guard de `preview`/`approve`.
+    asked = args.end - args.start  # pyright: ignore[reportOptionalOperand]
+    if asked > float(config["max_seconds"]) + CAP_EPSILON:
+        raise ValueError(
+            f"Trecho de {asked:g} s excede o teto de prévia: GB_PREVIEW_MAX_SECONDS "
+            f"está em {config['max_seconds']} s. Encurte o intervalo, ou aumente a "
+            "variável se você realmente precisa de uma prévia mais longa."
+        )
+    from .acquisition import prepare_source
+
+    prepare_source(ledger, c, args.start, args.end)
 
 
 def reference_poster(ledger, c):

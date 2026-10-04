@@ -3,11 +3,11 @@ name: get-brolls
 description: 'Coleta, pré-visualiza e entrega B-rolls com revisão humana e origem registrada. Use quando alguém pedir b-roll, vídeos de apoio, imagens de apoio, cutaways, inserts, footage, "um corte do X falando Y", um print da tela de um site ou de uma notícia, ou material para ilustrar um vídeo, Reel ou aula — buscando em YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org ou bancos (Pexels, Pixabay), gerando prévias para revisão humana e entregando os trechos com origem e condições de uso. Also in English: collect B-roll, cutaways, inserts, supporting footage, stock video, screen grabs. Não serve para editar, montar ou renderizar o vídeo final. Not for editing or rendering the finished video.'
 license: MIT
 metadata:
-  version: "2.6.0"
+  version: "2.7.0"
   type: "skill"
   status: "current"
   created: "2026-09-15"
-  updated: "2026-10-03"
+  updated: "2026-10-04"
   tags: "b-roll, youtube, instagram, tiktok, storyboard"
 ---
 
@@ -47,7 +47,7 @@ Use `brief --beat <ID>` and `--shot <beat.id>`. Check `library --search` first; 
 
 **Checkpoint C2.** Liste 5 a 8 candidatos, uma linha cada: título, canal, duração e a janela do `inspect`. Feche com "sigo com estes?".
 
-Archive fragments: read [workflow](docs/GUIDE.md#provider--archiveorg-and-fragment-search) before `search-plan` → `search --planned` → `search-assess`. Three queries share a durable budget. Select files with `--archive-file`; previews confer no suitability/approval. [Catalog guidance](docs/SOURCE-CATALOGS.md) distinguishes retained routes from working adapters.
+Archive fragments: read [workflow](docs/GUIDE.md#provider--archiveorg-and-fragment-search): `search-plan`, `search --planned`, preview, `search-confirm`, `search-assess`. Viewing spends none; three suitable options stop search. `preview --option <name>` adds a scene. `--archive-file` selects files. `--preview` is `gif`, `contact-sheet`, or `poster`; material omits it. Rejection needs a new viewing; approval does not restore. Not approval or `fetch`. [Catalogs](docs/SOURCE-CATALOGS.md).
 
 ## Passo 4 — Analise e pré-visualize
 
@@ -89,8 +89,8 @@ Diga o que tentou e o motivo real. Pergunte se a pessoa tem material próprio ou
 
 - [`references/interview.md`](references/interview.md) — as sete perguntas do brief.
 - [`references/providers.md`](references/providers.md) — fontes, ordem, biblioteca e lotes.
-- [`references/instagram.md`](references/instagram.md) — o procedimento dos dois streams.
+- [`references/instagram.md`](references/instagram.md)
 - [`references/rights.md`](references/rights.md) — condições de uso e `permit`.
-- [`references/templates-de-resposta.md`](references/templates-de-resposta.md) — copy pronta.
-- [`references/glossario.md`](references/glossario.md) — o que cada termo quer dizer.
-- [`docs/GUIDE.md`](docs/GUIDE.md) — detalhe técnico por provedor.
+- [`references/templates-de-resposta.md`](references/templates-de-resposta.md)
+- [`references/glossario.md`](references/glossario.md)
+- [`docs/GUIDE.md`](docs/GUIDE.md)

@@ -25,6 +25,7 @@ SUMMARIES = {
     "search": "Pesquisar candidatos numa fonte e registrá-los no projeto (--shot liga ao beat; --dry-run não grava)",
     "search-plan": "Save a one-catalog search plan for a BRIEF fragment without resetting its query allowance",
     "search-assess": "Record the managing agent's assessment of a fragment search attempt",
+    "search-confirm": "Record that a fragment option was actually viewed and whether it matches",
     "resolve": "Registrar um candidato a partir de URL pública ou arquivo local",
     "inspect": "Analisar a fonte (duração, capítulos, legendas) antes de coletar",
     "preview": "Gerar prévia (GIF/contact sheet) do intervalo escolhido",
@@ -103,6 +104,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         "search",
         "search-plan",
         "search-assess",
+        "search-confirm",
         "resolve",
         "inspect",
         "preview",
@@ -256,6 +258,10 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
             p.add_argument("--narration", help="Fala exata do roteiro")
             p.add_argument("--reason", help="Decisão de coleta desta fonte")
+            p.add_argument(
+                "--option",
+                help="Create or reuse an independent scene of this source; the same name edits that selection",
+            )
         if name == "review":
             p.add_argument(
                 "--ready-only",
@@ -405,6 +411,36 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 p.add_argument(
                     "--assessment", required=True, help="What the returned results established and what to inspect next"
                 )
+        if name == "search-confirm":
+            p.add_argument("--shot", required=True, help="Existing BRIEF fragment ID")
+            p.add_argument("--candidate", required=True, help="Candidate whose material or preview was actually viewed")
+            p.add_argument(
+                "--viewed",
+                required=True,
+                choices=("preview", "material"),
+                help="preview: a generated preview file; material: the acquired representation",
+            )
+            p.add_argument(
+                "--preview",
+                choices=("gif", "contact-sheet", "poster"),
+                help="Generated preview you opened. Required with --viewed preview; not a disk path",
+            )
+            p.add_argument("--observation", required=True, help="What is visible in the viewed preview or material")
+            p.add_argument("--match", required=True, help="Why the viewed material matches or misses the fragment")
+            p.add_argument(
+                "--verdict",
+                choices=("suitable", "unsuitable"),
+                default="suitable",
+                help="suitable counts when distinct and current; unsuitable stays search history",
+            )
+            p.add_argument(
+                "--distinctness",
+                help="Why this is a different scene, angle, action, or moment from other options of the same recording",
+            )
+            p.add_argument(
+                "--duplicate-of",
+                help="Another fragment candidate that is a repost, near-identical trim, or the same shot",
+            )
         if name == "search":
             p.add_argument(
                 "--planned", action="store_true", help="Use the saved fragment plan and durable three-query allowance"
