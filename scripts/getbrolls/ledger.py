@@ -153,6 +153,9 @@ class Ledger:
                 "creator",
                 "context_image_sha256",
                 "full_preview_sha256",
+                "locator",
+                "source_reference",
+                "source_metadata",
             ):
                 if c.get(field) != old.get(field):
                     raise ValueError(

@@ -318,7 +318,7 @@ class SearchChains(unittest.TestCase):
 
     def test_early_skip_and_unimplemented_route_do_not_spend_a_query(self):
         plan_chain(self.project, ["instagram", "archive", "nasa"])
-        self.assertEqual("advance_unimplemented_route", progress(self.project)["next"])
+        self.assertEqual("reserve_browser_query", progress(self.project)["next"])
         with patch.object(providers, "search") as provider:
             dry = planned(self.project, "factory", "--dry-run")
             provider.assert_not_called()
@@ -332,7 +332,9 @@ class SearchChains(unittest.TestCase):
                 planned(self.project, "factory")
             provider.assert_not_called()
         self.assertEqual([], stored(self.project)["attempts"])
-        advance(self.project, "instagram", "route-unimplemented", "Keyword search is not implemented for Instagram")
+        with self.assertRaisesRegex(OperationError, "implemented search route"):
+            advance(self.project, "instagram", "route-unimplemented", "Browser import is available")
+        advance(self.project, "instagram", "unavailable-access", "No authorized browser session for this fragment")
         with self.assertRaisesRegex(OperationError, "implemented search route"):
             advance(self.project, "archive", "route-unimplemented", "Archive search exists")
         with patch.object(providers, "search") as provider:

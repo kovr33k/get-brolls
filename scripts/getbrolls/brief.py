@@ -32,6 +32,8 @@ SOURCES = (
     "dvids",
     "europeana",
     "nara",
+    "un_avlibrary",
+    "destockd",
     "local",
 )
 STOCK_SOURCES = ("pexels", "pixabay")

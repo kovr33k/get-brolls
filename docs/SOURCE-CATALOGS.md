@@ -34,8 +34,8 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 | X | Public posts, exact quotations, attached media | Prior route: xAI X Search through agreed Grok OAuth | Planned |
 | EC Audiovisual Service | EU events, speeches, stockshots, institutional photos | AV Portal client endpoint, then portal backend | Planned |
 | UN Web TV | UN meetings, briefings, speeches | UN Transcripts API; catalog/direct links for older video | Planned |
-| UN Audiovisual Library | UN historical footage and high-quality originals | Archive cards and footage request/licensing | Planned |
-| Destockd | Individual shots from FedFlix films | Website discovery and direct shot links | Planned |
+| UN Audiovisual Library | UN historical footage and high-quality originals | Browser attempt/import, asset URL/ID and supplied original | URL/browser; original request remains manual |
+| Destockd | Individual shots from FedFlix films | Browser attempt/import, shot preview and Archive original link | URL/browser; no undocumented API calls |
 | Instagram | Reels, participant posts, contemporary event footage | Authorized browser; video/audio acquisition route | URL/browser; no CLI keyword search |
 | TikTok | Short event footage and participant posts | Browser discovery, canonical post URL, yt-dlp | URL/browser; no CLI keyword search |
 
@@ -62,7 +62,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 - **Inside a video:** collect captions when present. Use a smaller proxy for exploration and a suitable high-quality representation for the selected interval. A catalog match does not supply shot boundaries automatically.
 - **Access/acquisition:** public metadata is generally readable without login; restricted files require their own access check. Preserve item ID, file identity, and the canonical item page.
 - **Keep:** item/asset provenance and rights. FedFlix or a collection name alone does not establish the rights of every included fragment.
-- **Implemented slice:** `archive` search, actual file/representation selection, associated captions, restrictions, and resumable fragment chains use the common ledger and review route. A chain is one to five allowed catalogs. Each catalog has three meaningful queries. Confirmed suitable options carry across catalogs. One additional disjoint pass is allowed and a third pass is not. Suitable-option confirmation names the viewed preview or acquired file, groups identical stills and near-duplicate trims, and can keep several scenes of one source with `preview --option`. Three current distinct options stop later dispatches. An unassessed result or interrupted query on the current catalog blocks the additional pass and a shortfall until `search-assess`. Rejection leaves the count until a new visual confirmation; approval alone does not restore it. Catalogs without an implemented keyword-search route can be planned, and a query there is refused instead of invented. Other planned adapters, browser import, and whether a preview-confirmed requested original counts remain separate. [Operational commands](GUIDE.md#provider--archiveorg-and-fragment-search).
+- **Implemented slice:** `archive` search, actual file/representation selection, associated captions, restrictions, and resumable fragment chains use the common ledger and review route. A chain is one to five allowed catalogs. Each catalog has three meaningful queries. Confirmed suitable options carry across catalogs. One additional disjoint pass is allowed and a third pass is not. Suitable-option confirmation names the viewed preview or acquired file, groups identical stills and near-duplicate trims, and can keep several scenes of one source with `preview --option`. Three current distinct options stop later dispatches. An unassessed result or interrupted query on the current catalog blocks the additional pass and a shortfall until `search-assess`. Rejection leaves the count until a new visual confirmation; approval alone does not restore it. Catalogs without an implemented keyword-search route can be planned, and a query there is refused instead of invented. Browser attempts/import use the same budget. UN/Destockd preview references remain deferred until a separately acquired original is viewed and confirmed; the broader requested-original policy remains deferred. [Operational commands](GUIDE.md#provider--archiveorg-and-fragment-search).
 - **References:** [search guide](https://archivesupport.zendesk.com/hc/en-us/articles/360018359991-Search-A-Basic-Guide), [Metadata API](https://archive.org/developers/metadata.html).
 
 ## NASA Image and Video Library
@@ -209,7 +209,7 @@ The supplied note reports credential-free read-only calls: no API key, OAuth, or
 
 ## UN Audiovisual Library
 
-**Retained provider ID:** `un_avlibrary`. This is an archive locator and footage-request route.
+**Retained provider ID:** `un_avlibrary`. This is an implemented browser/import archive locator and explicit supplied-original route. See [commands](GUIDE.md#browser-attempts-and-archive-locators).
 
 - **Search/access:** website discovery, public cards, and direct URL/Asset ID. The supplied research found no universal public search API; do not invent one.
 - **Keep:** title, date, description, preview reference, shotlist/time markers when available, asset ID, and the footage-request link.
@@ -220,13 +220,13 @@ The supplied note reports credential-free read-only calls: no API key, OAuth, or
 
 ## Destockd
 
-**Retained provider ID:** `destockd`. Its value is the division of FedFlix films into individual shots.
+**Retained provider ID:** `destockd`. Its value is the division of FedFlix films into individual shots. The current browser/import route shares fragment accounting; see [commands](GUIDE.md#browser-attempts-and-archive-locators).
 
 - **Initial route:** search the website and import the direct shot link; retain film title and shot ID.
 - **Special access finding:** the supplied research records `Disallow: /api/` in `robots.txt`. The discovered JSON API is undocumented. Preserve website/link import until the operator agrees to a programmatic access method and request rate; the robots finding was not re-probed for this document.
 - **Shot detail:** preview, exact boundaries, and the source-film link can be visible in the UI, but cannot be inferred from the hash-route URL. Missing values remain unknown.
 - **After agreed API access:** bounded read-only requests, cache, and schema checks; keep manual import as fallback. Whole-catalog crawling and protection bypass are outside the retained route.
-- **Acquisition:** connect the shot to its original film through Archive.org when the metadata/link is available. Preserve Destockd shot ID and Archive.org item/file identity separately. Automatic preview/original import is not established by the supplied locator implementation.
+- **Acquisition:** connect the shot to its original film through Archive.org when the metadata/link is available. Preserve Destockd shot ID and Archive.org item/file identity separately. The current CLI imports observed public previews and links a matching selected Archive original with `resolve --original-for`; boundaries remain unknown unless actually observed.
 - **Rights:** verify the actual original and third-party inserts; a general “public domain or unrestricted” label is not sufficient item evidence.
 - **References:** [website](https://destockd.com/), [robots.txt](https://destockd.com/robots.txt).
 

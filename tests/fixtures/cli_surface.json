@@ -1591,6 +1591,30 @@
           "action": "_StoreAction",
           "choices": null,
           "default": null,
+          "dest": "original_for",
+          "help": "UN or Destockd locator candidate linked to this supplied original",
+          "nargs": null,
+          "option_strings": [
+            "--original-for"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "original_conditions",
+          "help": "Observed supplied-original conditions; records context without granting rights",
+          "nargs": null,
+          "option_strings": [
+            "--original-conditions"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
           "dest": "catalog_file",
           "help": "Actual file URL or NARA object ID in a multi-resource catalog record",
           "nargs": null,
@@ -1732,7 +1756,7 @@
           "choices": null,
           "default": null,
           "dest": "url",
-          "help": "Public source URL (YouTube, Instagram, TikTok, Commons, NASA, Archive.org, LoC, DVIDS, Europeana, NARA)",
+          "help": "Public source URL (YouTube, Instagram, TikTok, Commons, NASA, Archive.org, LoC, DVIDS, Europeana, NARA, UN, Destockd)",
           "nargs": null,
           "option_strings": [
             "--url"
@@ -1748,6 +1772,18 @@
           "nargs": null,
           "option_strings": [
             "--file"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "un_asset_id",
+          "help": "Observed UN Audiovisual Library Asset ID; imports a request locator",
+          "nargs": null,
+          "option_strings": [
+            "--un-asset-id"
           ],
           "required": false
         }
@@ -2151,6 +2187,112 @@
         }
       ]
     },
+    "search-browser": {
+      "help": "Reserve a fragment query before the managing agent searches an authorized browser",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "confirm_format_change",
+          "help": "==SUPPRESS==",
+          "nargs": 0,
+          "option_strings": [
+            "--confirm-format-change"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "shot",
+          "help": "Existing BRIEF fragment ID",
+          "nargs": null,
+          "option_strings": [
+            "--shot"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "dry_run",
+          "help": "Validate without reserving or saving results",
+          "nargs": 0,
+          "option_strings": [
+            "--dry-run"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "query",
+          "help": "Meaningful query the managing agent will use in the browser",
+          "nargs": null,
+          "option_strings": [
+            "--query"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "language",
+          "help": "Source query language; does not renew the allowance",
+          "nargs": null,
+          "option_strings": [
+            "--language"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "any",
+            "image",
+            "video"
+          ],
+          "default": "any",
+          "dest": "media",
+          "help": "Requested media type",
+          "nargs": null,
+          "option_strings": [
+            "--media"
+          ],
+          "required": false
+        }
+      ]
+    },
     "search-confirm": {
       "help": "Record that a fragment option was actually viewed and whether it matches",
       "options": [
@@ -2306,6 +2448,139 @@
           "nargs": null,
           "option_strings": [
             "--duplicate-of"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "search-import": {
+      "help": "Complete a reserved browser attempt with observed public results or an access limitation",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "confirm_format_change",
+          "help": "==SUPPRESS==",
+          "nargs": 0,
+          "option_strings": [
+            "--confirm-format-change"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "shot",
+          "help": "Existing BRIEF fragment ID",
+          "nargs": null,
+          "option_strings": [
+            "--shot"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "dry_run",
+          "help": "Validate without reserving or saving results",
+          "nargs": 0,
+          "option_strings": [
+            "--dry-run"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "attempt",
+          "help": "Attempt ID returned by search-browser",
+          "nargs": null,
+          "option_strings": [
+            "--attempt"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "access-failure",
+            "empty",
+            "results"
+          ],
+          "default": null,
+          "dest": "outcome",
+          "help": "Actual observed browser outcome",
+          "nargs": null,
+          "option_strings": [
+            "--outcome"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "results",
+          "help": "Private JSON file containing one to fifty observed public result rows",
+          "nargs": null,
+          "option_strings": [
+            "--results"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "assessment",
+          "help": "What the browser search established and its limitations",
+          "nargs": null,
+          "option_strings": [
+            "--assessment"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "assessed",
+            "incomplete"
+          ],
+          "default": null,
+          "dest": "coverage",
+          "help": "Coverage of returned or empty results",
+          "nargs": null,
+          "option_strings": [
+            "--coverage"
           ],
           "required": false
         }

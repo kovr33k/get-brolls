@@ -26,6 +26,8 @@ SUMMARIES = {
     "search-plan": "Save an ordered catalog chain for a BRIEF fragment without resetting query allowances",
     "search-assess": "Record the managing agent's assessment of a fragment search attempt",
     "search-confirm": "Record that a fragment option was actually viewed and whether it matches",
+    "search-browser": "Reserve a fragment query before the managing agent searches an authorized browser",
+    "search-import": "Complete a reserved browser attempt with observed public results or an access limitation",
     "resolve": "Registrar um candidato a partir de URL pública ou arquivo local",
     "inspect": "Analisar a fonte (duração, capítulos, legendas) antes de coletar",
     "preview": "Gerar prévia (GIF/contact sheet) do intervalo escolhido",
@@ -105,6 +107,8 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         "search-plan",
         "search-assess",
         "search-confirm",
+        "search-browser",
+        "search-import",
         "resolve",
         "inspect",
         "preview",
@@ -393,6 +397,32 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
         if name == "browser-plan":
             p.add_argument("--url", required=True, help="URL pública da página a capturar")
+        if name in ("search-browser", "search-import"):
+            p.add_argument("--shot", required=True, help="Existing BRIEF fragment ID")
+            p.add_argument("--dry-run", action="store_true", help="Validate without reserving or saving results")
+            if name == "search-browser":
+                p.add_argument(
+                    "--query", required=True, help="Meaningful query the managing agent will use in the browser"
+                )
+                p.add_argument("--language", help="Source query language; does not renew the allowance")
+                p.add_argument("--media", choices=("image", "video", "any"), default="any", help="Requested media type")
+            else:
+                p.add_argument("--attempt", required=True, help="Attempt ID returned by search-browser")
+                p.add_argument(
+                    "--outcome",
+                    required=True,
+                    choices=("results", "empty", "access-failure"),
+                    help="Actual observed browser outcome",
+                )
+                p.add_argument(
+                    "--results", help="Private JSON file containing one to fifty observed public result rows"
+                )
+                p.add_argument(
+                    "--assessment", required=True, help="What the browser search established and its limitations"
+                )
+                p.add_argument(
+                    "--coverage", choices=("incomplete", "assessed"), help="Coverage of returned or empty results"
+                )
         if name in ("search-plan", "search-assess"):
             p.add_argument("--shot", required=True, help="Existing BRIEF fragment ID")
             if name == "search-plan":
@@ -544,6 +574,11 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 help="Por que este material foi descartado; fica gravado no candidato",
             )
         if name == "resolve":
+            p.add_argument("--original-for", help="UN or Destockd locator candidate linked to this supplied original")
+            p.add_argument(
+                "--original-conditions",
+                help="Observed supplied-original conditions; records context without granting rights",
+            )
             p.add_argument(
                 "--catalog-file", help="Actual file URL or NARA object ID in a multi-resource catalog record"
             )
@@ -574,9 +609,10 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             g = p.add_mutually_exclusive_group(required=True)
             g.add_argument(
                 "--url",
-                help="Public source URL (YouTube, Instagram, TikTok, Commons, NASA, Archive.org, LoC, DVIDS, Europeana, NARA)",
+                help="Public source URL (YouTube, Instagram, TikTok, Commons, NASA, Archive.org, LoC, DVIDS, Europeana, NARA, UN, Destockd)",
             )
             g.add_argument("--file", help="Arquivo local já autorizado para importação")
+            g.add_argument("--un-asset-id", help="Observed UN Audiovisual Library Asset ID; imports a request locator")
     return parser
 
 
