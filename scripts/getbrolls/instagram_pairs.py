@@ -36,7 +36,8 @@ if __package__:
     from . import logs
     from .runtime import redact, stderr_tail
 else:  # Executado diretamente como `python3 scripts/getbrolls/instagram_pairs.py`, per docs/GUIDE.md.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    # Replace the script directory so local queue.py cannot shadow stdlib queue.
+    sys.path[0] = str(Path(__file__).resolve().parents[1])
     from getbrolls import logs
     from getbrolls.runtime import redact, stderr_tail
 

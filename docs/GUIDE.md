@@ -714,6 +714,8 @@ Windows PowerShell:
 5. Os URLs observados nesse formato tinham `bytestart`/`byteend`, seletores explícitos de faixa. Para obter o arquivo completo, remova **somente esses dois parâmetros de faixa**, preservando todos os demais parâmetros e assinatura exatamente como capturados. Não remova `oh`, `oe` ou parâmetros desconhecidos. Valide duração e decodificação completa; um fragmento/HTTP 206 não comprova download integral. Se a CDN rejeitar a URL completa, recapture a representação pelo manifesto; não altere assinatura nem credenciais.
 6. Grave somente as duas URLs selecionadas em configs privados. Nunca exporte cookies, headers de autenticação ou todo o perfil para o pacote.
 
+No navegador integrado, consulte as capacidades disponíveis na aba autorizada. Se houver `pageAssets`, leia sua documentação e use `list()` para obter os recursos já observados. Selecione apenas as duas representações do Reel confirmado, relacionando `efg`, duração/dimensões do player e conteúdo conforme os passos acima. Use `bundle()` com os dois IDs e o ID daquele inventário para salvar um manifesto local privado; ele pode preservar as URLs observadas mesmo quando a ferramenta não consegue baixar os bytes. Entregue somente esse par ao coletor. Inventários/manifestos e configs contêm URLs assinadas e ficam fora da fonte, logs públicos e exemplos. O ensaio de [2026-10-05](QUALITY.md#instagram-two-stream-acquisition--2026-10-05-2131-candidate) validou essa captura e o download completo pelo coletor.
+
 Exemplo de inspeção CLI, com saída sensível retida no projeto:
 
 ```sh
@@ -754,7 +756,7 @@ São **dois arquivos**, com o mesmo prefixo e sufixos `_video.conf` / `_audio.co
 ### 2. Baixar os dois canais, juntar e verificar
 
 ```sh
-python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py"   --video-config "$GB_PROJECT/work/instagram-configs/01_REEL_video.conf"   --audio-config "$GB_PROJECT/work/instagram-configs/01_REEL_audio.conf"   --output "$GB_PROJECT/sources/instagram/01_REEL.mp4"   --parts-dir "$GB_PROJECT/work/instagram-parts"   --config-output-root "$GB_PROJECT"   --summary-json "$GB_PROJECT/work/instagram-summary.json"
+python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py"   --video-config "$GB_PROJECT/work/instagram-configs/01_REEL_video.conf"   --audio-config "$GB_PROJECT/work/instagram-configs/01_REEL_audio.conf"   --output "$GB_PROJECT/sources/instagram/01_REEL.mp4"   --parts-dir "$GB_PROJECT/work/instagram-parts"   --project "$GB_PROJECT"   --config-output-root "$GB_PROJECT"   --summary-json "$GB_PROJECT/work/instagram-summary.json"
 ```
 
 Windows PowerShell:
@@ -765,16 +767,17 @@ python "$env:GB_SKILL_DIR\scripts\getbrolls\instagram_pairs.py" `
   --audio-config "$env:GB_PROJECT\work\instagram-configs\01_REEL_audio.conf" `
   --output "$env:GB_PROJECT\sources\instagram\01_REEL.mp4" `
   --parts-dir "$env:GB_PROJECT\work\instagram-parts" `
+  --project "$env:GB_PROJECT" `
   --config-output-root "$env:GB_PROJECT" `
   --summary-json "$env:GB_PROJECT\work\instagram-summary.json"
 ```
 
-O script baixa com curl, mapeia vídeo do primeiro input e áudio do segundo, normaliza H.264/yuv420p + AAC e verifica streams via ffprobe. Se a URL expirou, recapture no navegador. Um erro de acesso não significa que a plataforma é somente referência.
+O script baixa com curl, mapeia vídeo do primeiro input e áudio do segundo, normaliza H.264/yuv420p + AAC e verifica streams via ffprobe. Informe `--project` para persistir o cooldown se houver HTTP 403/429. Se a URL expirou, recapture no navegador. Um erro de acesso não significa que a plataforma é somente referência.
 
 ### 3. Batch e áudio duplicado
 
 ```sh
-python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py"   --config-dir "$GB_PROJECT/work/instagram-configs"   --output-dir "$GB_PROJECT/sources/instagram"   --parts-dir "$GB_PROJECT/work/instagram-parts"   --config-output-root "$GB_PROJECT"   --layout flat --fail-on-duplicate-audio   --summary-json "$GB_PROJECT/work/instagram-summary.json"
+python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py"   --config-dir "$GB_PROJECT/work/instagram-configs"   --output-dir "$GB_PROJECT/sources/instagram"   --parts-dir "$GB_PROJECT/work/instagram-parts"   --project "$GB_PROJECT"   --config-output-root "$GB_PROJECT"   --layout flat --fail-on-duplicate-audio   --summary-json "$GB_PROJECT/work/instagram-summary.json"
 ```
 
 Windows PowerShell:
@@ -784,6 +787,7 @@ python "$env:GB_SKILL_DIR\scripts\getbrolls\instagram_pairs.py" `
   --config-dir "$env:GB_PROJECT\work\instagram-configs" `
   --output-dir "$env:GB_PROJECT\sources\instagram" `
   --parts-dir "$env:GB_PROJECT\work\instagram-parts" `
+  --project "$env:GB_PROJECT" `
   --config-output-root "$env:GB_PROJECT" `
   --layout flat --fail-on-duplicate-audio `
   --summary-json "$env:GB_PROJECT\work\instagram-summary.json"
@@ -896,6 +900,7 @@ python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py" \
   --audio-config /path/to/01_CODE_audio.conf \
   --output /path/to/output/01_CODE.mp4 \
   --parts-dir /path/to/work/instagram_parts \
+  --project /path/to/project \
   --config-output-root /path/to/root_that_resolves_conf_output_lines \
   --summary-json /path/to/output/01_CODE.summary.json
 ```
@@ -909,6 +914,7 @@ python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py" \
   --config-dir /path/to/curl_configs \
   --output-dir /path/to/outputs \
   --parts-dir /path/to/work/instagram_parts \
+  --project /path/to/project \
   --config-output-root /path/to/root_that_resolves_conf_output_lines \
   --layout auto \
   --fail-on-duplicate-audio \

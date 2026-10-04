@@ -1,6 +1,7 @@
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,12 +9,26 @@ from typing import Any
 from unittest.mock import patch
 
 from _media import synth_audio
-from _paths import ROOT  # noqa: F401  (efeito de import: insere scripts/ em sys.path)
+from _paths import ROOT
 
 from getbrolls import instagram_pairs as ig
 
 
 class InstagramRecoveryTests(unittest.TestCase):
+    def test_documented_direct_script_help_from_outside_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/getbrolls/instagram_pairs.py"), "--help"],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("--video-config", result.stdout)
+        self.assertIn("--project", result.stdout)
+
     def test_rejects_unsafe_urls_and_config_output_escape(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

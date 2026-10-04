@@ -196,6 +196,22 @@ def capabilities():
         "interval_s": [0, 3],
         "limitations": "One dated bounded public-channel query and acquired attachment. Viewed speaker at a lectern, not bridge imagery. Original authorship, current session access, editorial acceptance, human approval and reuse rights remain unverified.",
     }
+    result["instagram"]["live"] = "sample_verified"
+    result["instagram"]["live_observation"] = {
+        "date": "2026-10-05",
+        "version": "2.13.1",
+        "status": "passed_sample",
+        "source_url": "https://www.instagram.com/reel/DULxZOokzEL/",
+        "selected_file": "17855216619612456",
+        "operations": ["browser_capture", "pair_acquisition", "local_import", "preview", "decode"],
+        "bytes": 16289997,
+        "width": 1080,
+        "height": 1920,
+        "fps": 30,
+        "duration_s": 53.866667,
+        "interval_s": [0, 3],
+        "limitations": "One dated authorized-browser Reel and matching video/audio pair. Viewed a panel discussion, not bridge imagery. Global keyword footage search, current session access, editorial acceptance, human approval and reuse rights remain unverified.",
+    }
     result["archive"]["live"] = "sample_verified"
     result["archive"]["live_observation"] = {
         "date": "2026-10-03",
