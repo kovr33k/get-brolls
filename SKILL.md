@@ -3,7 +3,7 @@ name: get-brolls
 description: 'Coleta, pré-visualiza e entrega B-rolls com revisão humana e origem registrada. Use quando alguém pedir b-roll, vídeos de apoio, imagens de apoio, cutaways, inserts, footage, "um corte do X falando Y", um print da tela de um site ou de uma notícia, ou material para ilustrar um vídeo, Reel ou aula — buscando em YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org ou bancos (Pexels, Pixabay), gerando prévias para revisão humana e entregando os trechos com origem e condições de uso. Also in English: collect B-roll, cutaways, inserts, supporting footage, stock video, screen grabs. Não serve para editar, montar ou renderizar o vídeo final. Not for editing or rendering the finished video.'
 license: MIT
 metadata:
-  version: "2.10.0"
+  version: "2.11.0"
   type: "skill"
   status: "current"
   created: "2026-09-15"
@@ -47,7 +47,9 @@ Use `brief --beat <ID>` and `--shot <beat.id>`. Check `library --search` first; 
 
 **Checkpoint C2.** Ordinary search: list 5 to 8 and ask "sigo com estes?". A planned chain does not stop on raw hits.
 
-Archive, YouTube, Commons, NASA, Pexels, Pixabay, LoC, DVIDS, Europeana, NARA share [workflow](docs/GUIDE.md#provider--archiveorg-and-fragment-search): 1–5 catalogs, three queries/catalog, agent-selected languages. Translations/shortening count. One disjoint second chain; no third. Stop at three visually confirmed options. Unplanned `search`: one call. Measured stills; illustrative stock. `search-confirm` grants no approval/rights. Shortfalls do not prove absent footage. Multi-object records: `resolve --catalog-file`. [Catalogs](docs/SOURCE-CATALOGS.md).
+Catalog search follows [workflow](docs/GUIDE.md#provider--archiveorg-and-fragment-search): 1–5 catalogs, three queries/catalog, agent-selected languages. Translations/shortening count. One disjoint second chain; no third. Stop at three visually confirmed options. Unplanned `search`: one call. Measured stills; illustrative stock. `search-confirm` grants no approval/rights. Shortfalls do not prove absent footage. Multi-object records: `resolve --catalog-file`. [Catalogs](docs/SOURCE-CATALOGS.md).
+
+Browser discovery for Instagram/TikTok and UN/Destockd: follow [attempts/imports](docs/GUIDE.md#browser-attempts-and-archive-locators).
 
 ## Passo 4 — Analise e pré-visualize
 

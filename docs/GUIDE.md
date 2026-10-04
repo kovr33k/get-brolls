@@ -19,6 +19,7 @@ Este é o manual operacional único do **GET B-ROLLS — ENGENHEIRO DE VÍDEO**:
 - [Fontes e transportes](#fontes-e-transportes)
 - [Catalog selection, access, and researched special routes](SOURCE-CATALOGS.md)
 - [Archive.org and resumable fragment search](#provider--archiveorg-and-fragment-search)
+- [Browser attempts, UN and Destockd imports](#browser-attempts-and-archive-locators)
 - [Tipos de assets](#tipos-de-assets-e-formatos)
 - [Captura pelo navegador](#captura-de-notícias-e-páginas-pelo-navegador)
 - [Instagram](#instagram--navegadorplaywright-dois-streams-e-mp4)
@@ -322,6 +323,57 @@ Descubra a URL pelo navegador; não há busca global TikTok por palavra-chave im
 Desde a 2.4.0, `resolve --url` de um post do TikTok faz **um** pedido de metadados ao yt-dlp (`--dump-single-json --skip-download`) e já grava `title`, `creator.name`, `creator.handle` (o `@usuario`) e `media.duration_s`. Antes disso o candidato entrava como `TikTok · <id>` com autoria e duração nulas, e o checkpoint C2 — "título, canal, duração" — não tinha o que listar. O pedido é opcional por construção: se a página recusar (post privado, região bloqueada, 429), o candidato é registrado do mesmo jeito, com os campos vazios e um aviso no diagnóstico.
 
 **Como achar os posts recentes de um perfil.** A grade pública de `tiktok.com/@usuario` não serve para visitante: ela carrega por JavaScript atrás de checagem de sessão, e um visitante deslogado recebe uma página vazia ou um desafio. A rota que funciona sem sessão é a página de incorporação — `https://www.tiktok.com/embed/@usuario` —, que lista os posts recentes do perfil com os ids de cada um no HTML. Abra essa página no navegador, colete os ids que interessam e monte a URL canônica de cada um (`https://www.tiktok.com/@usuario/video/<id>`) para passar ao `resolve --url`. Continua valendo o de sempre: a página de incorporação é ponto de partida para achar o endereço, não autorização de uso — as condições do post seguem pelo `permit`, como em qualquer outra fonte.
+
+## Browser attempts and archive locators
+
+Instagram, TikTok, `un_avlibrary` and `destockd` use agent-operated browser discovery. Save the fragment's `search-plan` first, with its catalog allowed in `BRIEF.md`. Reserve **before** the external query or profile/card browsing:
+
+```sh
+python scripts/gb.py search-browser --shot opening --query "factory" --language en --media video --project PROJECT
+```
+
+The returned `attempt.id` identifies a durable reservation, not a completed search. The agent performs the actual search in the available authorized browser, then records the observed outcome:
+
+```sh
+python scripts/gb.py search-import --shot opening --attempt ATTEMPT_ID --outcome results --results public-results.json --assessment "Observed cards reviewed for this fragment" --coverage incomplete --project PROJECT
+python scripts/gb.py search-import --shot opening --attempt ATTEMPT_ID --outcome empty --assessment "The actual search returned no results" --project PROJECT
+python scripts/gb.py search-import --shot opening --attempt ATTEMPT_ID --outcome access-failure --assessment "The page requires an authorized session" --project PROJECT
+```
+
+Choose one outcome. An access failure has no coverage verdict and does not establish absent footage. Reservation spends one of the existing three queries per catalog/pass. Language changes and normalized replay do not create extra allowance. Restart preserves uncertain attempts; complete their known outcome, or use `search-assess` to explain an interruption before continuing. Importing the identical outcome is idempotent; rewriting a completed outcome is refused. Both commands support `--dry-run`, preserving manifest and event history. They do not execute browser searches or call website APIs.
+
+`public-results.json` is an array of 1–50 observed rows (maximum 512 KiB). Each row uses `url`, with optional public `title`, `creator`, `account`, `date`, `description`, `language` and `poster_url`. UN also accepts `asset_id` without a URL. Locator rows additionally accept `preview_url` (an observed public media file), `request_url`, `shotlist`, `shotlist_url`, and `source_interval` with original-film `start_s`/`end_s`. Destockd can retain observed `film_title`, `archive_url` and `archive_file`. Include only observed values; omit unknown fields. Signed transport URLs, credentials, cookies, blob URLs and unrecognized fields are refused.
+
+```json
+[
+  {
+    "url": "https://destockd.com/#/shot/SYMPHONY%20IN%20F/shot_080",
+    "film_title": "SYMPHONY IN F",
+    "archive_url": "https://archive.org/details/fc-fc-4355_HD_2Mbps",
+    "preview_url": "https://clips.destockd.com/clips/SYMPHONY%20IN%20F/shot_080.mp4"
+  }
+]
+```
+
+This dated example records an observed card; its original-film interval was not shown. Shot numbers, film keys and preview duration are not timing evidence. Imported social posts retain their canonical identity and observed caption/account context. Instagram stream pairs stay in the existing private capture/collector route; TikTok short links need browser resolution to the complete post URL before import. Global social keyword APIs remain unimplemented.
+
+**UN Audiovisual Library.** `resolve --url CARD_URL` or `resolve --un-asset-id d2313786` registers an archive reference without a search request. UNifeed asset IDs use this same provider. `license_required` remains visible; the archive is not automatically public domain. A player or blob reference alone supplies no downloadable editing original. When an authorized original is supplied, link it explicitly:
+
+```sh
+python scripts/gb.py resolve --file SUPPLIED_ORIGINAL --original-for LOCATOR_ID --original-conditions "Recorded supplied-file conditions" --project PROJECT
+```
+
+The new candidate retains the locator, observed original interval and conditions. These conditions do not grant rights. The command does not send a footage request, accept terms, pay fees or make a licensing declaration.
+
+**Destockd.** The website and complete `#/shot/<film>/<shot>` link are supported. Only the website UI is used for discovery; the CLI does not call the undocumented `/api/` route. When the page supplies an Archive.org original, use its actual item/file:
+
+```sh
+python scripts/gb.py resolve --url ARCHIVE_ITEM_URL --archive-file ACTUAL_FILE --original-for LOCATOR_ID --project PROJECT
+```
+
+The observed source-film link/file must match. A supplied local original is another explicit route. Destockd shot identity and Archive item/file identity stay separate. Original times remain provenance; `preview --start/--end` always selects times in the newly acquired representation, without adding the locator's offset again. When the original mapping is unknown, keep it unknown and inspect the source before selecting a cut.
+
+Public locator previews can pass `inspect`, `preview` and Storyboard when a supported media file was actually observed. They remain deferred in the suitable-option count and cannot be fetched as cleared originals. Linked originals use the common viewing/confirmation, human review, rights, fetch and delivery gates. A general public-domain label on a search website does not clear the actual original or third-party inserts.
 
 ## Provedor — Pexels
 

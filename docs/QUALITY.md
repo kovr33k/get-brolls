@@ -6,11 +6,25 @@ updated: 2026-10-04
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.10.0
+# Qualidade e evidências — GET B-ROLLS 2.11.0
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
 **Current validation policy — 2026-10-04.** Maintained CI validation is Windows, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Tests cover Python 3.11 and 3.13; the quality job also runs on Windows. Pull requests and pushes to `main` trigger CI, avoiding duplicate feature-push and PR runs. Historical sections retain the platforms and requirements recorded at their dates.
+
+## Browser attempts, UN and Destockd — 2026-10-04, 2.11.0
+
+**Implemented scope.** Instagram/TikTok and UN/Destockd share durable browser-query reservations and observed-result imports with the existing fragment budget. These commands never perform browser searches themselves. Canonical social posts retain observed public context; existing private Reel stream pairing and TikTok acquisition remain separate. UN asset URLs/IDs and Destockd shot URLs resolve without website API calls. Only observed public media, metadata and source timings are imported. Locator previews are deferred and cannot become cleared originals; supplied local or matching Archive originals retain separate identities, actual-representation selection times and independent human/rights gates.
+
+**Offline evidence.** Audited synthetic tests cover all four routes, normalized and translated replay, three-query limits and catalog advances, access versus coverage, dry runs, signed/private transport refusal, unknown fields, canonical TikTok URLs, UNifeed IDs, atomic recovery of candidates and outcome, read-only status with a pending journal, and preview versus original viewing/review/fetch. A fixture preview stays unavailable for final fetch even after fixture approval and permit. Linked originals inherit neither of those decisions; changed local bytes fail inspection. No authorized social session, UN licensing transaction or actual supplied UN original is simulated as live acceptance.
+
+**Destockd live sample.** One reserved website query `factory` returned [SYMPHONY IN F, shot_080](https://destockd.com/#/shot/SYMPHONY%20IN%20F/shot_080). The browser exposed a public preview and [source Archive item](https://archive.org/details/fc-fc-4355_HD_2Mbps). The audited CLI imported the observed card, acquired 13,329,081 bytes and measured 1920×1080, 24 fps, 15.833333 seconds. Inspect, 0–3 second preview and ready-only Storyboard passed; FFmpeg decoded the window with exit 0. The opened contact sheet shows a black car driving past an industrial complex. Visual confirmation recorded unsuitable for factory work/rural electrification. Approval remains pending and rights unknown. Original-film boundaries and selected original file were not visible; they remain unknown. The original film was not downloaded, and no programmatic `/api/` request was made.
+
+**UN live partial sample.** A reserved search for `Model Rural Electrification Centre` returned a Client Challenge; this was recorded as access failure. A second reserved card-browsing attempt opened [asset d2313786](https://media.un.org/avlibrary/en/asset/d231/d2313786). The CLI imported its observed title, production date 1957-01-01, Silent language, public script PDF reference and request route. The browser player reported 88.26 seconds and used a blob representation. No public media-file URL was imported; CLI preview acquisition, decoding, request/licensing and supplied-original acceptance remain unverified. The card remains a visible reference with unknown rights and pending approval.
+
+**Social live limits.** The available Instagram browser showed a login page, so its reserved attempt was recorded as access failure and authorized Reel pairing was not exercised. The actual public TikTok `factory` search showed “Something went wrong”; its outcome was recorded as access failure, without an empty-result or coverage claim. Canonical-post media acquisition remains unverified in this sample. These are dated access observations, not permanent platform availability verdicts. Probe projects, media and raw reports stay outside distributed source.
+
+**Local verification.** The full Windows sweep ran 1,159 tests in 184.775 seconds with 30 skips. Runtime tests passed; its sole failure was the skill's 900-word documentation budget. After shortening the pointer, all 18 skill checks, 13 CLI-help checks and 2 CLI-surface checks passed. Ruff lint/formatting, native Pyright, version/mirror synchronization, documentation anchors, installer prerequisites and `doctor` also passed. The full local suite was run once; affected documentation checks were rerun after that correction. Hosted Windows CI remains the PR integration gate.
 
 ## LoC, DVIDS, Europeana and NARA — 2026-10-04, 2.10.0
 

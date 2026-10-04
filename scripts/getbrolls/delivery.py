@@ -324,6 +324,18 @@ def render_origin(c, media_name, created=None, method="hardlink"):
         ),
         "",
     ]
+    reference = c.get("source_reference") or {}
+    if reference:
+        lines += [
+            "## Archive locator provenance",
+            "",
+            f"- Locator: {reference.get('source_url')}",
+            f"- Locator identity: `{reference.get('provider')}:{reference.get('source_id')}`",
+            f"- Observed original interval: {reference.get('source_interval') or 'unknown'}",
+            f"- Supplied conditions: {reference.get('conditions') or 'not recorded; rights evidence remains separate'}",
+            f"- Acquired item/file: `{c.get('source_id')}` / `{(c.get('archive') or {}).get('selected_file') or 'local original'}`",
+            "",
+        ]
     return "\n".join(lines)
 
 

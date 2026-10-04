@@ -38,7 +38,9 @@
         "loc",
         "dvids",
         "europeana",
-        "nara"
+        "nara",
+        "un_avlibrary",
+        "destockd"
       ]
     },
     "source_id": {
@@ -153,6 +155,19 @@
           "type": "boolean"
         }
       }
+    },
+    "source_metadata": {
+      "type": "object",
+      "description": "Only public account, date, description and language actually observed in the browser. Missing fields remain unknown."
+    },
+    "locator": {
+      "type": "object",
+      "description": "UN Asset ID/request route or Destockd film/shot identity, observed public preview and Archive source. source_interval, if observed, refers to the original film, never inferred from a URL."
+    },
+    "source_reference": {
+      "type": "object",
+      "required": ["candidate", "provider", "source_id", "source_url", "source_interval", "conditions"],
+      "description": "Separately acquired original linked to its locator; conditions are recorded context, not reuse permission. Selection times remain relative to this candidate's actual representation."
     },
     "delivery": {
       "description": "Camada derivada escrita por `deliver`. `path` é relativo à RAIZ DO PROJETO (começa em `entrega/`), ao contrário de `output.path`, que é relativo a `brolls/`. `method` diz como o arquivo foi ligado ao original.",

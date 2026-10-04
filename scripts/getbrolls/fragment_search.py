@@ -129,7 +129,17 @@ def _valid_confirmation(record):
         or not _valid_interval(interval)
     ):
         return False
-    for key in ("source_url", "item_id", "asset_file", "selected_file", "local_sha256", "sha1", "md5"):
+    for key in (
+        "source_url",
+        "item_id",
+        "asset_file",
+        "selected_file",
+        "local_sha256",
+        "sha1",
+        "md5",
+        "locator_preview",
+        "linked_original",
+    ):
         if not _optional_text(representation.get(key)):
             return False
     return True
@@ -262,6 +272,10 @@ def _keyword_search(catalog):
     return bool(capability.get("search"))
 
 
+def _browser_search(catalog):
+    return bool((providers.capabilities().get(catalog) or {}).get("browser_search"))
+
+
 def _chain_identity(entries):
     return [(entry["catalog"], entry["reason"], entry["expected_material"]) for entry in entries]
 
@@ -380,6 +394,15 @@ def _validate_attempts(plan):
             or coverage not in (None, *COVERAGE_VALUES)
             or (isinstance(catalog, str) and catalog not in known)
             or ("pass" in attempt and type(attempt.get("pass")) is not int)
+            or (attempt.get("route") not in (None, "browser"))
+            or (
+                attempt.get("route") == "browser"
+                and (
+                    catalog not in ("instagram", "tiktok", "un_avlibrary", "destockd")
+                    or not isinstance(attempt.get("id"), str)
+                    or not re.fullmatch(r"[0-9a-f]{20}", attempt["id"])
+                )
+            )
         ):
             raise ValueError("Invalid search attempt; preserve the project state.")
         seen.add(identity)
@@ -469,6 +492,8 @@ def _belongs(candidate, shot):
 
 
 def _requested_original(candidate):
+    if candidate.get("provider") in ("un_avlibrary", "destockd"):
+        return True
     acquisition = candidate.get("acquisition") or {}
     if acquisition.get("status") != "unavailable":
         return False
@@ -491,6 +516,10 @@ def _representation(candidate):
         "local_sha256": candidate.get("local_sha256"),
         "sha1": chosen.get("sha1") if isinstance(chosen, dict) else None,
         "md5": chosen.get("md5") if isinstance(chosen, dict) else None,
+        "locator_preview": (candidate.get("locator") or {}).get("preview_url"),
+        "linked_original": json.dumps(candidate.get("source_reference"), sort_keys=True)
+        if candidate.get("source_reference")
+        else None,
     }
 
 
@@ -524,6 +553,8 @@ def _representation_matches(record, candidate):
         "local_sha256",
         "sha1",
         "md5",
+        "locator_preview",
+        "linked_original",
     )
     return all(stored.get(key) == current.get(key) for key in keys)
 
@@ -943,8 +974,15 @@ def _catalog_next(plan):
     used = len(_catalog_attempts(plan, plan.get("catalog"), plan.get("pass")))
     needs = _needs_assessment(plan, plan.get("catalog"), plan.get("pass"))
     pending = bool(_pending_entries(plan))
+    if any(
+        item.get("route") == "browser" and item["status"] == "dispatched"
+        for item in _catalog_attempts(plan, plan.get("catalog"), plan.get("pass"))
+    ):
+        return "complete_browser_attempt"
     if _entry_state(_current_entry(plan)) == "current" and QUERY_ALLOWANCE - used > 0:
         if not _keyword_search(plan.get("catalog")) and not needs:
+            if _browser_search(plan.get("catalog")):
+                return "reserve_browser_query"
             return "advance_unimplemented_route"
         return "assess_results_or_query"
     return _closed_catalog_next(plan, needs, pending)
@@ -1033,6 +1071,7 @@ def progress(data, recovery_pending=False, project=None):
                 "fragment_queries_used": None if recovery_pending else len(plan["attempts"]),
                 "fragment_query_limit": MAX_FRAGMENT_QUERIES,
                 "keyword_search": _keyword_search(plan.get("catalog")),
+                "browser_search": _browser_search(plan.get("catalog")),
                 "catalog_state": current_state,
                 "catalogs": _catalog_rows(plan, recovery_pending),
                 "outcomes": outcomes,
@@ -1315,7 +1354,7 @@ def _reject_advance_reason(name, because, used):
             "This catalog still has query allowance. Early advance needs unavailable access, an unsuitable source, "
             "or an unimplemented route."
         )
-    if because == "route-unimplemented" and _keyword_search(name):
+    if because == "route-unimplemented" and (_keyword_search(name) or _browser_search(name)):
         raise ValueError("This catalog has an implemented search route. Use a query or a different advance reason.")
 
 
@@ -1453,7 +1492,7 @@ def _allowance_error(plan):
     return message + " No further pass is available."
 
 
-def _refuse_new_dispatch(ledger, plan, args):
+def _refuse_new_dispatch(ledger, plan, args, browser=False):
     if _target_reached(ledger, args.project, args.shot):
         raise ValueError(TARGET_REACHED_MESSAGE)
     if plan.get("shortfall"):
@@ -1463,7 +1502,9 @@ def _refuse_new_dispatch(ledger, plan, args):
     entry = _current_entry(plan)
     if _entry_state(entry) != "current":
         raise ValueError("This catalog is closed. Plan the additional pass or record the shortfall.")
-    if not _keyword_search(plan["catalog"]):
+    if browser and not _browser_search(plan["catalog"]):
+        raise ValueError("This catalog does not use the supported browser search/import route.")
+    if not browser and not _keyword_search(plan["catalog"]):
         raise ValueError(ROUTE_UNIMPLEMENTED)
     if len(_catalog_attempts(plan, plan["catalog"], plan["pass"])) >= QUERY_ALLOWANCE:
         raise ValueError(_allowance_error(plan))
@@ -1471,7 +1512,7 @@ def _refuse_new_dispatch(ledger, plan, args):
         raise ValueError("Assess prior results or the interrupted attempt with search-assess before another query.")
 
 
-def _dispatch(ledger, plan, args, rules, query):
+def reserve_attempt(ledger, plan, args, query, browser=False):
     from .catalogs import filters
 
     selected_filters = filters(plan["catalog"], getattr(args, "catalog_filter", None))
@@ -1482,7 +1523,7 @@ def _dispatch(ledger, plan, args, rules, query):
     )
     if existing:
         return existing, True
-    _refuse_new_dispatch(ledger, plan, args)
+    _refuse_new_dispatch(ledger, plan, args, browser=browser)
     attempt = {
         "query": query,
         "query_key": key,
@@ -1495,8 +1536,23 @@ def _dispatch(ledger, plan, args, rules, query):
         "candidates": [],
         "catalog_filters": selected_filters,
     }
+    if browser:
+        attempt["route"] = "browser"
+        attempt["id"] = hashlib.sha256(
+            json.dumps([args.shot, plan["catalog"], plan["pass"], key]).encode()
+        ).hexdigest()[:20]
+    if getattr(args, "dry_run", False):
+        return attempt, False
     plan["attempts"].append(attempt)
     ledger.save("search-dispatch")
+    return attempt, False
+
+
+def _dispatch(ledger, plan, args, rules, query):
+    attempt, replayed = reserve_attempt(ledger, plan, args, query)
+    if replayed:
+        return attempt, True
+    selected_filters = attempt["catalog_filters"]
     try:
         rows = providers.search(
             plan["catalog"],

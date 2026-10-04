@@ -10,6 +10,12 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.11.0 — 2026-10-04
+
+- Browser discovery: `search-browser` durably reserves Instagram, TikTok, UN and Destockd attempts before external search; `search-import` records observed results, empty outcomes or access failures. Replay, interruptions and imports share the existing query allowance and recoverable journal. Imported posts preserve canonical identity and public context; private Instagram stream pairs and TikTok acquisition remain on their established routes.
+- Archive references: UN asset URLs/IDs and Destockd shot links retain observed previews, shotlists, request links and original-film references without website API calls or inferred timing. `resolve --original-for` links a supplied local original or matching Archive.org file, retaining locator provenance and conditions without automatic rights or approval. Local originals can be inspected with hash validation. Locator previews remain deferred and cannot be fetched as originals.
+- Validation: synthetic CLI coverage exercises all four import routes, replay and recovery, private transport refusal, preview/original separation and review gates. Dated public samples and social-session/access limits are recorded in QUALITY.
+
 ## 2.10.0 — 2026-10-04
 
 - Catalog batch: LoC, DVIDS, Europeana and NARA search/resolve actual item resources and digital objects through the existing fragment, preview, Storyboard and delivery gates. Multi-object records use `resolve --catalog-file`; refresh preserves the selected original. References without a supported public original remain manual and visible. Item rights stay unknown until separate permission; capture and publication dates remain distinct.

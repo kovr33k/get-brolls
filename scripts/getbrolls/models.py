@@ -64,6 +64,8 @@ def signature(c):
                 c.get("title"),
                 c.get("creator", {}).get("name"),
                 c.get("captured_at"),
+                *([c["locator"]] if c.get("locator") else []),
+                *([c["source_reference"]] if c.get("source_reference") else []),
                 *(
                     [
                         {

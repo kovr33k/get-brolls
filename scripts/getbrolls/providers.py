@@ -27,8 +27,6 @@ PLANNED_CATALOGS = {
     "x": ("Retained Grok OAuth X Search; OAuth/tool access unverified", ()),
     "ec_audiovisual": ("AV Portal shot/parent records; endpoints require revalidation", ()),
     "un_webtv": ("Recent transcripts; older catalog/direct assets", ()),
-    "un_avlibrary": ("Archive cards, previews and footage-request links", ()),
-    "destockd": ("Website/direct shot links and Archive originals; no agreed API access", ()),
 }
 
 
@@ -46,26 +44,32 @@ def capabilities():
         "nasa",
         "archive",
         *NAMES,
+        "un_avlibrary",
+        "destockd",
         "local",
     ):
         search_ok = name in ("youtube", "pexels", "pixabay", "commons", "nasa", "archive", *NAMES)
         key = KEYS.get(name)
         result[name] = {
             "search": search_ok,
-            "resolve_url": name in ("youtube", "instagram", "tiktok", "commons", "nasa", "archive", *NAMES),
+            "resolve_url": name
+            in ("youtube", "instagram", "tiktok", "commons", "nasa", "archive", "un_avlibrary", "destockd", *NAMES),
+            "browser_search": name in ("instagram", "tiktok", "un_avlibrary", "destockd"),
             "account_library": False,
             "embed": False,
             "seek": "local" if name == "local" else "unsupported",
-            "download": True,
+            "download": name not in ("un_avlibrary", "destockd"),
             "transport": "browser-cdn-pairs / yt-dlp"
             if name == "instagram"
             else "yt-dlp"
             if name in ("youtube", "tiktok")
+            else "website / observed link import / separately supplied original"
+            if name in ("un_avlibrary", "destockd")
             else name,
             "configured": not key or bool(os.environ.get(key)),
             "env_key": key,
             "preview": True,
-            "manual": name in ("instagram", "tiktok"),
+            "manual": name in ("instagram", "tiktok", "un_avlibrary", "destockd"),
             "implementation": "supported",
             "live": "unverified",
             "live_observation": None,
@@ -766,12 +770,14 @@ def resolve(url, archive_file=None, catalog_file=None):  # noqa: C901, PLR0912 -
     p = urlsplit(url)
     host = p.hostname.lower()
     path = p.path.strip("/")
-    from . import catalogs
+    from . import browser_results, catalogs
 
     if catalog_file is not None and not catalogs.recognizes(url):
         raise ProviderError("--catalog-file requires a LoC, DVIDS, Europeana or NARA item URL.")
     if archive_file is not None and host not in ("archive.org", "www.archive.org"):
         raise ProviderError("--archive-file requires an Archive.org item URL.")
+    if browser_results.recognizes(url):
+        return browser_results.locator(url)
     if catalogs.recognizes(url):
         return catalogs.resolve(url, catalog_file)
     if host in ("archive.org", "www.archive.org"):

@@ -103,6 +103,9 @@ def source_card(c, source, sheet, poster, esc):
     if c.get("captured_at"):
         details.append(f"<p>Captured on: {esc(c['captured_at'])}</p>")
     catalog = c.get("catalog") or {}
+    locator = c.get("locator") or {}
+    reference = c.get("source_reference") or {}
+    observed = c.get("source_metadata") or {}
     for label, value in (
         ("Catalog record", catalog.get("record_id")),
         ("Institution", catalog.get("institution")),
@@ -112,6 +115,18 @@ def source_card(c, source, sheet, poster, esc):
         ("Unit", catalog.get("unit")),
         ("Item rights", c["rights"].get("license_name") if catalog else None),
         ("Access limitation", c["acquisition"].get("restriction") if catalog else None),
+        ("Archive asset", locator.get("asset_id") or locator.get("shot_id")),
+        ("Source film", locator.get("film_title")),
+        ("Original reference", locator.get("archive_url") or reference.get("source_url")),
+        ("Original interval", locator.get("source_interval") or reference.get("source_interval")),
+        ("Request footage", locator.get("request_url")),
+        ("Shotlist / script", locator.get("shotlist_url") or locator.get("shotlist")),
+        ("Supplied conditions", reference.get("conditions")),
+        ("Original access", c["acquisition"].get("restriction") if locator else None),
+        ("License required", "Yes" if locator.get("license_required") else None),
+        ("Source date", observed.get("date")),
+        ("Source language", observed.get("language")),
+        ("Source description", observed.get("description")),
     ):
         if value:
             details.append(f"<p>{label}: {esc(value)}</p>")

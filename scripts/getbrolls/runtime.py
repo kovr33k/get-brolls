@@ -138,7 +138,7 @@ def scrub_home(text):
     return value
 
 
-def redact(text):
+def redact(text, limit: int | None = 1200):
     """Strip provider keys, secret-shaped headers/query values and URLs.
 
     Idempotent (running it twice yields the same string) and never raises — every
@@ -168,7 +168,7 @@ def redact(text):
     value = re.sub(r'https?://[^\s"<>]+', "[URL omitida]", value)
     value = _QUERY_SECRET_PATTERN.sub(lambda m: f"{m.group(1)}=[REDACTED]", value)
     value = _BEARER_PATTERN.sub("Bearer [REDACTED]", value)
-    return value[:1200]
+    return value[:limit] if limit is not None else value
 
 
 STDERR_TAIL_MAX_CHARS = 600

@@ -1496,8 +1496,14 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
     rules = load_rules(args.project)
     if cmd == "rules":
         return rules
-    plan_dry_run = getattr(args, "dry_run", False) and (cmd == "search-plan" or getattr(args, "planned", False))
+    plan_dry_run = getattr(args, "dry_run", False) and (
+        cmd in ("search-plan", "search-browser", "search-import") or getattr(args, "planned", False)
+    )
     ledger = Ledger(args.project, recover=not plan_dry_run)
+    if cmd in ("search-browser", "search-import"):
+        from .browser_results import import_command, reserve_command
+
+        return {"search-browser": reserve_command, "search-import": import_command}[cmd](ledger, args, rules)
     if cmd in ("search-plan", "search-assess", "search-confirm"):
         from .fragment_search import assess_command, confirm_command, plan_command
 
@@ -1724,6 +1730,10 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                 "evidence": [],
             }
             c["preview"]["seek_mode"] = "local"
+        elif getattr(args, "un_asset_id", None):
+            from .browser_results import un_asset
+
+            c = un_asset(args.un_asset_id)
         else:
             c = (
                 providers.resolve(
@@ -1735,6 +1745,12 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                 else providers.resolve(args.url)
             )
             fill_remote_metadata(c)
+        if getattr(args, "original_conditions", None) and not getattr(args, "original_for", None):
+            raise ValueError("--original-conditions requires --original-for.")
+        if getattr(args, "original_for", None):
+            from .browser_results import link_original
+
+            link_original(ledger, args, c, rules)
         # Mesmo registro que `search` faz: a intenção é da pessoa, e sem ela o
         # candidato de URL entrava sempre como "literal", inclusive quando não era.
         c["match"]["kind"] = getattr(args, "intent", None) or c["match"].get("kind") or "literal"
@@ -2435,7 +2451,7 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
     if args.candidate:
         c = ledger.get(args.candidate)
         url = c.get("source_url")
-        if not url and not direct_media(c):
+        if not url and not direct_media(c) and not (c.get("provider") == "local" and c.get("local_path")):
             raise ValueError(
                 "Este candidato não tem URL pública para analisar; use `inspect --url` "
                 "ou importe o original local com `resolve --file`."
@@ -2458,7 +2474,7 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
         source = catalogs.refresh(source)
         if not direct_media(source):
             raise ValueError(source["acquisition"].get("restriction") or "Catalog original is unavailable.")
-    if direct_media(source):
+    if direct_media(source) or (source.get("provider") == "local" and source.get("local_path")):
         # NASA, Commons e os bancos publicam o arquivo; `source_url` é a página do
         # item, e o yt-dlp responde "Unsupported URL" para ela. A duração sai do
         # ffprobe do próprio arquivo, e legenda não existe nessa rota.
@@ -2517,7 +2533,10 @@ def probe_direct(ledger, source, url=None):
     """
     from .acquisition import cache_direct_media
 
-    path = cache_direct_media(ledger, source)
+    local = source.get("provider") == "local"
+    path = source.get("local_path") if local else cache_direct_media(ledger, source)
+    if local and digest(path) != source.get("local_sha256"):
+        raise ValueError("Local original changed; resolve the current file before inspecting it.")
     info = probe(path)
     duration = info.get("duration_s")
     try:
@@ -2526,7 +2545,7 @@ def probe_direct(ledger, source, url=None):
         downloaded = 0
     return {
         # Analisar esta fonte custou o arquivo inteiro; quem lê o resumo precisa saber.
-        "downloaded_bytes": downloaded,
+        "downloaded_bytes": 0 if local else downloaded,
         "url": url or source.get("source_url") or source.get("media_url"),
         "title": source.get("title"),
         "duration_s": float(duration) if duration else None,

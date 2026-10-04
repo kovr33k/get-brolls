@@ -55,6 +55,8 @@
               "dvids",
               "europeana",
               "nara",
+              "un_avlibrary",
+              "destockd",
               "local"
             ]
           }
@@ -93,6 +95,8 @@
                 "dvids",
                 "europeana",
                 "nara",
+                "un_avlibrary",
+                "destockd",
                 "local"
               ]
             }
