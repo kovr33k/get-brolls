@@ -1591,6 +1591,18 @@
           "action": "_StoreAction",
           "choices": null,
           "default": null,
+          "dest": "catalog_file",
+          "help": "Actual file URL or NARA object ID in a multi-resource catalog record",
+          "nargs": null,
+          "option_strings": [
+            "--catalog-file"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
           "dest": "archive_file",
           "help": "Actual file name within the Archive.org item (required for multi-asset items)",
           "nargs": null,
@@ -1720,7 +1732,7 @@
           "choices": null,
           "default": null,
           "dest": "url",
-          "help": "Public source URL (YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org)",
+          "help": "Public source URL (YouTube, Instagram, TikTok, Commons, NASA, Archive.org, LoC, DVIDS, Europeana, NARA)",
           "nargs": null,
           "option_strings": [
             "--url"
@@ -1906,7 +1918,7 @@
           "choices": null,
           "default": "auto",
           "dest": "provider",
-          "help": "Source: youtube, pexels, pixabay, commons, nasa, archive or auto (default)",
+          "help": "Source: youtube, pexels, pixabay, commons, nasa, archive, loc, dvids, europeana, nara or auto (default)",
           "nargs": null,
           "option_strings": [
             "--provider"
@@ -1924,6 +1936,18 @@
             "--query"
           ],
           "required": true
+        },
+        {
+          "action": "_AppendAction",
+          "choices": null,
+          "default": [],
+          "dest": "catalog_filter",
+          "help": "Catalog-specific filter; repeat for different fields. Filters share the planned query allowance.",
+          "nargs": null,
+          "option_strings": [
+            "--catalog-filter"
+          ],
+          "required": false
         },
         {
           "action": "_StoreAction",
@@ -1961,7 +1985,7 @@
           ],
           "default": "any",
           "dest": "media",
-          "help": "Source media type: image, video, or any (default); NASA, Commons, and Archive.org support both",
+          "help": "Source media type: image, video, or any (default); public catalog adapters support both",
           "nargs": null,
           "option_strings": [
             "--media"
@@ -2100,6 +2124,18 @@
             "--query"
           ],
           "required": true
+        },
+        {
+          "action": "_AppendAction",
+          "choices": null,
+          "default": null,
+          "dest": "catalog_filter",
+          "help": "Recorded filters when identical wording/media had different catalog filters",
+          "nargs": null,
+          "option_strings": [
+            "--catalog-filter"
+          ],
+          "required": false
         },
         {
           "action": "_StoreAction",

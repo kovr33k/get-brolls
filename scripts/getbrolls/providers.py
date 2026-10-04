@@ -11,14 +11,13 @@ from .models import candidate
 KEYS = {
     "pexels": "PEXELS_API_KEY",
     "pixabay": "PIXABAY_API_KEY",
+    "dvids": "DVIDS_API_KEY",
+    "europeana": "EUROPEANA_API_KEY",
+    "nara": "NARA_API_KEY",
 }
 
 # Guidance is inventory, never proof of an adapter or an authorized session.
 PLANNED_CATALOGS = {
-    "loc": ("Public catalog and item resources", ()),
-    "dvids": ("Keyed search and selected asset/file", ("DVIDS_API_KEY",)),
-    "europeana": ("Keyed records and holding-institution resources", ("EUROPEANA_API_KEY",)),
-    "nara": ("Keyed catalog and digital objects", ("NARA_API_KEY",)),
     "mapillary": ("Geographic street images; location/bbox required", ("MAPILLARY_TOKEN",)),
     "telegram": (
         "User session; explicit public-channel whitelist",
@@ -34,6 +33,8 @@ PLANNED_CATALOGS = {
 
 
 def capabilities():
+    from .catalogs import NAMES
+
     result = {}
     for name in (
         "youtube",
@@ -44,13 +45,14 @@ def capabilities():
         "commons",
         "nasa",
         "archive",
+        *NAMES,
         "local",
     ):
-        search_ok = name in ("youtube", "pexels", "pixabay", "commons", "nasa", "archive")
+        search_ok = name in ("youtube", "pexels", "pixabay", "commons", "nasa", "archive", *NAMES)
         key = KEYS.get(name)
         result[name] = {
             "search": search_ok,
-            "resolve_url": name in ("youtube", "instagram", "tiktok", "commons", "nasa", "archive"),
+            "resolve_url": name in ("youtube", "instagram", "tiktok", "commons", "nasa", "archive", *NAMES),
             "account_library": False,
             "embed": False,
             "seek": "local" if name == "local" else "unsupported",
@@ -68,8 +70,20 @@ def capabilities():
             "live": "unverified",
             "live_observation": None,
             "access_verified": False,
-            "media_types": ["image", "video"] if name in ("commons", "nasa", "archive", "local") else ["video"],
+            "media_types": ["image", "video"] if name in ("commons", "nasa", "archive", "local", *NAMES) else ["video"],
         }
+        if name == "europeana":
+            result[name]["configured"] = bool(os.environ.get("EUROPEANA_API_KEY")) and os.environ.get(
+                "EUROPEANA_KEY_TYPE"
+            ) in (
+                "personal",
+                "project",
+            )
+            result[name]["key_type"] = (
+                os.environ.get("EUROPEANA_KEY_TYPE")
+                if os.environ.get("EUROPEANA_KEY_TYPE") in ("personal", "project")
+                else "unconfirmed"
+            )
     for name, (route, env_keys) in PLANNED_CATALOGS.items():
         result[name] = {
             "search": False,
@@ -144,6 +158,33 @@ def capabilities():
         "decode": "unverified",
         "limitations": "One dated CDN denial; no acquired preview, visual confirmation, or permanent availability verdict.",
     }
+    for name, url, width, height, duration, size in (
+        ("nara", "https://catalog.archives.gov/id/115446171", 3152, 4728, None, 5070979),
+        ("dvids", "https://www.dvidshub.net/video/1024892", 1920, 1080, 349.75, 132420398),
+    ):
+        result[name]["live"] = "sample_verified"
+        result[name]["live_observation"] = {
+            "date": "2026-10-04",
+            "version": "2.10.0",
+            "status": "passed_sample",
+            "source_url": url,
+            "operations": ["search", "resolve_url", "preview", "review", "decode"],
+            "width": width,
+            "height": height,
+            "duration_s": duration,
+            "bytes": size,
+            "selected_object": "115446172" if name == "nara" else "DOD_112016651.mp4",
+            "interval_s": None if name == "nara" else [0, 3],
+            "limitations": "One dated technical sample. Viewed preview is unsuitable for a literal bridge shot; no human approval or reuse rights. Current access and complete catalog coverage remain unverified.",
+        }
+    result["loc"]["live_observation"] = {
+        "date": "2026-10-04",
+        "version": "2.9.0",
+        "status": "failed_http_403",
+        "operations": ["search"],
+        "preview": "unverified",
+        "limitations": "One bounded JSON search was denied. No original was acquired; no permanent platform availability verdict.",
+    }
     return result
 
 
@@ -194,10 +235,11 @@ def _text(raw):
 
 MEDIA_CHOICES = ("image", "video", "any")
 # Fontes que publicam foto e vídeo no mesmo acervo; nas outras `--media` não muda nada.
-MEDIA_AWARE = ("nasa", "commons", "archive")
+MEDIA_AWARE = ("nasa", "commons", "archive", "loc", "dvids", "europeana", "nara")
 
 
-def search(provider, query, limit=8, media="any"):
+def search(provider, query, limit=8, media="any", catalog_filters=None):
+    from . import catalogs
     from .archive import search as archive_search
 
     if not isinstance(limit, int) or not 1 <= limit <= 50:  # noqa: PLR2004 - matches the "entre 1 e 50" message below
@@ -206,6 +248,12 @@ def search(provider, query, limit=8, media="any"):
         raise ProviderError("Consulta deve ter entre 1 e 500 caracteres")
     if media not in MEDIA_CHOICES:
         raise ProviderError("--media aceita image, video ou any")
+    selected_filters = catalogs.filters(provider, catalog_filters)
+    if provider in catalogs.NAMES:
+        items = catalogs.search(provider, query.strip(), limit, media, selected_filters)
+        for item in items:
+            item["query"] = query.strip()
+        return items
     fn = {
         "pexels": _pexels,
         "pixabay": _pixabay,
@@ -712,14 +760,20 @@ def _nasa_details(ident):
     return item
 
 
-def resolve(url, archive_file=None):  # noqa: C901, PLR0912 - existing size; one branch per recognized source host/URL shape
+def resolve(url, archive_file=None, catalog_file=None):  # noqa: C901, PLR0912 - existing size; one branch per recognized source host/URL shape
     if not public_url(url):
         raise ProviderError("Forneça URL pública HTTPS sem credenciais")
     p = urlsplit(url)
     host = p.hostname.lower()
     path = p.path.strip("/")
+    from . import catalogs
+
+    if catalog_file is not None and not catalogs.recognizes(url):
+        raise ProviderError("--catalog-file requires a LoC, DVIDS, Europeana or NARA item URL.")
     if archive_file is not None and host not in ("archive.org", "www.archive.org"):
         raise ProviderError("--archive-file requires an Archive.org item URL.")
+    if catalogs.recognizes(url):
+        return catalogs.resolve(url, catalog_file)
     if host in ("archive.org", "www.archive.org"):
         from .archive import resolve as archive_resolve
 
@@ -782,13 +836,17 @@ def resolve(url, archive_file=None):  # noqa: C901, PLR0912 - existing size; one
     return item
 
 
-def refresh(item):
+def refresh(item):  # noqa: C901 - source-specific refresh contracts with explicit identity preservation
     """Refresh public stock file URLs without changing selection or approval."""
     import copy
 
     name = item["provider"]
     ident = str(item["source_id"])
     current = copy.deepcopy(item)
+    from . import catalogs
+
+    if name in catalogs.NAMES:
+        return catalogs.refresh(item)
     if name == "archive":
         from .archive import refresh as archive_refresh
 

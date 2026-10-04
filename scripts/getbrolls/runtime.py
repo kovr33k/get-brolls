@@ -109,7 +109,7 @@ _QUERY_SECRET_PATTERN = re.compile(
     # The secret word must be a whole segment of the name (`api_key`, `X-Amz-Signature`),
     # or one of the glued spellings: `monkey=` and `turkey=` are not secrets.
     r"((?:[A-Za-z0-9_.-]{0,40}[_.-])?"
-    r"(?:api_?key|access_?token|key|token|secret|signature|sig|policy|credential|password)|Key-Pair-Id)"
+    r"(?:api_?key|wskey|access_?token|key|token|secret|signature|sig|policy|credential|password)|Key-Pair-Id)"
     r"\s*=\s*[\"']?[^&\s\"'<>]+"
 )
 

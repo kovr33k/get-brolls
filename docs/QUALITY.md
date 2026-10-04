@@ -6,9 +6,25 @@ updated: 2026-10-04
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.9.0
+# Qualidade e evidências — GET B-ROLLS 2.10.0
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
+
+**Current validation policy — 2026-10-04.** Maintained CI validation is Windows, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Tests cover Python 3.11 and 3.13; the quality job also runs on Windows. Pull requests and pushes to `main` trigger CI, avoiding duplicate feature-push and PR runs. Historical sections retain the platforms and requirements recorded at their dates.
+
+## LoC, DVIDS, Europeana and NARA — 2026-10-04, 2.10.0
+
+**Implemented scope.** Four direct catalog adapters extend the existing CLI, ledger, fragment chains and review gates. Search requests one bounded page. LoC resources/pages, DVIDS assets/files, Europeana institution media and NARA digital objects retain actual identities and unknown/restricted access. Multiple independent objects require `resolve --catalog-file`; refresh preserves that selection. Catalog filters participate in replay and the shared three-query allowance, and `search-assess` can distinguish them. Europeana requires confirmation of the issued personal/project key type before network access. No new runtime dependency, alternate test framework or automatic rights/human approval is introduced.
+
+**Offline evidence.** Sixteen focused tests use synthetic media and documented API-shaped fixtures. They cover separate originals, explicit file selection, movie posters, unsupported/manual records, missing/invalid keys, credential scrubbing, capture/publication dates, institution and item/resource rights, unchanged selection on refresh, context/rights invalidation, transcript text without invented timings, filter replay/accounting, and each catalog through planned search, preview, visual confirmation, Storyboard and the independent approval/permit/fetch gates. Inspection pins a search asset's selected file before cache reuse for both stills and video; losing that file refuses a later preview rather than substituting another representation. Europeana preserves its primary institution file and separate explicit view identities; multiple originals without a primary require selection. These are offline checks, not proof of current external access.
+
+**Cross-platform cache regression.** Initial PR CI exposed a `KeyError: provider` when the direct-media cache received a supported minimal legacy record. The new catalog availability guard uses an optional provider lookup. The existing cache-creation regression now runs on every operating system; only its 0700/0600 permission-bit assertions are POSIX-specific. This retains those checks while making the compatibility failure observable on Windows too.
+
+**Bounded live observations.** DVIDS keyed search returned two assets; the selected [video asset](https://www.dvidshub.net/video/1024892) resolved the original `DOD_112016651.mp4`. Acquisition read 132,420,398 bytes, 1920×1080, 24 fps and 349.75 seconds. The 0–3 second preview generated a contact sheet/GIF and ready Storyboard; the viewed frames show an opening insignia, not a literal bridge. NARA keyed search returned two records; [NAID 115446171](https://catalog.archives.gov/id/115446171), object `115446172`, acquired a 5,070,979-byte JPEG at 3152×4728. The viewed poster is a nearly blank scanned page, not a bridge photograph. Image duration/fps remain unknown in the candidate. Both actual previews decoded and rendered through the normal route. Approval remains pending and rights unknown. Raw logs, hashes, acquired files and previews stay outside the source.
+
+**Unverified access.** One LoC JSON search received HTTP 403; no LoC original or preview was acquired. That is a dated request limitation, not a permanent platform verdict. Europeana code has offline coverage but the configured key type has not been confirmed; no keyed live request or institution acquisition is claimed. No browser/session bypass, alternate account, purchase, or automatic key registration was attempted. Timed-caption and plaintext-transcript paths have fixture coverage only. These samples do not prove catalog-wide coverage, narrative suitability, current access, rights clearance, human acceptance or Windows PR CI.
+
+**Initial local quality gate.** Windows `scripts/check.ps1` completed successfully: 1,147 tests in 177.228 seconds, 31 skips, no failures/errors. Ruff lint/format, Pyright, generated skill mirror and documentation anchors passed. Installer prerequisites and `doctor` passed without live/session checks. After the cache regression fix, the full Windows gate passed again: 1,147 tests in 186.711 seconds, 30 skips, no failures/errors. This local evidence is separate from Windows PR CI and catalog access.
 
 ## Archive.org fragment route — 2026-10-03, 2.6.0
 

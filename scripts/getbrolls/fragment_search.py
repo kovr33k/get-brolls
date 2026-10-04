@@ -1390,10 +1390,15 @@ def assess_command(ledger, args, rules):
         and (args.media is None or attempt.get("media", "any") == args.media)
         and (selected in (None, "") or _attempt_catalog(plan, attempt) == selected)
     ]
+    if getattr(args, "catalog_filter", None) is not None:
+        from .catalogs import filters
+
+        selected_filters = filters(selected or plan["catalog"], args.catalog_filter)
+        matching = [attempt for attempt in matching if attempt.get("catalog_filters", {}) == selected_filters]
     if len(matching) != 1 or not str(getattr(args, "assessment", "") or "").strip():
         raise ValueError(
             "Assessment requires one recorded query and a nonempty explanation; "
-            "use --media or --provider to distinguish repeated wording."
+            "use --media, --provider or --catalog-filter to distinguish repeated wording."
         )
     attempt = matching[0]
     coverage = getattr(args, "coverage", None)
@@ -1434,8 +1439,9 @@ def _annotate_dispatch(row, plan):
     row["match"] = {"kind": plan["context"]["intent"], "reason": "Search hit; visual confirmation required."}
 
 
-def _query_key(query, media):
-    return " ".join(query.split()).casefold() + " [" + media + "]"
+def _query_key(query, media, catalog_filters=None):
+    key = " ".join(query.split()).casefold() + " [" + media + "]"
+    return key + (" " + json.dumps(catalog_filters, sort_keys=True) if catalog_filters else "")
 
 
 def _allowance_error(plan):
@@ -1466,7 +1472,10 @@ def _refuse_new_dispatch(ledger, plan, args):
 
 
 def _dispatch(ledger, plan, args, rules, query):
-    key = _query_key(query, args.media)
+    from .catalogs import filters
+
+    selected_filters = filters(plan["catalog"], getattr(args, "catalog_filter", None))
+    key = _query_key(query, args.media, selected_filters)
     existing = next(
         (attempt for attempt in _catalog_attempts(plan, plan["catalog"], plan["pass"]) if attempt["query_key"] == key),
         None,
@@ -1484,11 +1493,18 @@ def _dispatch(ledger, plan, args, rules, query):
         "at": now(),
         "status": "dispatched",
         "candidates": [],
+        "catalog_filters": selected_filters,
     }
     plan["attempts"].append(attempt)
     ledger.save("search-dispatch")
     try:
-        rows = providers.search(plan["catalog"], query, args.limit, media=args.media)
+        rows = providers.search(
+            plan["catalog"],
+            query,
+            args.limit,
+            media=args.media,
+            **({"catalog_filters": args.catalog_filter} if selected_filters else {}),
+        )
     except (ValueError, OSError) as error:
         attempt.update(status="access_or_provider_error", outcome="access_failure", error=redact(error))
         ledger.save("search-outcome")
@@ -1518,7 +1534,9 @@ def _dispatch(ledger, plan, args, rules, query):
 
 def _planned_dry_run(ledger, plan, args):
     """Validate a prospective dispatch without contacting the catalog or spending a query."""
-    query_key = _query_key(args.query, args.media)
+    from .catalogs import filters
+
+    query_key = _query_key(args.query, args.media, filters(plan["catalog"], getattr(args, "catalog_filter", None)))
     replayed = any(
         attempt["query_key"] == query_key for attempt in _catalog_attempts(plan, plan["catalog"], plan["pass"])
     )

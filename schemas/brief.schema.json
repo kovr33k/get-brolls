@@ -51,6 +51,10 @@
               "pixabay",
               "commons",
               "nasa",
+              "loc",
+              "dvids",
+              "europeana",
+              "nara",
               "local"
             ]
           }
@@ -85,6 +89,10 @@
                 "pixabay",
                 "commons",
                 "nasa",
+                "loc",
+                "dvids",
+                "europeana",
+                "nara",
                 "local"
               ]
             }

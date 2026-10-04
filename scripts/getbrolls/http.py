@@ -39,6 +39,8 @@ SECRET_NAMES = {
     "key",
     "api_key",
     "apikey",
+    "wskey",
+    "client_secret",
     "token",
     "access_token",
     "authorization",
@@ -162,7 +164,12 @@ def _scrub(value):
         return [_scrub(v) for v in value]
     if isinstance(value, str) and value.startswith(("http://", "https://")):
         parsed = urllib.parse.urlsplit(value)
-        if parsed.scheme == "http" and parsed.netloc == "images-assets.nasa.gov":
+        if parsed.scheme == "http" and (
+            parsed.netloc == "images-assets.nasa.gov"
+            or parsed.netloc in ("creativecommons.org", "rightsstatements.org")
+            or parsed.hostname == "loc.gov"
+            or (parsed.hostname or "").endswith(".loc.gov")
+        ):
             value = urllib.parse.urlunsplit(parsed._replace(scheme="https"))
         return public_url(value)
     return value

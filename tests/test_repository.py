@@ -150,13 +150,13 @@ class RepositoryDocumentationTests(unittest.TestCase):
         self.assertIn("macOS e Windows", readme)
         self.assertIn("scripts/install.ps1", readme)
 
-    def test_ci_runs_primary_matrix_on_macos_and_windows(self):
+    def test_ci_runs_primary_matrix_on_windows(self):
         workflow = (ROOT / ".github/workflows/test.yml").read_text(encoding="utf-8")
-        self.assertIn("macos-latest", workflow)
+        self.assertNotIn("macos-latest", workflow)
+        self.assertNotIn("ubuntu-latest", workflow)
         self.assertIn("windows-latest", workflow)
         self.assertIn("./scripts/install.ps1\n", workflow)
-        # A sintaxe dos scripts é conferida nos dois sistemas: `bash -n` no Unix,
-        # `[scriptblock]::Create` no Windows.
+        # Git Bash e PowerShell conferem a sintaxe no runner Windows.
         self.assertIn("bash -n", workflow)
         self.assertIn("[scriptblock]::Create", workflow)
 
@@ -189,7 +189,7 @@ class RepositoryDocumentationTests(unittest.TestCase):
         self.assertTrue(shell.is_file())
         self.assertTrue(powershell.is_file())
         # No Windows o `bash` que existe é o do WSL/Git Bash, que nem sempre entende
-        # um caminho `D:\...`: a sintaxe do shell é conferida pelo job Unix do CI.
+        # um caminho `D:\...`: o CI usa Git Bash com caminhos relativos no Windows.
         if os.name != "nt" and shutil.which("bash"):
             parsed = subprocess.run(
                 ["bash", "-n", str(shell)],

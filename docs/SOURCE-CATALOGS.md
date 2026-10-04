@@ -22,10 +22,10 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 | Wikimedia Commons | Historical photos, documents, video | Public MediaWiki Action API | Search |
 | Internet Archive | Archival films, newsreels, FedFlix, images | Public search and item Metadata API | Search + explicit item/file URL; inspect/preview/common delivery |
 | NASA Image and Video Library | Space, science, NASA media | Public Images API; no general NASA API key | Search |
-| Library of Congress | Historical films, photos, maps, documents | Public JSON API and item resources | Planned |
-| DVIDS | Official military footage, exercises, briefings | Application API key | Planned |
-| Europeana | European cultural and historical collections | Personal/project API key according to use | Planned |
-| NARA | US national archival records and media | Catalog API key; separate API/storage conditions | Planned |
+| Library of Congress | Historical films, photos, maps, documents | Public JSON API and item resources | Search + item/resource originals; multi-resource selection; live access unverified |
+| DVIDS | Official military footage, exercises, briefings | Application API key; optional server secret | Search + selected asset/files; common inspect/preview/review gates |
+| Europeana | European cultural and historical collections | Confirmed personal/project key type according to use | Search + Record API and institution media; absent originals stay manual locators |
+| NARA | US national archival records and media | Catalog API key; separate API/storage conditions | Search + explicit NAID/digital-object selection; common preview/review gates |
 | Pexels | Illustrative atmosphere and context | Pexels API key; current adapter searches video | Search |
 | Pixabay | Illustrative atmosphere and context | Pixabay API key; current adapter searches video | Search |
 | Mapillary | Images of a particular street or place | Client token and geographic search | Planned |
@@ -77,14 +77,14 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 
 - **Search:** public JSON responses (`fo=json`), keyword query, and facets for format, collection, date, place, language, or contributor. Available full text can include video transcripts.
 - **Acquisition:** inspect item resources and their actual file variants. Prefer the master/highest available quality, especially for maps and scans, rather than a small web derivative.
-- **Inside a video:** use transcripts when supplied. Streaming Services operations are usable only when confirmed for the particular file; otherwise use available MP4/HLS or report the operation as unsupported.
+- **Inside a video:** use supplied timed captions or plain transcript text. The current adapter supports direct image/video files; HLS and unconfirmed Streaming Services operations remain unsupported/manual.
 - **Keep:** item/resource identifiers, actual file, source page, date, and item-level rights/access statements.
 - **References:** [APIs](https://www.loc.gov/apis/), [query parameters](https://www.loc.gov/apis/json-and-yaml/requests/parameters/).
 
 ## DVIDS
 
 - **Search:** official Search API with an application key. Useful filters include video type, `B-Roll` category, branch, country, city, date, duration, and HD status.
-- **Access:** search/read integration needs the issued API key; upload permissions are unnecessary. Configure this project independently of any earlier installation.
+- **Access:** search/read integration needs `DVIDS_API_KEY`. Optional `DVIDS_CLIENT_SECRET` is used as the documented server `api_key` without browser Referer; upload OAuth permissions are unnecessary.
 - **Acquisition:** resolve the selected asset and available files; a search thumbnail is not the editing original.
 - **Keep:** asset ID, unit/creator credit, capture date versus publication date, location, and usage conditions. Official footage may still be archival relative to the narrated event.
 - **References:** [API access](https://api.dvidshub.net/docs), [Search API](https://api.dvidshub.net/docs/search_api).
@@ -92,7 +92,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 ## Europeana
 
 - **Search:** Search API, then the selected record. Use the relevant collection, media type, date, place, and language metadata.
-- **Access:** the retained design distinguishes a personal key for trials and a project key under the conditions for the intended application. Check the current key terms before enabling the adapter.
+- **Access:** confirm the issued type in `EUROPEANA_KEY_TYPE`: `personal` for development experiments, `project` for operational use. Without this confirmation, the adapter refuses network access. Follow the current key terms for the intended application.
 - **Acquisition:** inspect links to the holding institution and its media; a Europeana record does not guarantee a direct downloadable original.
 - **Keep:** Europeana ID, holding institution, original record/media link, creator/date, and the record's rights statement.
 - **References:** [APIs](https://api.europeana.eu/en), [API keys](https://www.europeana.eu/en/how-to-register-for-and-manage-an-api-key).
@@ -100,7 +100,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 ## NARA
 
 - **Search:** National Archives Catalog API using its required key, then record details and digital objects.
-- **Access:** the supplied research records that a key and a read-only probe existed in the old project. This does not configure the new project, and an older note about a missing key is not evidence of a permanent access barrier.
+- **Access:** the implemented v2 adapter requires `NARA_API_KEY` and sends it in a private header. A dated search/object acquisition sample is recorded in [QUALITY.md](QUALITY.md); an earlier note about a missing key is not a permanent access verdict.
 - **Acquisition:** inspect the actual digital files. Catalog API access/storage conditions and rights in a photograph or film are separate checks.
 - **Keep:** catalog identifier, record/collection context, date, digital object, source page, and rights restrictions.
 - **Reference:** [Catalog API](https://www.archives.gov/research/catalog/help/api).
@@ -255,7 +255,7 @@ Local files are an import route rather than another catalog. Import them with th
 
 ## Integration design
 
-The accepted [fragment-specific search chain planning decision](adr/0001-fragment-catalog-search-chain.md) records the search behavior and an integrated rollout covering the complete target inventory. [CONTEXT.md](../CONTEXT.md) defines its domain terms; neither document establishes additional implemented provider capabilities.
+The accepted [fragment-specific search chain planning decision](adr/0001-fragment-catalog-search-chain.md) records the search behavior and an integrated rollout covering the complete target inventory. [CONTEXT.md](../CONTEXT.md) defines its domain terms; neither document establishes additional implemented provider capabilities. LoC, DVIDS, Europeana and NARA now join the common route with [explicit original selection and access/filter requirements](GUIDE.md#providers--loc-dvids-europeana-and-nara). Eight remaining catalog adapters are planned.
 
 The accepted [catalog integration specification](SPEC-CATALOG-INTEGRATION.md) defines implementation contracts and offline/live acceptance checks for this scope.
 

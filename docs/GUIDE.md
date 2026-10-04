@@ -347,6 +347,29 @@ Images API pública, sem chave geral de desenvolvedor, resolve imagem e vídeo p
 
 Diagnóstico: `python3 scripts/gb.py providers`. Falha de credencial não ativa scraping ou outra conta.
 
+## Providers — LoC, DVIDS, Europeana and NARA
+
+`loc`, `dvids`, `europeana`, and `nara` use the same fragment chains, saved three-query allowance, preview, visual confirmation, Storyboard, human approval, and separate rights/acquisition gates described below. Both images and videos are supported. One search requests one bounded page; the returned items are not complete catalog coverage. Detailed metadata is refreshed for the selected original. Multiple independent resources/digital objects require an explicit `resolve --catalog-file <file-URL-or-NARA-object-ID>`; refresh never substitutes a missing selected file. Search posters are references, not originals. A record with no supported public original remains visible with `acquisition.method: manual` and its access limitation.
+
+| Provider | Access and original selection | Search filters |
+|---|---|---|
+| `loc` | Public [JSON API](https://www.loc.gov/apis/json-and-yaml/). Item/resource variants preserve page/resource identity, dimensions, item rights and access advisories. Highest reported usable quality is selected; absent geometry stays unknown. Official legacy LoC HTTP identifiers become HTTPS. | `fa` accepts combined facets for format, collection, contributor, place or language (separated with `\|`); `dates=1900/1920`. `--media` adds an online-format facet. |
+| `dvids` | `DVIDS_API_KEY`, with optional `DVIDS_CLIENT_SECRET` used as the server `api_key` without a browser Referer, per [API documentation](https://api.dvidshub.net/docs). No upload OAuth scope. Actual image/MP4 files retain asset ID, unit, creator, location, capture date and separate publication date. | `category=B-Roll`, `branch=Army`, `country=United States`, `city=Fort Riley`, `state`, `unit`, `unit_name`, `unit_id`, `from_date`, `to_date`, `from_publishdate`, `to_publishdate`, `from_duration`, `to_duration`, `hd=1`. |
+| `europeana` | `EUROPEANA_API_KEY` and confirmed `EUROPEANA_KEY_TYPE`: `personal` for development experiments, `project` for operational use, following the [issued key terms](https://www.europeana.eu/en/how-to-register-for-and-manage-an-api-key). An unset/invalid type refuses network access. The record retains institution, original record/media link, creator/date and resource rights. An institution HTML page or thumbnail alone is a manual locator. | `qf=LANGUAGE:en`, `qf=YEAR:1910`, `qf=DATA_PROVIDER:"Institution name"`, `theme=map`, `reusability=open`, `media=true`, `landingpage=true`. `--media` refines TYPE. |
+| `nara` | `NARA_API_KEY` in a private `x-api-key` header, using [Catalog API v2](https://github.com/usnationalarchives/Catalog-API). One candidate per digital object retains NAID, object ID/file, collection, date, creator and use/access restrictions. API access does not grant rights to every object. | `ancestorNaId`, `recordGroupNumber`, `collectionIdentifier`, `creators`, `geographicReference`, `startDate`, `endDate`, `objectType`, `typeOfMaterials`, `availableOnline`, `levelOfDescription`. |
+
+Pass `--catalog-filter KEY=VALUE` repeatedly for different fields. Duplicate/unknown fields and credential, limit, or paging overrides are refused. Changed filters consume another meaningful query within the saved allowance; the same normalized query/media/filter set replays without spending one. Use the same filters with `search-assess` when otherwise identical attempts need distinguishing. Choose an explicit provider for catalog-specific filters; auto routes diagnose incompatible filters per catalog. NARA image selection includes supported scans/maps in textual collections rather than forcing the photographic record type; returned digital objects are filtered by actual file kind.
+
+Examples (replace project paths and record identifiers):
+
+```bash
+python3 scripts/gb.py search --provider loc --query "Brooklyn bridge" --media image --limit 3 --catalog-filter "dates=1900/1920" --project <project>
+python3 scripts/gb.py search --provider dvids --query bridge --media video --catalog-filter "category=B-Roll" --catalog-filter "hd=1" --limit 3 --project <project>
+python3 scripts/gb.py resolve --url https://catalog.archives.gov/id/<NAID> --catalog-file <OBJECT_ID> --project <project>
+```
+
+`inspect` reads supplied, credential-free SRT/VTT captions through the existing bounded reader (three files, 2 MiB each). LoC plain `.txt` transcripts appear in `source_transcripts` with a 32,768-character excerpt and explicit truncation; untimed text never becomes invented timed cues. Inspection of a catalog search asset records the actual selected file before cache reuse; changed source context invalidates stale approval without approving anything. HLS-only, credential-bearing links and unconfirmed LoC streaming services remain unsupported/manual. Missing keys, rejected access, empty results and incomplete coverage stay distinct. `providers` separates implementation, configuration and dated live evidence; see [QUALITY.md](QUALITY.md).
+
 ## Provider — Archive.org and fragment search
 
 `archive` supports public video/image discovery and explicit item/file resolution without an API key. An item may contain several independent assets; representations of the same original are grouped while their file names, hashes, quality metadata, and access restrictions remain visible. Search thumbnails are excluded. Rights stay unknown until the separate `permit` step; an archive collection name is not permission.

@@ -457,6 +457,13 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 )
                 p.add_argument("--query", required=True, help="Query wording of the recorded attempt")
                 p.add_argument(
+                    "--catalog-filter",
+                    action="append",
+                    default=None,
+                    metavar="KEY=VALUE",
+                    help="Recorded filters when identical wording/media had different catalog filters",
+                )
+                p.add_argument(
                     "--assessment", required=True, help="What the returned results established and what to inspect next"
                 )
         if name == "search-confirm":
@@ -499,9 +506,16 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             p.add_argument(
                 "--provider",
                 default="auto",
-                help="Source: youtube, pexels, pixabay, commons, nasa, archive or auto (default)",
+                help="Source: youtube, pexels, pixabay, commons, nasa, archive, loc, dvids, europeana, nara or auto (default)",
             )
             p.add_argument("--query", required=True, help="Termos da busca na fonte")
+            p.add_argument(
+                "--catalog-filter",
+                action="append",
+                default=[],
+                metavar="KEY=VALUE",
+                help="Catalog-specific filter; repeat for different fields. Filters share the planned query allowance.",
+            )
             p.add_argument("--limit", type=int, default=8, help="Máximo de candidatos, 1–50 (padrão 8)")
             p.add_argument(
                 "--intent",
@@ -513,7 +527,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 "--media",
                 choices=["image", "video", "any"],
                 default="any",
-                help="Source media type: image, video, or any (default); NASA, Commons, and Archive.org support both",
+                help="Source media type: image, video, or any (default); public catalog adapters support both",
             )
             p.add_argument(
                 "--shot",
@@ -530,6 +544,9 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 help="Por que este material foi descartado; fica gravado no candidato",
             )
         if name == "resolve":
+            p.add_argument(
+                "--catalog-file", help="Actual file URL or NARA object ID in a multi-resource catalog record"
+            )
             p.add_argument(
                 "--archive-file", help="Actual file name within the Archive.org item (required for multi-asset items)"
             )
@@ -557,7 +574,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             g = p.add_mutually_exclusive_group(required=True)
             g.add_argument(
                 "--url",
-                help="Public source URL (YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org)",
+                help="Public source URL (YouTube, Instagram, TikTok, Commons, NASA, Archive.org, LoC, DVIDS, Europeana, NARA)",
             )
             g.add_argument("--file", help="Arquivo local já autorizado para importação")
     return parser
