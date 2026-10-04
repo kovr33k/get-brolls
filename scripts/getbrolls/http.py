@@ -168,6 +168,7 @@ def _scrub(value):
             parsed.netloc == "images-assets.nasa.gov"
             or parsed.netloc in ("creativecommons.org", "rightsstatements.org")
             or parsed.hostname == "loc.gov"
+            or parsed.hostname in ("archive.org", "www.archive.org", "audiovisual.ec.europa.eu", "ec.europa.eu")
             or (parsed.hostname or "").endswith(".loc.gov")
         ):
             value = urllib.parse.urlunsplit(parsed._replace(scheme="https"))

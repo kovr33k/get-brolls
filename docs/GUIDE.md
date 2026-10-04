@@ -422,6 +422,50 @@ python3 scripts/gb.py resolve --url https://catalog.archives.gov/id/<NAID> --cat
 
 `inspect` reads supplied, credential-free SRT/VTT captions through the existing bounded reader (three files, 2 MiB each). LoC plain `.txt` transcripts appear in `source_transcripts` with a 32,768-character excerpt and explicit truncation; untimed text never becomes invented timed cues. Inspection of a catalog search asset records the actual selected file before cache reuse; changed source context invalidates stale approval without approving anything. HLS-only, credential-bearing links and unconfirmed LoC streaming services remain unsupported/manual. Missing keys, rejected access, empty results and incomplete coverage stay distinct. `providers` separates implementation, configuration and dated live evidence; see [QUALITY.md](QUALITY.md).
 
+## Providers — GDELT TV, EC Audiovisual and UN Web TV
+
+These three providers reuse `search-plan`, `search --planned`, visual confirmation and the existing Storyboard. Every language or filter change shares the catalog's three-query allowance. Discovery is credential-free; an actual file, decoded preview, suitable option, access decision, usage rights and human approval are separate facts.
+
+**EC Audiovisual (`ec_audiovisual`).** Video search requests `VIDEOSHOT` before `VIDEO`; `--media image` requests `PHOTO`/`REPORTAGE`, and `any` permits all four. One query returns at most five candidates. `--catalog-filter type=VIDEO` selects whole recordings, or choose one other actual record type. The read-only AV Portal client uses `kwgg` for keywords, a one-hour cache and a bounded fallback endpoint. Unversioned endpoint/schema failures are access errors. There is no embedded bearer or new API key.
+
+The candidate ID retains the exact shot; the public URL identifies its parent recording. `catalog.provider_source_start` and `provider_shot_duration` retain the provider's source-clock window. `preview` uses that window when times are omitted. `--source-start` is an alias for `--start` and overrides the provider start; an omitted end uses the shot duration. All explicit times refer to the parent source. Direct MP4 caches start at zero; an HLS section cache records its nonzero source offset. The final cut subtracts that cache offset once. Long shots still need a shorter end within the preview limit.
+
+```sh
+python scripts/gb.py search --planned --shot opening --query "climate" --media video --limit 2 --project PROJECT
+python scripts/gb.py preview --candidate EC_SHOT_ID --end 9.36 --project PROJECT
+python scripts/gb.py preview --candidate EC_SHOT_ID --source-start 10 --end 13 --project PROJECT
+```
+
+Real representations prefer H.264 1080p, 720p, 480p, legacy high/low, then HLS; photos prefer `ORIGINAL`. Available metadata/media language prefers EN, INT, FR, then the first available language. Dimensions remain unknown until measured. `resolve --url EC_RECORD_URL --catalog-file PUBLIC_MEDIA_URL` pins an actual offered variant. Refresh refuses a missing shot/file and invalidates review when the parent, timing or conditions change. Copyright holder/year, location, scope and exceptions are retained; a numeric `cc_by` grants no license.
+
+**Independent access.** Restricted EC records (`download_enabled=N` or `isDownloadable=false`) remain visible. All UN Web TV media acquisitions require an explicit decision already supplied by the person responsible for access:
+
+```sh
+python scripts/gb.py access --candidate ID --by "PERSON" --evidence "Actual supplied access decision and conditions" --project PROJECT
+```
+
+This records the decision for the exact asset and current brief, without approval or a reuse grant. A changed brief or relevant source conditions requires a new decision. It gates cached media as well as new downloads. Restricted EC inspection may acquire a complete direct file and therefore also requires access; UN player metadata and public transcript inspection can run before media acquisition. `permit` and human `approve` remain separate requirements for `fetch`.
+
+**UN Web TV (`un_webtv`).** Full-text search uses public UN Transcripts `ft=1`. Select `--language en|fr|es|ar|zh|ru`; it becomes the effective `locale` filter and replay identity. Default locale is `en`; a conflicting `--catalog-filter locale=...` is refused. Queries need at least two characters. Other filters are `category`, `date`, `from`, `to`, `sort`. One bounded first page produces at most five selected meetings. Matching text/speaker/start/deep links and meeting date are retained. Automatically generated transcripts are not official records or documents of the United Nations.
+
+```sh
+python scripts/gb.py search --planned --shot opening --query "climate" --language en --media video --limit 1 --project PROJECT
+python scripts/gb.py inspect --candidate UN_ID --query "climate" --project PROJECT
+python scripts/gb.py resolve --url https://webtv.un.org/en/asset/k14/k140iyou7p --project PROJECT
+```
+
+Recent meeting search covers the last 365 days. Find older pages through the Web TV catalog/browser and resolve their complete asset URL; missing recent transcripts do not prove an older video is absent. Inspection checks the actual yt-dlp/Kaltura player and separately reads timed transcripts. Player failure leaves representation access unverified even when speech timing exists. Preview times use the recording's clock. For a better original, use the UN Audiovisual Library's request route and record the actual supplied file/conditions; its availability and clearance are not assumed.
+
+**GDELT TV (`gdelt_tv`).** Caption search returns a broadcast/time locator with station, program, broadcast and match dates, snippet and public Archive viewing URL. It has no visual/AI search or direct media-download capability. The observed API requires a station; use an actual `station:CODE` query operator or `--catalog-filter station=CODE`. Other filters are `STARTDATETIME`, `ENDDATETIME`, `timespan`. StationDetails supplies the actual channel date range when available; unknown coverage stays unknown. A recent empty search can lie outside an archive's coverage.
+
+```sh
+python scripts/gb.py search --planned --shot opening --query "trump" --limit 1 --catalog-filter station=CNN --catalog-filter STARTDATETIME=20170829120000 --catalog-filter ENDDATETIME=20171007120000 --project PROJECT
+python scripts/gb.py resolve --url ARCHIVE_ITEM_URL --archive-file ACTUAL_FILE --original-for GDELT_ID --project PROJECT
+python scripts/gb.py resolve --file SUPPLIED_ORIGINAL --original-for GDELT_ID --original-conditions "Actual supplied-file conditions" --project PROJECT
+```
+
+The locator's `#start/START/end/END` viewing reference retains its source interval; this is not acquired editing media. Open the reference or separately resolve a real Archive file. Restricted/unavailable originals remain visible and cannot be inspected/fetched as available media. Linked originals retain both identities and timing provenance, then follow common preview, `search-confirm`, Storyboard, human and rights gates. Specify actual original times explicitly; the locator offset is not added again. A caption match alone does not establish visual suitability. Dated observations are in [QUALITY.md](QUALITY.md).
+
 ## Provider — Archive.org and fragment search
 
 `archive` supports public video/image discovery and explicit item/file resolution without an API key. An item may contain several independent assets; representations of the same original are grouped while their file names, hashes, quality metadata, and access restrictions remain visible. Search thumbnails are excluded. Rights stay unknown until the separate `permit` step; an archive collection name is not permission.

@@ -6,11 +6,27 @@ updated: 2026-10-04
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.11.0
+# Qualidade e evidências — GET B-ROLLS 2.12.0
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
 **Current validation policy — 2026-10-04.** Maintained CI validation is Windows, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Tests cover Python 3.11 and 3.13; the quality job also runs on Windows. Pull requests and pushes to `main` trigger CI, avoiding duplicate feature-push and PR runs. Historical sections retain the platforms and requirements recorded at their dates.
+
+## GDELT TV, EC Audiovisual and UN Web TV — 2026-10-04, 2.12.0
+
+**Implemented scope.** Three bounded public adapters reuse the existing ledger, query allowance, visual confirmation and Storyboard. GDELT is a caption/time locator with separately linked Archive/local originals; no visual search is claimed. EC retains exact shot/parent identity, public representations, provider source time and conditions. Source-clock windows and nonzero HLS cache offsets are applied once. UN uses localized full-text recent transcripts or direct older asset URLs, with actual player inspection kept separate. Restricted EC and UN media acquisitions require an explicit asset/brief access decision; this grants neither reuse rights nor human approval. No new runtime dependency is introduced.
+
+**Offline evidence.** Fifteen focused tests use public-schema fixtures and synthetic labeled video. They cover real GDELT `preview_url` fragment timing and station coverage, locator/original identity and closed gates, EC keyword/schema fallback, shot/parent and selected-file preservation, conditions changes, direct/HLS source/cache clocks and measured final frames, missing fields, photo originals, access versus rights, changed briefs blocking cached media, UN locale/full-text and three-query replay limits, old direct assets, timed speech with player failures, visible transcript disclaimers, and preview/confirmation/Storyboard gates. These fixtures do not prove external access or editorial quality.
+
+**EC live sample.** The [Drupal client release](https://www.drupal.org/project/media_avportal/releases/2.3.0) and its distributed source were inspected read-only. The primary client returned actual `VIDEOSHOT` records for `kwgg=climate`; `q` was observed to return unfiltered records. Audited CLI search selected shot `I-294661-INT-1+002`, parent [I-294661](https://audiovisual.ec.europa.eu/en/video/I-294661), at source start 6.36 seconds, shot duration 12.64 seconds. The selected `h264_1080` parent MP4 acquired 432,162,335 bytes; ffprobe measured 1920×1080, 25 fps, 338.88 seconds. The 6.36–9.36 second preview and ready-only Storyboard passed; FFmpeg decoded the window with exit 0. The opened contact sheet shows a Climate Week NYC sign in every cell, so visual confirmation recorded unsuitable for a literal shot of Teresa Ribera speaking. Rights remain unknown and approval pending. Fallback and HLS live acquisition are unverified.
+
+**UN live partial sample.** Audited `climate` search with English locale and `ft=1` selected [37th Meeting, 63rd Session of the Human Rights Council](https://webtv.un.org/en/asset/k14/k140iyou7p), dated 2026-10-02. Actual yt-dlp/Kaltura metadata inspection succeeded and reported 11,247 seconds; the separate public transcript yielded timed speech and the automatic/nonofficial disclaimer. No explicit access decision was supplied for media acquisition. Preview acquisition, decoded dimensions, visual suitability and higher-quality UN library original remain unverified. Transcript availability and player metadata are not decoded video, reuse rights or human acceptance.
+
+**GDELT live partial sample.** A bounded historical CNN search returned [Inside Politics, 2017-09-26](https://archive.org/details/CNNW_20170926_160000_Inside_Politics#start/3561/end/3596), matching caption text and source interval 3561–3596 seconds. StationDetails reported CNN coverage 2009-07-02 through 2024-10-10; a recent-days empty response therefore does not establish missing footage. Audited original resolution linked the exact Archive item and `.mpg` file; both original and MP4 derivative were marked restricted. Acquisition, decoded preview and visual suitability remain unverified. The locator is visible with its limitation, not an acquired editing original.
+
+**Local verification.** Windows `scripts/check.ps1` passed 1,174 tests in 140.385 seconds, with 30 skips and no failures/errors. Ruff lint/formatting, Pyright, generated skill mirror and documentation links passed. The intentional CLI surface change is recorded in its reviewed fixture; existing commands remain compatible. Installer prerequisites and diagnostic `doctor` checks are separate from live acquisition evidence.
+
+All probe projects, responses, original media, hashes and previews remain outside the distributed source. Observations are dated samples; they establish no catalog-wide coverage or permanent platform availability. Hosted Windows CI is still required before production integration.
 
 ## Browser attempts, UN and Destockd — 2026-10-04, 2.11.0
 

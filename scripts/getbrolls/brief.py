@@ -32,12 +32,29 @@ SOURCES = (
     "dvids",
     "europeana",
     "nara",
+    "gdelt_tv",
+    "ec_audiovisual",
+    "un_webtv",
     "un_avlibrary",
     "destockd",
     "local",
 )
 STOCK_SOURCES = ("pexels", "pixabay")
-SEARCHABLE = ("youtube", "pexels", "pixabay", "commons", "nasa", "archive", "loc", "dvids", "europeana", "nara")
+SEARCHABLE = (
+    "youtube",
+    "pexels",
+    "pixabay",
+    "commons",
+    "nasa",
+    "archive",
+    "loc",
+    "dvids",
+    "europeana",
+    "nara",
+    "gdelt_tv",
+    "ec_audiovisual",
+    "un_webtv",
+)
 MIN_HINT_S = 0.5
 MAX_HINT_S = 120
 
@@ -45,7 +62,7 @@ MAX_HINT_S = 120
 # palavra, e o `target` é escrito para gente ler, não para a API procurar.
 QUERY_MAX_TOKENS = 6
 # Fontes que publicam foto, na ordem em que valem a tentativa para um beat de imagem.
-STILL_SOURCES = ("commons", "nasa", "archive", "loc", "dvids", "europeana", "nara")
+STILL_SOURCES = ("commons", "nasa", "archive", "loc", "dvids", "europeana", "nara", "ec_audiovisual")
 # O `target` fala de um quadro parado, não de um vídeo: a busca tem que pedir imagem.
 STILL_WORDS = ("foto", "fotografia", "imagem", "print", "still", "captura de tela", "screenshot", "retrato")
 # Palavras que não estreitam busca nenhuma; sair com elas só gasta espaço do teto.

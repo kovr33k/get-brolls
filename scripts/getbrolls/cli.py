@@ -33,6 +33,7 @@ SUMMARIES = {
     "preview": "Gerar prévia (GIF/contact sheet) do intervalo escolhido",
     "approve": "Registrar aprovação humana já recebida para o intervalo atual",
     "permit": "Registrar as condições reais de uso do trecho antes da coleta",
+    "access": "Record an explicit EC/UN access decision for this asset and current brief; separate from rights and approval",
     "reject": "Marcar candidatos como rejeitados e invalidar suas revisões (--candidate repetível)",
     "fetch": "Produzir o corte final aprovado e permitido em clips/",
     "verify": "Conferir integridade e decodificação dos arquivos coletados",
@@ -62,6 +63,7 @@ FORMAT_GATE_SUBCOMMANDS = (
     "preview",
     "approve",
     "permit",
+    "access",
     "reject",
     "fetch",
     "verify",
@@ -114,6 +116,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         "preview",
         "approve",
         "permit",
+        "access",
         "reject",
         "fetch",
         "verify",
@@ -223,14 +226,20 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 required=True,
                 help="ID do candidato a rejeitar; repita a flag para rejeitar vários",
             )
-        elif name in ("preview", "permit", "fetch", "remember"):
+        elif name in ("preview", "permit", "access", "fetch", "remember"):
             p.add_argument(
                 "--candidate",
                 required=True,
                 help="ID do candidato retornado por search/resolve",
             )
         if name in ("preview", "approve"):
-            p.add_argument("--start", type=float, help="Início do trecho na origem, em segundos")
+            p.add_argument(
+                "--start",
+                "--source-start",
+                dest="start",
+                type=float,
+                help="Source-clock start in seconds; overrides an EC shot's suggested provider start",
+            )
             p.add_argument("--end", type=float, help="Fim do trecho na origem, em segundos")
         if name == "inspect":
             g = p.add_mutually_exclusive_group(required=True)
@@ -323,6 +332,9 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 "--declaration-text",
                 help="Frase literal da declaração de responsabilidade, com 20 caracteres ou mais",
             )
+        if name == "access":
+            p.add_argument("--by", required=True, help="Person who explicitly supplied the access decision")
+            p.add_argument("--evidence", required=True, help="Actual access decision and conditions already supplied")
         if name == "remember":
             p.add_argument(
                 "--decision",
@@ -536,7 +548,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             p.add_argument(
                 "--provider",
                 default="auto",
-                help="Source: youtube, pexels, pixabay, commons, nasa, archive, loc, dvids, europeana, nara or auto (default)",
+                help="Source: youtube, pexels, pixabay, commons, nasa, archive, loc, dvids, europeana, nara, gdelt_tv, ec_audiovisual, un_webtv or auto (default)",
             )
             p.add_argument("--query", required=True, help="Termos da busca na fonte")
             p.add_argument(
@@ -574,7 +586,9 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 help="Por que este material foi descartado; fica gravado no candidato",
             )
         if name == "resolve":
-            p.add_argument("--original-for", help="UN or Destockd locator candidate linked to this supplied original")
+            p.add_argument(
+                "--original-for", help="UN, Destockd or GDELT locator candidate linked to this supplied original"
+            )
             p.add_argument(
                 "--original-conditions",
                 help="Observed supplied-original conditions; records context without granting rights",
@@ -609,7 +623,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             g = p.add_mutually_exclusive_group(required=True)
             g.add_argument(
                 "--url",
-                help="Public source URL (YouTube, Instagram, TikTok, Commons, NASA, Archive.org, LoC, DVIDS, Europeana, NARA, UN, Destockd)",
+                help="Public source URL (YouTube, Instagram, TikTok, Commons, NASA, Archive.org, LoC, DVIDS, Europeana, NARA, EC, UN, Destockd)",
             )
             g.add_argument("--file", help="Arquivo local já autorizado para importação")
             g.add_argument("--un-asset-id", help="Observed UN Audiovisual Library Asset ID; imports a request locator")

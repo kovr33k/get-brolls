@@ -15,6 +15,9 @@ from .runtime import record_warning
 NAMES = ("loc", "dvids", "europeana", "nara")
 KEYS = {"dvids": "DVIDS_API_KEY", "europeana": "EUROPEANA_API_KEY", "nara": "NARA_API_KEY"}
 FILTERS = {
+    "gdelt_tv": {"station", "STARTDATETIME", "ENDDATETIME", "timespan"},
+    "ec_audiovisual": {"type"},
+    "un_webtv": {"locale", "category", "date", "from", "to", "sort"},
     "loc": {"fa", "dates"},
     "dvids": {
         "category",
@@ -53,7 +56,7 @@ IMAGE = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".gif", ".webp", ".jp2"}
 TRANSCRIPT_CHARS = 32768
 
 
-def filters(name, values=None):
+def filters(name, values=None, language=None):
     result = {}
     for entry in values or []:
         key, sep, value = entry.partition("=")
@@ -64,6 +67,13 @@ def filters(name, values=None):
         if key in result:
             raise ProviderError(f"Duplicate catalog filter: {key}.")
         result[key] = value.strip()
+    if name == "un_webtv":
+        from .broadcasts import LOCALES
+
+        locale = language or result.get("locale", "en")
+        if locale not in LOCALES or (language and result.get("locale", locale) != locale):
+            raise ProviderError("UN query language must match a supported locale: en/fr/es/ar/zh/ru.")
+        result["locale"] = locale
     return result
 
 

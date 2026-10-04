@@ -23,14 +23,12 @@ PLANNED_CATALOGS = {
         "User session; explicit public-channel whitelist",
         ("TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_SESSION", "BROLL_TELEGRAM_CHANNELS"),
     ),
-    "gdelt_tv": ("TV broadcast/time locator", ()),
     "x": ("Retained Grok OAuth X Search; OAuth/tool access unverified", ()),
-    "ec_audiovisual": ("AV Portal shot/parent records; endpoints require revalidation", ()),
-    "un_webtv": ("Recent transcripts; older catalog/direct assets", ()),
 }
 
 
 def capabilities():
+    from .broadcasts import NAMES as BROADCASTS
     from .catalogs import NAMES
 
     result = {}
@@ -44,21 +42,34 @@ def capabilities():
         "nasa",
         "archive",
         *NAMES,
+        *BROADCASTS,
         "un_avlibrary",
         "destockd",
         "local",
     ):
-        search_ok = name in ("youtube", "pexels", "pixabay", "commons", "nasa", "archive", *NAMES)
+        search_ok = name in ("youtube", "pexels", "pixabay", "commons", "nasa", "archive", *NAMES, *BROADCASTS)
         key = KEYS.get(name)
         result[name] = {
             "search": search_ok,
             "resolve_url": name
-            in ("youtube", "instagram", "tiktok", "commons", "nasa", "archive", "un_avlibrary", "destockd", *NAMES),
+            in (
+                "youtube",
+                "instagram",
+                "tiktok",
+                "commons",
+                "nasa",
+                "archive",
+                "un_avlibrary",
+                "destockd",
+                "ec_audiovisual",
+                "un_webtv",
+                *NAMES,
+            ),
             "browser_search": name in ("instagram", "tiktok", "un_avlibrary", "destockd"),
             "account_library": False,
             "embed": False,
             "seek": "local" if name == "local" else "unsupported",
-            "download": name not in ("un_avlibrary", "destockd"),
+            "download": name not in ("un_avlibrary", "destockd", "gdelt_tv"),
             "transport": "browser-cdn-pairs / yt-dlp"
             if name == "instagram"
             else "yt-dlp"
@@ -69,12 +80,14 @@ def capabilities():
             "configured": not key or bool(os.environ.get(key)),
             "env_key": key,
             "preview": True,
-            "manual": name in ("instagram", "tiktok", "un_avlibrary", "destockd"),
+            "manual": name in ("instagram", "tiktok", "un_avlibrary", "destockd", "gdelt_tv"),
             "implementation": "supported",
             "live": "unverified",
             "live_observation": None,
             "access_verified": False,
-            "media_types": ["image", "video"] if name in ("commons", "nasa", "archive", "local", *NAMES) else ["video"],
+            "media_types": ["image", "video"]
+            if name in ("commons", "nasa", "archive", "local", "ec_audiovisual", *NAMES)
+            else ["video"],
         }
         if name == "europeana":
             result[name]["configured"] = bool(os.environ.get("EUROPEANA_API_KEY")) and os.environ.get(
@@ -88,6 +101,21 @@ def capabilities():
                 if os.environ.get("EUROPEANA_KEY_TYPE") in ("personal", "project")
                 else "unconfirmed"
             )
+    result["gdelt_tv"].update(
+        transport="caption search / Archive broadcast locator / linked original",
+        visual_search=False,
+        coverage="Actual station/date scope; station filter required by observed TV API.",
+    )
+    result["ec_audiovisual"].update(
+        transport="bounded AV Portal client / fallback; HTTPS or HLS",
+        access_decision="restricted items",
+        seek="source clock",
+    )
+    result["un_webtv"].update(
+        transport="UN Transcripts / direct older asset / yt-dlp Kaltura",
+        coverage="Recent transcript search: last 365 days. Older assets: direct URL.",
+        access_decision="required before media acquisition",
+    )
     for name, (route, env_keys) in PLANNED_CATALOGS.items():
         result[name] = {
             "search": False,
@@ -189,6 +217,34 @@ def capabilities():
         "preview": "unverified",
         "limitations": "One bounded JSON search was denied. No original was acquired; no permanent platform availability verdict.",
     }
+    for name, url, status, limit in (
+        (
+            "ec_audiovisual",
+            "https://audiovisual.ec.europa.eu/en/video/I-294661",
+            "passed_sample",
+            "Shot I-294661-INT-1+002; decoded 6.36-9.36s MP4 window, 1920x1080/25fps/338.88s parent, 432162335 bytes. Viewed sign is unsuitable for literal speech. Live HLS/fallback unverified.",
+        ),
+        (
+            "un_webtv",
+            "https://webtv.un.org/en/asset/k14/k140iyou7p",
+            "partial_sample",
+            "English full-text transcript and actual yt-dlp/Kaltura metadata passed, 11247s. Acquisition, decoding and suitability unverified without an explicit access decision.",
+        ),
+        (
+            "gdelt_tv",
+            "https://archive.org/details/CNNW_20170926_160000_Inside_Politics#start/3561/end/3596",
+            "partial_sample",
+            "Caption locator and exact Archive original resolved; files restricted. CNN StationDetails range 2009-07-02 to 2024-10-10. Acquisition/decoding unverified; no visual-search capability.",
+        ),
+    ):
+        result[name]["live"] = "sample_verified" if name == "ec_audiovisual" else "unverified"
+        result[name]["live_observation"] = {
+            "date": "2026-10-04",
+            "version": "2.12.0",
+            "status": status,
+            "source_url": url,
+            "limitations": limit + " One dated sample; no current access, human approval or reuse grant.",
+        }
     return result
 
 
@@ -239,11 +295,11 @@ def _text(raw):
 
 MEDIA_CHOICES = ("image", "video", "any")
 # Fontes que publicam foto e vídeo no mesmo acervo; nas outras `--media` não muda nada.
-MEDIA_AWARE = ("nasa", "commons", "archive", "loc", "dvids", "europeana", "nara")
+MEDIA_AWARE = ("nasa", "commons", "archive", "loc", "dvids", "europeana", "nara", "ec_audiovisual")
 
 
-def search(provider, query, limit=8, media="any", catalog_filters=None):
-    from . import catalogs
+def search(provider, query, limit=8, media="any", catalog_filters=None, *, language=None):  # noqa: PLR0913 - explicit query language alongside catalog filters
+    from . import broadcasts, catalogs
     from .archive import search as archive_search
 
     if not isinstance(limit, int) or not 1 <= limit <= 50:  # noqa: PLR2004 - matches the "entre 1 e 50" message below
@@ -252,7 +308,12 @@ def search(provider, query, limit=8, media="any", catalog_filters=None):
         raise ProviderError("Consulta deve ter entre 1 e 500 caracteres")
     if media not in MEDIA_CHOICES:
         raise ProviderError("--media aceita image, video ou any")
-    selected_filters = catalogs.filters(provider, catalog_filters)
+    selected_filters = catalogs.filters(provider, catalog_filters, language)
+    if provider in broadcasts.NAMES:
+        items = broadcasts.search(provider, query.strip(), limit, media, selected_filters)
+        for item in items:
+            item["query"] = query.strip()
+        return items
     if provider in catalogs.NAMES:
         items = catalogs.search(provider, query.strip(), limit, media, selected_filters)
         for item in items:
@@ -764,22 +825,24 @@ def _nasa_details(ident):
     return item
 
 
-def resolve(url, archive_file=None, catalog_file=None):  # noqa: C901, PLR0912 - existing size; one branch per recognized source host/URL shape
+def resolve(url, archive_file=None, catalog_file=None):  # noqa: C901, PLR0912, PLR0911 - existing size; one branch per recognized source host/URL shape
     if not public_url(url):
         raise ProviderError("Forneça URL pública HTTPS sem credenciais")
     p = urlsplit(url)
     host = p.hostname.lower()
     path = p.path.strip("/")
-    from . import browser_results, catalogs
+    from . import broadcasts, browser_results, catalogs
 
-    if catalog_file is not None and not catalogs.recognizes(url):
-        raise ProviderError("--catalog-file requires a LoC, DVIDS, Europeana or NARA item URL.")
+    if catalog_file is not None and not (catalogs.recognizes(url) or broadcasts.recognizes(url) == "ec_audiovisual"):
+        raise ProviderError("--catalog-file requires a LoC, DVIDS, Europeana, NARA or EC item URL.")
     if archive_file is not None and host not in ("archive.org", "www.archive.org"):
         raise ProviderError("--archive-file requires an Archive.org item URL.")
     if browser_results.recognizes(url):
         return browser_results.locator(url)
     if catalogs.recognizes(url):
         return catalogs.resolve(url, catalog_file)
+    if broadcasts.recognizes(url):
+        return broadcasts.resolve(url, catalog_file)
     if host in ("archive.org", "www.archive.org"):
         from .archive import resolve as archive_resolve
 
@@ -842,14 +905,17 @@ def resolve(url, archive_file=None, catalog_file=None):  # noqa: C901, PLR0912 -
     return item
 
 
-def refresh(item):  # noqa: C901 - source-specific refresh contracts with explicit identity preservation
+def refresh(item):  # noqa: C901, PLR0911 - source-specific refresh contracts with explicit identity preservation
     """Refresh public stock file URLs without changing selection or approval."""
     import copy
 
     name = item["provider"]
     ident = str(item["source_id"])
     current = copy.deepcopy(item)
-    from . import catalogs
+    from . import broadcasts, catalogs
+
+    if name in broadcasts.NAMES:
+        return broadcasts.refresh(item)
 
     if name in catalogs.NAMES:
         return catalogs.refresh(item)

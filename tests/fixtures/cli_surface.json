@@ -1,5 +1,83 @@
 {
   "subcommands": {
+    "access": {
+      "help": "Record an explicit EC/UN access decision for this asset and current brief; separate from rights and approval",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "confirm_format_change",
+          "help": "Confirmar que aprovações já dadas podem ser invalidadas pela mudança de formato",
+          "nargs": 0,
+          "option_strings": [
+            "--confirm-format-change"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "candidate",
+          "help": "ID do candidato retornado por search/resolve",
+          "nargs": null,
+          "option_strings": [
+            "--candidate"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "by",
+          "help": "Person who explicitly supplied the access decision",
+          "nargs": null,
+          "option_strings": [
+            "--by"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "evidence",
+          "help": "Actual access decision and conditions already supplied",
+          "nargs": null,
+          "option_strings": [
+            "--evidence"
+          ],
+          "required": true
+        }
+      ]
+    },
     "approve": {
       "help": "Registrar aprovação humana já recebida para o intervalo atual",
       "options": [
@@ -57,9 +135,10 @@
           "choices": null,
           "default": null,
           "dest": "start",
-          "help": "Início do trecho na origem, em segundos",
+          "help": "Source-clock start in seconds; overrides an EC shot's suggested provider start",
           "nargs": null,
           "option_strings": [
+            "--source-start",
             "--start"
           ],
           "required": false
@@ -1090,9 +1169,10 @@
           "choices": null,
           "default": null,
           "dest": "start",
-          "help": "Início do trecho na origem, em segundos",
+          "help": "Source-clock start in seconds; overrides an EC shot's suggested provider start",
           "nargs": null,
           "option_strings": [
+            "--source-start",
             "--start"
           ],
           "required": false
@@ -1592,7 +1672,7 @@
           "choices": null,
           "default": null,
           "dest": "original_for",
-          "help": "UN or Destockd locator candidate linked to this supplied original",
+          "help": "UN, Destockd or GDELT locator candidate linked to this supplied original",
           "nargs": null,
           "option_strings": [
             "--original-for"
@@ -1756,7 +1836,7 @@
           "choices": null,
           "default": null,
           "dest": "url",
-          "help": "Public source URL (YouTube, Instagram, TikTok, Commons, NASA, Archive.org, LoC, DVIDS, Europeana, NARA, UN, Destockd)",
+          "help": "Public source URL (YouTube, Instagram, TikTok, Commons, NASA, Archive.org, LoC, DVIDS, Europeana, NARA, EC, UN, Destockd)",
           "nargs": null,
           "option_strings": [
             "--url"
@@ -1954,7 +2034,7 @@
           "choices": null,
           "default": "auto",
           "dest": "provider",
-          "help": "Source: youtube, pexels, pixabay, commons, nasa, archive, loc, dvids, europeana, nara or auto (default)",
+          "help": "Source: youtube, pexels, pixabay, commons, nasa, archive, loc, dvids, europeana, nara, gdelt_tv, ec_audiovisual, un_webtv or auto (default)",
           "nargs": null,
           "option_strings": [
             "--provider"
