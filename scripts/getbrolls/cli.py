@@ -21,6 +21,8 @@ EXIT_INTERNAL_ERROR = 3
 SUMMARIES = {
     "providers": "Listar fontes disponíveis, transporte e chaves configuradas",
     "doctor": "Diagnosticar dependências, caminhos fixados e fontes utilizáveis",
+    "telegram-login": "Authorize the private Telegram user session in a local interactive terminal, including 2FA",
+    "x-access": "Inspect retained Grok OAuth prerequisite metadata without invoking Grok, refreshing tokens or using API billing",
     "status": "Resumir onde o projeto está por etapa, sem alterar arquivos",
     "search": "Pesquisar candidatos numa fonte e registrá-los no projeto (--shot liga ao beat; --dry-run não grava)",
     "search-plan": "Save an ordered catalog chain for a BRIEF fragment without resetting query allowances",
@@ -88,8 +90,10 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         help="Mostrar a versão instalada da skill e sair",
     )
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("providers", "doctor"):
+    for name in ("providers", "doctor", "telegram-login", "x-access"):
         p = sub.add_parser(name, help=SUMMARIES[name], description=SUMMARIES[name])
+        if name == "x-access":
+            p.add_argument("--model", help="Already selected retained model; does not choose or invoke another model")
         if name == "doctor":
             # O SKILL.md diz que `--project` vai em todo comando, e a primeira chamada
             # do fluxo é o `doctor`: recusá-lo ali é contradizer a instrução logo na
@@ -540,6 +544,11 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
         if name == "search":
             p.add_argument(
+                "--resume-history",
+                action="store_true",
+                help="Continue the same Telegram query from its saved cursor; increase --limit to request more attachments. Does not renew an attempt",
+            )
+            p.add_argument(
                 "--planned",
                 action="store_true",
                 help="Use the saved fragment chain and the current catalog's three-query allowance",
@@ -548,7 +557,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             p.add_argument(
                 "--provider",
                 default="auto",
-                help="Source: youtube, pexels, pixabay, commons, nasa, archive, loc, dvids, europeana, nara, gdelt_tv, ec_audiovisual, un_webtv or auto (default)",
+                help="Catalog source or auto (default); Mapillary requires bbox, Telegram requires a public whitelist and date range",
             )
             p.add_argument("--query", required=True, help="Termos da busca na fonte")
             p.add_argument(
@@ -587,7 +596,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
         if name == "resolve":
             p.add_argument(
-                "--original-for", help="UN, Destockd or GDELT locator candidate linked to this supplied original"
+                "--original-for", help="UN, Destockd, GDELT or X locator candidate linked to this supplied original"
             )
             p.add_argument(
                 "--original-conditions",

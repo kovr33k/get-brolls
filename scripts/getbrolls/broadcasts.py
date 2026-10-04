@@ -539,6 +539,21 @@ def require_access(ledger, item):
 
 
 def refresh_working_item(ledger, item):
+    from . import account_catalogs
+
+    if item.get("provider") in account_catalogs.NAMES:
+        from .runtime import ACTIVE
+
+        operation = ACTIVE.get()
+        observed = operation.setdefault("account_refreshes", {}) if operation is not None else {}
+        if observed.get(item["id"]) == signature(item):
+            return
+        previous = signature(item)
+        item.update(account_catalogs.refresh(item))
+        observed[item["id"]] = signature(item)
+        if signature(item) != previous and item["id"] in {row["id"] for row in ledger.data.get("items", [])}:
+            ledger.save("source-refresh", item)
+        return
     if item.get("provider") != "ec_audiovisual":
         return
     previous = signature(item)
@@ -548,6 +563,10 @@ def refresh_working_item(ledger, item):
 
 
 def prepare_inspection(ledger, item):
+    if item.get("provider") == "x":
+        raise ValueError(
+            "X original-post/attachment retrieval is unverified. Inspect an actually viewed, separately supplied local original; no Grok or billing fallback is invoked."
+        )
     if item.get("provider") == "gdelt_tv":
         raise ValueError(
             "GDELT is a broadcast/time locator. Inspect its separately resolved viewing original or authorized local import; no editing media is currently acquired."

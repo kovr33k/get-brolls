@@ -40,7 +40,13 @@
         "europeana",
         "nara",
         "un_avlibrary",
-        "destockd"
+        "destockd",
+        "mapillary",
+        "telegram",
+        "x",
+        "gdelt_tv",
+        "ec_audiovisual",
+        "un_webtv"
       ]
     },
     "source_id": {

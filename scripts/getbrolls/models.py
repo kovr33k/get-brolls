@@ -80,6 +80,20 @@ def signature(c):
                                 {
                                     key: c["catalog"].get(key)
                                     for key in (
+                                        "coordinates",
+                                        "sequence_id",
+                                        "description",
+                                        "forwarded",
+                                        "original_source_url",
+                                    )
+                                }
+                                if c.get("provider") in ("mapillary", "telegram")
+                                else {}
+                            ),
+                            **(
+                                {
+                                    key: c["catalog"].get(key)
+                                    for key in (
                                         "parent_id",
                                         "provider_source_start",
                                         "provider_shot_duration",

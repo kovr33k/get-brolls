@@ -10,6 +10,13 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.13.0 — 2026-10-04
+
+- Mapillary: geographic token-based image discovery and canonical image resolution preserve sequence/creator, coordinates, capture date and pinned representations. Missing geography spends no attempt; topic relabeling does not renew the same geographic request. Signed image links stay private, previews use measured still dimensions, and duplicate acquired images share the existing suitable-option count.
+- Telegram: optional Telethon user-session route, interactive local login/2FA, strict public whitelist with JSON or comma-separated inline configuration, inclusive UTC dates, durable query-associated cursors/results, explicit history continuation and bounded rate waits. Selected message/attachment identity, public provenance, cached-access checks, human approval and rights remain independent; no DMs or subscription enumeration.
+- X: retained OAuth prerequisite diagnostics do not invoke Grok, refresh tokens, choose another model or enable API billing. Live OAuth/model/tool discovery and remote retrieval remain unverified. Canonical original post references and separately supplied original captures enter the existing local review gates.
+- Still inspection and delivery: images do not acquire synthetic video durations/windows; remote still caches retain image extensions so final acquired images are not mislabeled MP4s. Catalog schemas and brief/rules validation include the retained source inventory.
+
 ## 2.12.0 — 2026-10-04
 
 - Broadcast catalogs: GDELT TV caption/time locators, EC exact-shot discovery and UN localized full-text transcript search join existing fragment chains, replay accounting and Storyboard. GDELT station/date coverage and separately linked originals remain distinct from visual search or acquired editing media.

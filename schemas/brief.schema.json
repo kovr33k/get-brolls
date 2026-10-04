@@ -57,6 +57,12 @@
               "nara",
               "un_avlibrary",
               "destockd",
+              "mapillary",
+              "telegram",
+              "x",
+              "gdelt_tv",
+              "ec_audiovisual",
+              "un_webtv",
               "local"
             ]
           }
@@ -97,6 +103,12 @@
                 "nara",
                 "un_avlibrary",
                 "destockd",
+                "mapillary",
+                "telegram",
+                "x",
+                "gdelt_tv",
+                "ec_audiovisual",
+                "un_webtv",
                 "local"
               ]
             }

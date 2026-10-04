@@ -6,11 +6,25 @@ updated: 2026-10-04
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.12.0
+# Qualidade e evidências — GET B-ROLLS 2.13.0
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
 **Current validation policy — 2026-10-04.** Maintained CI validation is Windows, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Tests cover Python 3.11 and 3.13; the quality job also runs on Windows. Pull requests and pushes to `main` trigger CI, avoiding duplicate feature-push and PR runs. Historical sections retain the platforms and requirements recorded at their dates.
+
+## Mapillary, Telegram and retained X access — 2026-10-04, 2.13.0
+
+**Implemented scope.** Mapillary geographic image discovery and pinned image refresh use the existing candidate, visual confirmation, Storyboard and rights gates. Optional Telethon user-session search is confined to explicit public channels and inclusive UTC date bounds, with local interactive login/2FA, saved query/cursor/results, bounded history and rate-wait recovery. No private dialogs or subscription enumeration are searched. X supplies prerequisite-only OAuth diagnostics and canonical original-post/local-capture imports; automated OAuth X Search and remote retrieval remain unverified. No Grok inference, token refresh, alternate model or API-billing fallback was run.
+
+**Offline evidence.** Fourteen focused tests use provider/SDK fixtures and synthetic images/video through the audited CLI. They cover missing geography without spending an attempt, geographic-label replay, image-only representation and unknown metadata, private signed transport, whitelist/session-path validation, login-required and local 2FA callbacks, public-channel boundaries, attachment/album identity, normalized query/cursor and interrupted-result recovery without renewed allowance, period bounds and short/long rate waits, actual synthetic decoding/Storyboard, rights-gated JPEG delivery, duplicate image grouping and cached-access/attachment-change refusal. Still inspection has no inferred duration or temporal windows, and image caches retain image extensions. X tests distinguish missing/expired/present-but-unverified OAuth and preserve separate original captures and human/rights gates. Fixtures do not prove live Telegram/OAuth access or editorial quality.
+
+**Mapillary live sample.** Bounded geographic discovery near Plaza Mayor in Madrid returned no images in the initial narrow box; a wider central-Madrid box returned street images. Audited CLI selected [image 2857466357804285](https://www.mapillary.com/app/?pKey=2857466357804285), representation `thumb_original_url`. Acquired JPEG: 3,149,043 bytes, measured 5660×2830. Inspection, still preview and ready-only Storyboard passed; FFmpeg decoded the image with exit 0. The opened panorama shows a corner of narrow streets and storefronts, so it is unsuitable for the requested Plaza Mayor square. A nearby coordinate is not a visual place match. Rights remain unknown and human approval pending; empty/neighboring results do not establish complete place coverage. Signed URLs and probe projects stay outside distribution.
+
+**Remaining live prerequisites.** Telegram's application configuration and public whitelist do not establish an authorized user session; no real attachment search/acquisition or decoding is claimed. Run the documented local login before a bounded public-channel probe. Retained X OAuth expiry/refresh metadata does not establish authenticated model/tool access, successful refresh, original-post quotation verification or media retrieval. Those live checks remain explicitly unverified. Original URLs and supplied local captures are separate from automated discovery.
+
+**Local verification.** Windows `scripts/check.ps1` passed 1,188 tests in 146.018 seconds, with 30 skips and no failures/errors. Ruff lint/formatting, Pyright, generated skill mirror and documentation links passed. Version synchronization, documented command help and installer prerequisites passed; diagnostic `doctor` completed separately from live authorization. The skill's word-budget failure in the first sweep was corrected before this successful full run. Hosted Windows CI remains required before production integration.
+
+**Optional dependency check.** The initial hosted quality job found that Pyright required Telethon even though the base environment intentionally omits this optional SDK. Its import now declares that boundary explicitly. Pyright also passes with a clean interpreter without Telethon, and the focused login fixture confirms the actionable optional-dependency error rather than assuming the SDK is installed.
 
 ## GDELT TV, EC Audiovisual and UN Web TV — 2026-10-04, 2.12.0
 

@@ -512,7 +512,43 @@ For a multi-file page, select a real asset with `resolve --url https://archive.o
 
 Prepared previews enter `review --ready-only` with their original narration. Human approval and rights evidence remain independent prerequisites for `fetch`, then `verify` and `deliver`. See [source contracts](SOURCE-CATALOGS.md#internet-archive--archiveorg) and [dated quality observations](QUALITY.md).
 
-`providers` lists twenty retained catalogs plus local import. `implementation`, operation flags, `configured`, and `live_observation` express separate facts. A configured key or session reference is not authenticated access. Planned adapters never advertise working operations. The private configuration allowlist accepts DVIDS, Europeana, NARA, Mapillary, Telegram, and optional AI settings shown in `.env.example`; process values still win and unknown names are rejected. Optional Gemini/xAI keys do not select API billing. Telegram's future public-channel configuration is a JSON username array and its session belongs outside the distributed source; parsing, authorization and channel discovery await that adapter.
+`providers` lists twenty retained catalogs plus local import. `implementation`, operation flags, `configured`, and `live_observation` express separate facts. A configured key or session reference is not authenticated access. Unverified adapters never advertise working discovery. The private configuration allowlist accepts DVIDS, Europeana, NARA, Mapillary, Telegram, and optional AI settings shown in `.env.example`; process values still win and unknown names are rejected. Optional Gemini/xAI keys do not select API billing. The account routes below distinguish geographic discovery, local user authorization, public-channel scope and retained OAuth access.
+
+## Providers — Mapillary, Telegram and X access
+
+Mapillary uses `MAPILLARY_TOKEN` and a real geographic request. Supply `--catalog-filter bbox=west,south,east,north`, in degrees; split boxes that cross the dateline. Topic wording is a label for the agent and is not sent as keyword search. Missing/invalid geography is rejected before spending a planned attempt. Identical normalized geography/media/date filters replay the same attempt even if the label changes. Optional `captured_after`/`captured_before` use `YYYY-MM-DD`. Only still images are returned.
+
+```sh
+python scripts/gb.py search --planned --shot place --provider mapillary --query "Plaza Mayor Madrid" --media image --catalog-filter bbox=-3.7085,40.414,-3.7065,40.416 --limit 5 --project <project>
+python scripts/gb.py resolve --url "https://www.mapillary.com/app/?pKey=<image-id>" --catalog-file thumb_original_url --shot place --project <project>
+python scripts/gb.py inspect --candidate <id> --project <project>
+python scripts/gb.py preview --candidate <id> --project <project>
+```
+
+Use the existing BRIEF/search-plan before `--planned`. Images preserve image/sequence and creator identity when supplied, coordinates, capture date, source page, selected representation and conditions. Signed CDN URLs are refreshed only inside private acquisition and do not enter the ledger or Storyboard. `inspect` measures the acquired still without duration, frame rate or temporal windows; it may download the complete image. Actually open its poster or original before confirming a place match. A location tag, generated preview, or neighboring street is insufficient. Equal acquired hashes group duplicate images under the existing distinctness rules. Human approval and item rights remain separate before `fetch`.
+
+Telegram is an optional route: install `requirements-telegram.txt` in the private Python runtime. Configure `TELEGRAM_API_ID`, the 32-character hexadecimal `TELEGRAM_API_HASH`, `TELEGRAM_SESSION` and `BROLL_TELEGRAM_CHANNELS`. The whitelist accepts a JSON username array (`["public_channel","another_channel"]`) or the supplied comma-separated inline form (`public_channel,@another_channel`). It accepts at most 1000 explicit public usernames; private links, numeric chat IDs, DMs, bots and subscription enumeration are outside the route. Credentials and session files stay private. Absolute session paths must be outside the repository, including the primary checkout when running a worktree. A simple name resolves under `~/.getbrolls/sessions`; a relative path such as `sessions/broll` resolves under `~/.getbrolls`. Parent traversal is refused.
+
+```sh
+python scripts/gb.py telegram-login
+python scripts/gb.py search --planned --shot event --provider telegram --query "bridge" --media video --catalog-filter channel=public_channel --catalog-filter from_date=2026-10-01 --catalog-filter to_date=2026-10-04 --limit 5 --project <project>
+python scripts/gb.py search --planned --shot event --provider telegram --query "bridge" --media video --catalog-filter channel=public_channel --catalog-filter from_date=2026-10-01 --catalog-filter to_date=2026-10-04 --limit 10 --resume-history --project <project>
+python scripts/gb.py resolve --url https://t.me/public_channel/123 --catalog-file document:<attachment-id> --shot event --project <project>
+```
+
+Run `telegram-login` in a local interactive terminal; it prompts privately for phone, login code and account 2FA. Never put those values on command lines or in review data. Search verifies a user session and that each target is the whitelisted public broadcast channel. Both UTC date filters are required, inclusive; `channel` optionally selects one whitelist member. Each run traverses at most 100 matching messages and has a bounded connection/search timeout. Cursor, public results and fragment/query association are saved together. Repeating a query returns saved results; `--resume-history` explicitly continues the same query after restart, without another allowance. Increase `--limit` to request more attachments, up to 50. Closed fragments/catalogs and completed targets cannot resume history. Dry-run never writes history.
+
+One short FloodWait of at most three seconds can be waited out. Longer/repeated waits persist `next_eligible_at`; access is deferred for the Telegram session across other queries so another catalog can continue. Inaccessible channels and partial history remain incomplete coverage. Message ID/permalink, date, caption, selected attachment and album grouping remain distinct. A Telegram album contains individual messages: choose the exact message permalink and attachment; no first-album-item substitution occurs. Forwarded material preserves the fact of forwarding without exposing private peer details; its original source remains unverified until established separately. Text discovery, authorization, metadata, image/video viewing and actual attachment retrieval are separate facts. Selected SDK media is bounded to 512 MiB. Cached attachments still require current session/channel access and the same attachment identity before preview or fetch.
+
+X retains the agreed Grok OAuth route; automated `x_search` remains **unverified**. `x-access` reads only local prerequisite metadata, reports missing/unsupported/expired OAuth, selected model when supplied and whether a refresh credential is present. Presence is not authentication, verified refresh, tool access or subscription entitlement. This command never invokes Grok, refreshes a token, uses `XAI_API_KEY`, selects another model or enables API billing. Use the retained client's own local OAuth login/refresh and an explicitly authorized bounded probe before claiming live model/tool support. Official API-key examples alone do not establish that subscription route.
+
+```sh
+python scripts/gb.py x-access
+python scripts/gb.py resolve --url https://x.com/public_author/status/<post-id> --shot quotation --project <project>
+python scripts/gb.py resolve --file <actually-viewed-original-capture> --asset-type web_screenshot --source-url https://x.com/public_author/status/<post-id> --original-for <x-locator-id> --original-conditions "Observed original-post capture and its actual conditions" --project <project>
+```
+
+X URLs record original post/account identity; they do not invent post text, date, attached media or quotation verification. Original-post viewing, screenshots and media retrieval have separate capability/access results. A separately supplied local original can enter the common preview, suitability, Storyboard and rights gates through `--original-for`. Verify exact quotations against the original; translations and styled quotation cards remain separate representations. A raw URL or OAuth record does not count as a suitable option. Remote inspection/download refuses the unverified route without another integration or billing fallback. See [dated evidence](QUALITY.md).
 
 ## Provedor — arquivo local
 
