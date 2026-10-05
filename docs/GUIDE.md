@@ -232,7 +232,7 @@ A prévia remota agora pode adquirir um trecho e guardar `local_start_s` junto a
 
 Projetos que já possuíam arquivo local continuam usando esse arquivo. Preserve os caminhos dos originais e `.getbrolls-sources/` para regenerar prévias; compartilhar só `brolls/` permite visualizar o storyboard, não continuar toda a edição em outro computador.
 
-A matriz da 2.3.4 passou em macOS e Windows em Python 3.11/3.13, com Linux/Python 3.13 como plataforma secundária. O Windows usa instalador PowerShell, layout `.venv\Scripts` e trava nativa; os helpers Bash opcionais não fazem parte do caminho principal nesse sistema. Cada atualização deve passar pela matriz do próprio PR antes do merge. As versões de dependências ensaiadas estão na seção [Instalação](#instalação).
+As plataformas ensaiadas na 2.3.4 permanecem registradas em QUALITY. A validação mantida atualmente usa um único job Windows com Python 3.14.4, incluindo testes, lint e tipos; a configuração está em `.github/workflows/test.yml`. O Windows usa instalador PowerShell, layout `.venv\Scripts` e trava nativa; os helpers Bash opcionais não fazem parte do caminho principal nesse sistema. Cada atualização deve passar pelo check do próprio PR antes do merge. As versões de dependências ensaiadas estão na seção [Instalação](#instalação).
 
 ## Fluxo editorial
 

@@ -10,7 +10,7 @@ tags: [get-brolls, quality, qa, evidence]
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
-**Current validation policy — 2026-10-04.** Maintained CI validation is Windows, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Tests cover Python 3.11 and 3.13; the quality job also runs on Windows. Pull requests and pushes to `main` trigger CI, avoiding duplicate feature-push and PR runs. Historical sections retain the platforms and requirements recorded at their dates.
+**Current validation policy — 2026-10-05.** Maintained CI validation is one Windows job on Python 3.14.4, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Lint, types and the complete offline suite share that job. Pull requests and pushes to `main` trigger CI, avoiding duplicate feature-push and PR runs. Historical sections retain the platforms and requirements recorded at their dates.
 
 ## Windows background-server termination — 2026-10-05, 2.13.1 candidate
 
