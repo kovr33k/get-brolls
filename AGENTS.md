@@ -75,6 +75,8 @@ Execute comandos do mesmo projeto serialmente. Preserve originais, eventos e jou
 
 ## Verificação
 
+Durante o desenvolvimento e antes da integração, siga [Desenvolvimento e verificação](CONTRIBUTING.md#desenvolvimento-e-verificação) para escolher o escopo das verificações e reutilizar evidências válidas. Os comandos abaixo descrevem a bateria completa, não uma obrigação de repeti-la após cada edição.
+
 ```sh
 bash scripts/install.sh --check
 python3 scripts/gb.py doctor

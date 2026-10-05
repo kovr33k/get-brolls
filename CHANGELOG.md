@@ -12,6 +12,7 @@ tags: [get-brolls]
 
 ## 2.13.1 — 2026-10-05
 
+- Development guidance: related work shares one PR and documentation update; agents read affected code, use focused checks during implementation, reuse valid final CI evidence, and inspect successful check summaries. Required integration, release and live verification gates remain in place.
 - CI: one Windows job on Python 3.14.4 runs lint, types and the full offline suite, replacing the Python-version matrix and separate quality job. Operational guidance and the required check name follow the maintained validation policy.
 - LoC: browser-verification challenges have a separate diagnostic and an audited browser fallback. Reuse the failed query's allowance, import observed item references, and link a locally supplied original without exporting browser cookies or bypassing protection.
 - Telegram login: prompts clarify international phone format and the current request's code; rejected numbers, codes and 2FA passwords have actionable private messages. Expected login failures omit terminal tracebacks and unrelated project-review advice; interruption retains the session and asks for a local retry.

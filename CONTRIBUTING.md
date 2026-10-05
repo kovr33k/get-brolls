@@ -16,6 +16,16 @@ Descreva o problema, o comportamento resultante e a validação realizada. Para 
 
 Testes automatizados usam mídia sintética e mocks, sem segredos ou conteúdo privado. Ensaios reais de plataforma ficam fora da pasta da skill e registram resultado técnico em [QUALITY](docs/QUALITY.md); falha de rede não deve ser escondida por fixture.
 
+## Desenvolvimento e verificação
+
+- Agrupe alterações de uma mesma tarefa em um PR, com uma descrição e uma atualização documental coerentes. Separe trabalhos independentes; não crie um PR por ajuste interno da mesma tarefa. Publicação continua sujeita à autorização do mantenedor.
+- Comece pelo estado do Git, pelo diff e pelas partes afetadas. Use buscas específicas e amplie a leitura para contratos, dependências e chamadores quando necessário; não releia arquivos inteiros apenas por mudança de etapa.
+- Durante a implementação, execute lint e testes relevantes às alterações. Amplie a cobertura quando houver impacto compartilhado em estado, recuperação, segurança, dependências ou configuração. Revisões documentais verificam frontmatter, links e exemplos afetados.
+- Antes da integração, exija a bateria completa prevista no CI para o estado final. Um CI concluído e aprovado para a revisão atual é evidência suficiente dessa bateria; não a duplique localmente apenas para abrir o PR ou redigir o relatório. Mudanças posteriores exigem nova verificação do que afetarem e os checks obrigatórios do PR atualizado. Preserve os portões de release e a validação real ou humana exigida pela rota.
+- Relate comando ou check, revisão verificada, resultado e contagens de testes e skips. Leia o resumo das verificações bem-sucedidas; examine logs detalhados em falhas ou quando o resumo não resolver uma dúvida. Não descreva um teste focado como validação completa.
+
+Comandos para a suíte completa e o diagnóstico de disponibilidade:
+
 ```sh
 python3 -m unittest discover -s tests -v
 python3 scripts/gb.py doctor
