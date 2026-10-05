@@ -397,68 +397,59 @@ class RepositoryDocumentationTests(unittest.TestCase):
         for marker in (
             "tags:",
             "contents: write",
-            "ubuntu-latest",
+            "windows-latest",
+            "shell: pwsh",
+            "actions: read",
             "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}",
             "gh release view",
             "--verify-tag",
             "--notes-file",
-            "CHANGELOG.md",
+            "CHANGELOG notes",
             # O portão antes de publicar é o preflight, chamado contra a
             # árvore já checada (na tag push, é o próprio commit da tag):
             # versão coerente, docs e suíte offline ficam dentro dele
             # (tests/test_repository.py::PreflightTests confere o script em si).
-            "bash scripts/preflight.sh",
-            '--version "$VERSION"',
+            "./scripts/preflight.ps1",
+            '-Version "$env:VERSION"',
+            "-CiRepository",
             "--prerelease",
         ):
             self.assertIn(marker, release, marker)
         # Disparo manual validaria um commit diferente da tag publicada;
         # só o push de tag pode acionar o release.
         self.assertNotIn("workflow_dispatch", release)
-        # O comentário da versão acompanha a Action; o contrato é só o SHA.
-        self.assertEqual(
-            [f"uses: {checkout}"],
-            [
-                re.sub(r"\s*#.*$", "", line).strip().lstrip("- ").strip()
-                for line in release.splitlines()
-                if "uses:" in line
-            ],
-            "release.yml deve usar apenas o checkout já fixado por SHA",
-        )
+        self.assertNotIn("ubuntu-latest", release)
+        self.assertNotIn("bash scripts/preflight.sh", release)
+        self.assertIn("git merge-base --is-ancestor HEAD origin/main", release)
+        for line in release.splitlines():
+            if "uses:" in line:
+                self.assertRegex(line, r"actions/[\w-]+@[0-9a-f]{40}")
+        for marker in ("windows-verification-", "--record-ci", "actions/upload-artifact@"):
+            self.assertIn(marker, tests)
+        self.assertGreater(tests.index("--record-ci"), tests.index("node --check assets/review.js"))
 
     def test_preflight_script_exists_and_contains_the_release_gates(self):
-        """`scripts/preflight.sh` é o portão de fato: quem lê `release.yml`
-        vê a chamada, mas os passos verificados (versão coerente e suíte
-        offline) vivem no script, para rodar igual local e no CI."""
-        preflight = ROOT / "scripts" / "preflight.sh"
+        preflight = ROOT / "scripts" / "preflight.py"
+        powershell = ROOT / "scripts" / "preflight.ps1"
         self.assertTrue(preflight.is_file())
-        self.assertTrue(os.access(preflight, os.X_OK), "scripts/preflight.sh precisa do bit executável")
+        self.assertTrue(powershell.is_file())
         text = preflight.read_text(encoding="utf-8")
-        self.assertNotIn("\r", text, "scripts/preflight.sh deve usar LF, não CRLF")
         for marker in (
             "--ref",
             "--version",
             "__version__",
-            "python3 -m unittest discover -s tests",
-            "gen_skill_mirror.py --check",
+            "--no-hardlinks",
+            "gen_skill_mirror.py",
             "check_anchors.py",
+            "test_version_coherence.py",
+            "test_repository.py",
+            "full_checks(root)",
+            "scripts/check.ps1",
             "PREFLIGHT OK",
         ):
             self.assertIn(marker, text, marker)
-        self.assertNotIn(
-            "git archive",
-            text,
-            "preflight.sh não deve usar git archive: esconde paths export-ignore e não tem .git para git ls-files",
-        )
-        if os.name != "nt" and shutil.which("bash"):
-            parsed = subprocess.run(
-                ["bash", "-n", str(preflight)],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                check=False,
-            )
-            self.assertEqual(0, parsed.returncode, parsed.stderr)
+        self.assertNotIn("git archive", text)
+        self.assertIn("preflight.py", powershell.read_text(encoding="utf-8"))
 
     def test_python_text_io_declares_utf8_explicitly(self):
         problems = []

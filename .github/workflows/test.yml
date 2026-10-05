@@ -43,6 +43,16 @@ jobs:
         run: find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
       - name: Check PowerShell scripts
         shell: pwsh
-        run: pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -Raw scripts/check.ps1)) | Out-Null"
+        run: Get-ChildItem scripts -Filter *.ps1 | ForEach-Object { [scriptblock]::Create((Get-Content -Raw -LiteralPath $_.FullName)) | Out-Null }
       - run: node --check assets/storyboard.js
       - run: node --check assets/review.js
+      - name: Record verified checkout
+        id: evidence
+        run: python scripts/preflight.py --record-ci "${{ runner.temp }}/verification.json" --github-output "$env:GITHUB_OUTPUT"
+      - name: Save Windows verification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-verification-${{ steps.evidence.outputs.tree }}
+          path: ${{ runner.temp }}/verification.json
+          if-no-files-found: error
+          overwrite: true
