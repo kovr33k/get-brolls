@@ -163,6 +163,12 @@ class RepositoryDocumentationTests(unittest.TestCase):
         self.assertIn("bash -n", workflow)
         self.assertIn("[scriptblock]::Create", workflow)
 
+    def test_full_ci_requires_a_pull_request_without_duplicate_push_runs(self):
+        workflow = (ROOT / ".github/workflows/test.yml").read_text(encoding="utf-8")
+        self.assertRegex(workflow, r"(?m)^on:\n  pull_request:")
+        self.assertNotRegex(workflow, r"(?m)^  push:")
+        self.assertIn("python -m unittest discover -s tests -v", workflow)
+
     def test_ci_caches_pip_and_npm_and_checks_the_skill_mirror(self):
         workflow = (ROOT / ".github/workflows/test.yml").read_text(encoding="utf-8")
         self.assertIn("cache: 'pip'", workflow)

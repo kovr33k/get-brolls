@@ -42,7 +42,7 @@ python3 -m pip install -r requirements-dev.txt
 bash scripts/check.sh
 ```
 
-No Windows, `./scripts/check.ps1` roda a mesma bateria. Os dois executam, em ordem, `ruff check`, `ruff format --check`, `pyright`, `python3 scripts/gen_skill_mirror.py --check` (o espelho da skill em `skills/get-brolls/SKILL.md` é gerado a partir do `SKILL.md` da raiz — nunca edite o espelho à mão), `python3 scripts/check_anchors.py` e a suíte de testes. O CI executa uma única bateria no Windows, com a versão de Python fixada em `.github/workflows/test.yml`; lint, tipos e testes compartilham o mesmo job. O CI roda nos PRs e em pushes para `main`, evitando repetir os mesmos jobs no push de uma branch com PR aberto. A sintaxe Bash é conferida pelo Git Bash no runner Windows.
+No Windows, `./scripts/check.ps1` roda a mesma bateria. Os dois executam, em ordem, `ruff check`, `ruff format --check`, `pyright`, `python3 scripts/gen_skill_mirror.py --check` (o espelho da skill em `skills/get-brolls/SKILL.md` é gerado a partir do `SKILL.md` da raiz — nunca edite o espelho à mão), `python3 scripts/check_anchors.py` e a suíte de testes. O CI executa uma única bateria no Windows, com a versão de Python fixada em `.github/workflows/test.yml`; lint, tipos e testes compartilham o mesmo job. A bateria completa roda nos PRs; o merge em `main` não inicia uma repetição. O check obrigatório do PR deve passar antes da integração. A sintaxe Bash é conferida pelo Git Bash no runner Windows.
 
 ## Dependências e releases
 
