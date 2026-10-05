@@ -377,12 +377,14 @@ def import_command(ledger, args, rules):
 
 def link_original(ledger, args, row, rules):
     source = ledger.get(args.original_for)
-    if source["provider"] not in LOCATORS or row["provider"] not in ("local", "archive"):
+    if source["provider"] not in (*LOCATORS, "europeana") or row["provider"] not in ("local", "archive"):
         raise ValueError(
-            "--original-for links a local supplied original or Archive.org file to an observed catalog locator."
+            "--original-for links a local supplied original or Archive.org file to an observed catalog locator or Europeana record."
         )
-    if source["provider"] in ("un_avlibrary", "x", "loc") and row["provider"] != "local":
-        raise ValueError("UN/LoC originals and X post captures must be supplied explicitly as a local --file.")
+    if source["provider"] in ("un_avlibrary", "x", "loc", "europeana") and row["provider"] != "local":
+        raise ValueError(
+            "UN/LoC/Europeana originals and X post captures must be supplied explicitly as a local --file."
+        )
     if args.shot and source.get("shot") and args.shot != source["shot"]:
         raise ValueError("The linked original must retain its locator's fragment.")
     data = source.get("locator") or {}

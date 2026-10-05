@@ -85,7 +85,9 @@ def signature(c):
                                         "description",
                                         "forwarded",
                                         "original_source_url",
+                                        "published_at",
                                     )
+                                    if key != "published_at" or c["catalog"].get(key) is not None
                                 }
                                 if c.get("provider") in ("mapillary", "telegram")
                                 else {}

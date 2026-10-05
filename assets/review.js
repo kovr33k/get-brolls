@@ -23,7 +23,10 @@
   for (const item of data.items) {
     const old = saved[item.id];
     const prior =
-      old && old.signature === item.signature && old.reviewEpoch === item.reviewEpoch
+      old &&
+      old.signature === item.signature &&
+      old.reviewEpoch === item.reviewEpoch &&
+      !(old.state === "pending" && !old.updatedAt && item.review?.state !== "pending")
         ? old
         : item.review;
     decisions[item.id] = {
@@ -32,6 +35,7 @@
       state: STATES.includes(prior?.state) ? prior.state : "pending",
       comment: typeof prior?.comment === "string" ? prior.comment : "",
       suggestion: typeof prior?.suggestion === "string" ? prior.suggestion : "",
+      updatedAt: typeof prior?.updatedAt === "string" ? prior.updatedAt : undefined,
     };
   }
   const select = document.querySelector("#select"),
@@ -468,6 +472,7 @@
             : `Clip: ${item.segment.start_s}–${item.segment.end_s} s`,
         item.source ? "Source: " + item.source : "Local file",
         item.creator ? "Creator: " + item.creator : "",
+        item.published_at ? "Published on: " + item.published_at : "",
         item.narration ? "Narration: “" + item.narration + "”" : "",
         item.collection_reason ? "Selection reason: " + item.collection_reason : "",
         "Review: " + LABELS[d.state],

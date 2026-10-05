@@ -158,7 +158,7 @@ class CliTest(unittest.TestCase):
             review.write_text(json.dumps(data), encoding="utf-8")
             self.call("import-review", "--file", review, "--by", "Human", "--project", root)
             self.call("reject", *base)
-            self.assertEqual(payload()["items"][0]["review"]["state"], "pending")
+            self.assertEqual(payload()["items"][0]["review"]["state"], "rejected")
             self.call(
                 "approve",
                 *base,
@@ -207,6 +207,8 @@ class CliTest(unittest.TestCase):
             src = root / "foto.png"
             synth_image(src)
             c = self.call("resolve", "--file", src, "--project", root)
+            self.assertIsNone(c["media"]["duration_s"])
+            self.assertIsNone(c["media"]["fps"])
             base = ["--candidate", c["id"], "--project", root]
             out = self.call("preview", *base)
             self.assertTrue((root / "brolls" / out["preview"]["poster_path"]).is_file())

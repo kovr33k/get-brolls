@@ -17,15 +17,12 @@ KEYS = {
     "mapillary": "MAPILLARY_TOKEN",
 }
 
-# Guidance is inventory, never proof of an adapter or an authorized session.
-PLANNED_CATALOGS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "x": ("Retained Grok OAuth X Search; OAuth/tool access unverified", ()),
-}
-
 
 def capabilities():
+    from .account_catalogs import x_access
     from .broadcasts import NAMES as BROADCASTS
     from .catalogs import NAMES
+    from .grok_oauth import VERIFIED_MODELS
 
     result = {}
     for name in (
@@ -41,6 +38,7 @@ def capabilities():
         *BROADCASTS,
         "un_avlibrary",
         "destockd",
+        "x",
         "local",
     ):
         search_ok = name in ("youtube", "pexels", "pixabay", "commons", "nasa", "archive", *NAMES, *BROADCASTS)
@@ -65,7 +63,7 @@ def capabilities():
             "account_library": False,
             "embed": False,
             "seek": "local" if name == "local" else "unsupported",
-            "download": name not in ("un_avlibrary", "destockd", "gdelt_tv"),
+            "download": name not in ("un_avlibrary", "destockd", "gdelt_tv", "x"),
             "transport": "browser-cdn-pairs / yt-dlp"
             if name == "instagram"
             else "yt-dlp"
@@ -112,21 +110,6 @@ def capabilities():
         coverage="Recent transcript search: last 365 days. Older assets: direct URL.",
         access_decision="required before media acquisition",
     )
-    for name, (route, env_keys) in PLANNED_CATALOGS.items():
-        result[name] = {
-            "search": False,
-            "resolve_url": False,
-            "preview": False,
-            "download": False,
-            "manual": name in ("un_avlibrary", "destockd", "gdelt_tv"),
-            "implementation": "planned",
-            "configured": all(bool(os.environ.get(k)) for k in env_keys) if env_keys else None,
-            "env_keys": list(env_keys),
-            "transport": route,
-            "live": "unverified",
-            "live_observation": None,
-            "access_verified": False,
-        }
     for name, keys in (
         ("mapillary", ("MAPILLARY_TOKEN",)),
         ("telegram", ("TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_SESSION", "BROLL_TELEGRAM_CHANNELS")),
@@ -153,10 +136,28 @@ def capabilities():
             "attachment_access": "unverified",
             "manual": False,
         }
+    x_metadata = x_access()
     result["x"].update(
         resolve_url=True,
         manual=True,
-        implementation="manual_original; oauth_unverified",
+        search=True,
+        implementation="supported_discovery; manual_original",
+        transport="retained Grok OIDC / one native X Search call / local original",
+        configured=x_metadata["oauth"] in ("present_unverified", "expired") and x_metadata["model"] in VERIFIED_MODELS,
+        model=x_metadata["model"],
+        preview=False,
+        live="sample_verified",
+        live_observation={
+            "date": "2026-10-05",
+            "version": "2.13.2",
+            "status": "passed_sample",
+            "source_url": "https://x.com/WhiteHouse/status/2008214522977284229",
+            "operations": ["planned_search", "browser_original_view", "manual_media_import", "preview", "decode"],
+            "width": 720,
+            "height": 1280,
+            "duration_s": 51.819,
+            "limitation": "One public post; media acquired separately with yt-dlp and supplied locally. Remote X media acquisition remains unsupported.",
+        },
         media_types=["image", "video"],
         original_post="manual public reference",
         screenshot="separately supplied local image",
@@ -403,6 +404,7 @@ MEDIA_AWARE = (
     "ec_audiovisual",
     "mapillary",
     "telegram",
+    "x",
 )
 
 
@@ -433,6 +435,12 @@ def search(  # noqa: C901, PLR0913 - documented provider dispatch and recoverabl
     if provider == "telegram":
         return account_catalogs.telegram_search(
             query.strip(), limit, media, selected_filters, ledger, resume_history, search_context
+        )
+    if provider == "x":
+        from .grok_oauth import search as x_search
+
+        return x_search(
+            query.strip(), limit, media, selected_filters, language=language, ledger=ledger, context=search_context
         )
     if provider in broadcasts.NAMES:
         items = broadcasts.search(provider, query.strip(), limit, media, selected_filters)

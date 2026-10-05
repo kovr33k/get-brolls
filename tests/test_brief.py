@@ -310,6 +310,19 @@ class BeatCommandTests(unittest.TestCase):
             commands = brief_module.beat_commands(tmp, parsed["beats"][0]["resolved"])
             self.assertNotIn("--narration", commands["preview"])
 
+    def test_x_only_beat_explains_required_date_selection_without_inventing_it(self):
+        data = copy.deepcopy(VALID)
+        data["beats"][0]["allowed_sources"] = ["x"]
+        parsed, _ = loaded(data)
+        with tempfile.TemporaryDirectory() as tmp:
+            commands, _ = self.parsed_commands(tmp, parsed["beats"][0]["resolved"])
+        self.assertNotIn("search", commands)
+        self.assertIn("X Search", commands["note"])
+        self.assertIn("from_date", commands["note"])
+        self.assertIn("to_date", commands["note"])
+        self.assertIn("--provider x", commands["note"])
+        self.assertNotIn("Nenhuma fonte", commands["note"])
+
 
 class BeatProgressTests(unittest.TestCase):
     def test_candidates_link_to_the_beat_by_shot(self):

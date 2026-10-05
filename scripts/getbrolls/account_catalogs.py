@@ -74,7 +74,7 @@ def _asset(name, identity, url, title, kind, file_id, metadata, media):  # noqa:
     item["asset_type"] = kind
     item["catalog"] = {"record_id": identity, "asset_id": file_id, "selected_file": file_id, **metadata}
     item["creator"]["name"] = metadata.get("creator")
-    item["captured_at"] = metadata.get("source_date")
+    item["captured_at"] = metadata.get("source_date") if name == "mapillary" else None
     item["acquisition"].update(
         status="available" if file_id else "unavailable",
         method=name if name == "mapillary" else "telethon",
@@ -312,6 +312,7 @@ def _message_row(username, message):
             "grouped_id": str(message.grouped_id) if getattr(message, "grouped_id", None) else None,
             "creator": username,
             "source_date": date,
+            "published_at": date,
             "description": caption,
             "forwarded": bool(getattr(message, "fwd_from", None)),
             "original_source_url": None,
@@ -674,8 +675,6 @@ def acquire(item, target):  # noqa: C901 - geographic/SDK transports enforce ide
 
 def x_access(auth_path=None, model=None):
     """Inspect local prerequisite metadata only. Never invoke Grok, refresh, or API billing."""
-    root = Path.home() / ".grok"
-    path = Path(auth_path) if auth_path else root / "auth.json"
     result = {
         "route": "retained Grok OAuth x_search",
         "oauth": "missing",
@@ -692,9 +691,11 @@ def x_access(auth_path=None, model=None):
         "live_probe": "not_run",
     }
     try:
+        root = Path.home() / ".grok"
+        path = Path(auth_path) if auth_path else root / "auth.json"
         if not model and (root / "config.toml").is_file():
             config = tomllib.loads((root / "config.toml").read_text(encoding="utf-8"))
-            result["model"] = config.get("model")
+            result["model"] = config.get("model") or (config.get("models") or {}).get("default")
         if path.is_file() and path.stat().st_size <= 256 * 1024:
             data = json.loads(path.read_text(encoding="utf-8"))
             records = [
@@ -719,7 +720,7 @@ def x_access(auth_path=None, model=None):
                 result["oauth"] = "ambiguous_selection"
             else:
                 result["oauth"] = "unsupported_auth_mode"
-    except (ValueError, OSError, TypeError, AttributeError):
+    except (ValueError, OSError, TypeError, AttributeError, RuntimeError):
         result["oauth"] = "invalid_private_auth_metadata"
         result["token_expiry"] = None
     result["next_action"] = (

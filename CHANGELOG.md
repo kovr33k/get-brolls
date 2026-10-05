@@ -10,9 +10,21 @@ tags: [get-brolls]
 
 ## Unreleased
 
-## 2.13.1 — 2026-10-05
+## 2.13.2 — 2026-10-05
+
+- Storyboard: preserve a CLI rejection when generating full or ready-only review, and keep an untouched browser default from masking it. Explicit new browser choices retain their timestamps across reloads; changed context still invalidates stale decisions. Prepared news/web screenshots use their image poster in ready-only review, with the search journal available in a collapsed disclosure. Preserve navigation controls when the review layer remounts them after changing a shot. Add audited CLI and executable navigation regressions.
+- X discovery: support bounded native X Search through the retained Grok OIDC account and actually verified selected model/tool pair. Validate expiry, same-account refresh, current client version and account/date filters without API-key billing, agent delegation or model substitution. Query/citation/result validation, saved replay and interruption recovery retain the shared allowance. Search excerpts and reported metadata remain unverified; original viewing, screenshots and manually supplied media keep separate review and rights gates. Diagnostics still perform no inference or refresh and now read the current `[models]` default.
+- Catalog originals: apply an explicit file/representation selection to the existing original and fragment, clearing stale cache/preview references and invalidating review/output/rights while preserving prior files and events. Link a manually obtained Europeana institution file to its original record and saved fragment context.
+- Source dates: Telegram message timestamps are publication dates; capture time remains unknown. Preserve publication separately, correct legacy Storyboard labels and invalidate review when publication context changes. An X-only brief explains required date selection without inventing filters or advertising search as absent.
+- Review export dates: print records also distinguish legacy Telegram publication timestamps from capture, and printed notes include the publication date separately without rewriting saved project records or decisions.
+- Diagnostics: missing standalone Playwright CLI reports that tool's absence without declaring Instagram unavailable through the managing agent's authorized browser.
+- Supplied still originals: local image imports retain measured dimensions without treating ffprobe's one-frame duration or demuxer frame rate as capture metadata, including institution files linked to catalog records.
 
 - Skill guidance: restore the original detailed editorial workflow and integrate the accepted catalog, access, language and prepared-review rules without trimming required instructions to a word budget. Ordinary search keeps its candidate metadata checkpoint; planned search requires distinct visually confirmed options. Preview examples preserve original scenario narration for ready-only review, and the plugin mirror is generated from the canonical source.
+
+- Validation guidance: correct QUALITY's stale main-push trigger and the local check scripts' former job name. The Tests workflow runs on pull requests under the Windows checks job; development checks follow CONTRIBUTING's affected-scope policy. Add the catalog acceptance checkpoint, separating retained routes, dated media evidence and unfinished scenario/integration criteria.
+
+## 2.13.1 — 2026-10-05
 
 - Release: Windows/PowerShell replaces Ubuntu/Bash. Version, source contents, frontmatter, mirror, links and exact CHANGELOG gates remain mandatory. Successful complete Windows CI can be reused only for the identical clean source tree and matching Python/Windows evidence; missing, expired, failed or mismatched proof requires the full checks. Production tags and publication remain explicit maintainer actions.
 

@@ -94,7 +94,9 @@ class DoctorVerdictTests(unittest.TestCase):
         summary = doctor_summary({"playwright-cli": False, "ffmpeg": True})
         entry = next(e for e in summary["missing"] if e["item"] == "playwright-cli")
         self.assertIn("install.sh", entry["fix"])
-        self.assertIn("Instagram indisponível sem ele", entry["note"])
+        self.assertIn("Playwright CLI ausente", entry["note"])
+        self.assertIn("sessão autorizada do agente", entry["note"])
+        self.assertNotIn("Instagram indisponível", entry["note"])
         self.assertIn("ffmpeg", summary["ok"])
 
     def test_unset_provider_keys_are_optional_not_missing(self):

@@ -295,6 +295,51 @@ class CatalogRecords(unittest.TestCase):
 
 @skip_unless_ffmpeg
 class CatalogWorkflow(unittest.TestCase):
+    @skip_unless_ffmpeg
+    def test_europeana_manual_institution_file_keeps_record_context_and_closed_gates(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, ENV):
+            project = Path(directory)
+            write_brief(project, ["europeana"])
+            save_plan(project, "europeana")
+            raw = europeana_record()
+            raw["aggregations"][0]["edmIsShownBy"] = None
+            raw["aggregations"][0]["hasView"] = []
+            with patch.object(catalogs, "get_json", return_value={"success": True, "object": raw}):
+                source = call(
+                    project, "resolve", "--url", "https://www.europeana.eu/item/123/fixture", "--shot", "opening"
+                )
+            self.assertEqual("manual", source["acquisition"]["method"])
+            image = project / "institution-file.jpg"
+            synth_image(image)
+            with patch.object(catalogs, "get_json", side_effect=AssertionError("Do not invent another API route")):
+                original = call(
+                    project,
+                    "resolve",
+                    "--file",
+                    str(image),
+                    "--original-for",
+                    source["id"],
+                    "--original-conditions",
+                    "Synthetic institution representation; rights remain unknown",
+                )
+                self.assertEqual(source["id"], original["source_reference"]["candidate"])
+                self.assertEqual("europeana", original["source_reference"]["provider"])
+                self.assertEqual(source["source_url"], original["source_reference"]["source_url"])
+                self.assertEqual("opening", original["shot"])
+                self.assertIsNone(original["source_reference"]["source_interval"])
+                self.assertIsNone(original["media"]["duration_s"])
+                self.assertIsNone(original["media"]["fps"])
+                prepared = call(project, "preview", "--candidate", original["id"])
+                self.assertGreater(prepared["media"]["width"], 0)
+                self.assertIsNone(prepared["media"]["duration_s"])
+                self.assertIsNone(prepared["media"]["fps"])
+                self.assertIn(original["narration"], storyboard(project))
+                with self.assertRaisesRegex(OperationError, "Aprovação humana ausente"):
+                    call(project, "fetch", "--candidate", original["id"])
+            self.assertEqual("pending", original["approval"]["status"])
+            self.assertEqual("unknown", original["rights"]["status"])
+            self.assertEqual("manual", Ledger(project, recover=False).get(source["id"])["acquisition"]["method"])
+
     def test_each_catalog_reaches_preview_confirmation_storyboard_with_closed_fetch_gates(self):
         for name in catalogs.NAMES:
             with (
@@ -451,6 +496,50 @@ class CatalogWorkflow(unittest.TestCase):
                 prepared = call(project, "preview", "--candidate", ident, "--start", "0", "--end", "2")
                 self.assertEqual(VIDEO, prepared["catalog"]["selected_file"])
                 self.assertEqual(0, prepared["segment"]["start_s"])
+
+    def test_explicit_dvids_representation_change_keeps_fragment_and_clears_stale_media_review(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, ENV):
+            project = Path(directory)
+            write_brief(project, ["dvids"])
+            save_plan(project, "dvids")
+            raw = dvids_record(True)
+            lower = "https://media.example.org/lower.mp4"
+            raw["files"].append({"src": lower, "type": "video/mp4", "width": 640, "height": 360, "size": 100})
+            movie = project / "synthetic.mp4"
+            synth_video(movie, duration=4)
+            summary = {k: v for k, v in raw.items() if k != "files"}
+            with (
+                patch.object(
+                    catalogs,
+                    "get_json",
+                    side_effect=lambda url, *args, **kw: {"results": [summary] if "search" in url else raw},
+                ),
+                patch.object(http, "download", side_effect=lambda url, target, **kw: shutil.copyfile(movie, target)),
+            ):
+                ident = planned(project)["items"][0]["id"]
+                call(project, "inspect", "--candidate", ident)
+                call(project, "preview", "--candidate", ident, "--start", "0", "--end", "2")
+                ledger = Ledger(project)
+                original_path = Path(ledger.get(ident)["local_path"])
+                ledger.get(ident)["approval"].update(status="approved", signature=signature(ledger.get(ident)))
+                ledger.get(ident)["rights"]["status"] = "permitted"
+                ledger.save("fixture-approval")
+                selected = call(project, "resolve", "--url", raw["url"], "--catalog-file", lower, "--shot", "opening")
+                self.assertEqual(ident, selected["id"])
+                self.assertEqual(lower, selected["catalog"]["selected_file"])
+                self.assertEqual((640, 360), (selected["format"]["source_width"], selected["format"]["source_height"]))
+                self.assertEqual("pending", selected["approval"]["status"])
+                self.assertEqual("unknown", selected["rights"]["status"])
+                self.assertNotIn("local_path", selected)
+                self.assertFalse(selected["preview"].get("gif_path"))
+                self.assertTrue(original_path.is_file())
+                self.assertEqual(1, len(Ledger(project).data["items"]))
+                self.assertEqual(1, progress_row(project)["queries_used"])
+                self.assertIsNotNone(selected["narration"])
+                prepared = call(project, "preview", "--candidate", ident, "--start", "0", "--end", "2")
+                self.assertEqual(lower, prepared["catalog"]["selected_file"])
+                with self.assertRaises(OperationError):
+                    call(project, "fetch", "--candidate", ident)
 
     def test_inspect_pins_a_search_assets_file_before_cached_preview(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, ENV):

@@ -1,13 +1,120 @@
 import base64
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 
+import _isolation  # noqa: F401
 from _paths import ROOT
 
 from getbrolls.storyboard import render_page
 
 
 class StoryboardTest(unittest.TestCase):
+    def test_telegram_publication_is_separate_from_capture_including_legacy_records(self):
+        import html
+
+        from getbrolls.models import candidate
+        from getbrolls.rendering import source_card
+
+        row = candidate("telegram", "channel:30", "Fixture public message", "https://t.me/channel/30")
+        row["captured_at"] = "2026-10-03"
+        row["catalog"] = {"source_date": "2026-10-03"}
+        card = source_card(row, row["source_url"], None, None, html.escape)
+        self.assertIn("Published on: 2026-10-03", card)
+
+        self.assertNotIn("Captured on:", card)
+        row["captured_at"] = "2020-01-01"
+        row["catalog"]["published_at"] = "2026-10-03"
+        card = source_card(row, row["source_url"], None, None, html.escape)
+        self.assertIn("Captured on: 2020-01-01", card)
+        self.assertIn("Published on: 2026-10-03", card)
+
+    def test_telegram_print_records_do_not_export_legacy_publication_as_capture(self):
+        import copy
+        import json
+        import re
+        import tempfile
+
+        from getbrolls.ledger import Ledger
+        from getbrolls.models import candidate
+        from getbrolls.rendering import render
+
+        with tempfile.TemporaryDirectory() as folder:
+            ledger = Ledger(folder)
+            ledger.data["project_id"] = "telegram-print-date-test"
+            row = candidate("telegram", "channel:30", "Fixture public image", "https://t.me/channel/30")
+            row["asset_type"] = row["media"]["kind"] = "image"
+            row["captured_at"] = "2026-10-03"
+            row["catalog"] = {"source_date": "2026-10-03"}
+            ledger.data["items"].append(row)
+            before = copy.deepcopy(ledger.data)
+            page = Path(render(ledger)).read_text(encoding="utf-8")
+            match = re.search(r"window.GETBROLLS_REVIEW=(.*?);</script>", page)
+            assert match is not None
+            exported = json.loads(match.group(1))["items"][0]
+            self.assertIsNone(exported["captured_at"])
+            self.assertEqual("2026-10-03", exported["published_at"])
+            self.assertEqual(before, ledger.data)
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js required")
+    def test_navigation_survives_review_toolbar_remounting(self):
+        node = shutil.which("node")
+        assert node is not None
+        result = subprocess.run(
+            [
+                node,
+                str(ROOT / "tests/fixtures/storyboard_navigation.cjs"),
+                str(ROOT / "assets/storyboard.js"),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+            timeout=10,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_cli_rejection_survives_ready_storyboard_and_context_invalidation(self):
+        import copy
+        import json
+        import re
+        import tempfile
+
+        from getbrolls.cli import parse_args
+        from getbrolls.commands import execute
+        from getbrolls.ledger import Ledger
+        from getbrolls.models import candidate, invalidate_approval
+        from getbrolls.rendering import render
+        from getbrolls.runtime import audited
+
+        with tempfile.TemporaryDirectory() as folder:
+            ledger = Ledger(folder)
+            ledger.data["project_id"] = "rejected-ready-view-test"
+            item = candidate("youtube", "rejected", "Prepared but rejected clip")
+            item["narration"] = "Texto original"
+            item["preview"]["gif_path"] = "previews/ready.gif"
+            (ledger.root / "previews/ready.gif").write_bytes(b"GIF89a")
+            ledger.data["items"].append(item)
+            ledger.save("fixture")
+            audited(
+                parse_args(["reject", "--candidate", item["id"], "--reason", "No sirve", "--project", folder]),
+                execute,
+            )
+            ledger = Ledger(folder)
+            before = copy.deepcopy(ledger.data)
+
+            def state():
+                page = Path(render(ledger, ready_only=True)).read_text(encoding="utf-8")
+                match = re.search(r"window.GETBROLLS_REVIEW=(.*?);</script>", page)
+                assert match is not None
+                return json.loads(match.group(1))["items"][0]["review"]
+
+            self.assertEqual("rejected", state()["state"])
+            self.assertEqual(before, ledger.data)
+            invalidate_approval(ledger.data["items"][0])
+            self.assertEqual("pending", state()["state"])
+
     def test_ready_only_keeps_search_results_and_approvals_in_ledger(self):
         import copy
         import tempfile

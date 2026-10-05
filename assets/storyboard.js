@@ -1,7 +1,9 @@
 (() => {
   const templates = [...document.querySelectorAll("template[data-shot]")];
   const select = document.getElementById("select"),
-    viewer = document.getElementById("viewer");
+    viewer = document.getElementById("viewer"),
+    previousButton = document.getElementById("prev"),
+    nextButton = document.getElementById("next");
   if (!templates.length) return;
   // Open on the first frame that has a real preview (issue #16, finding 3).
   const firstPreview = templates.findIndex((t) => t.dataset.preview === "1");
@@ -45,8 +47,9 @@
         if (label) label.textContent = "■ Stop GIF";
       });
     select.value = String(index);
-    document.getElementById("prev").disabled = index === 0;
-    document.getElementById("next").disabled = index === templates.length - 1;
+    // Review remounts this same toolbar after replacing the viewer's children.
+    previousButton.disabled = index === 0;
+    nextButton.disabled = index === templates.length - 1;
     document.getElementById("position").textContent =
       `${String(index + 1).padStart(2, "0")} / ${String(templates.length).padStart(2, "0")}`;
     document
@@ -65,8 +68,8 @@
   }
   window.getbrollsGo = go;
   select.addEventListener("change", () => go(Number(select.value)));
-  document.getElementById("prev").onclick = () => go(index - 1);
-  document.getElementById("next").onclick = () => go(index + 1);
+  previousButton.onclick = () => go(index - 1);
+  nextButton.onclick = () => go(index + 1);
   document.querySelectorAll("[data-index]").forEach(
     (b) =>
       (b.onclick = () => {

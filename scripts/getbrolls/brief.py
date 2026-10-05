@@ -514,7 +514,11 @@ def beat_commands(project, beat):
     if not provider:
         # Instagram, TikTok e material próprio não têm busca por API: entram por URL/arquivo.
         commands["note"] = (
-            "Nenhuma fonte deste beat é pesquisável por API ("
+            "X Search usa o OAuth retido: escolha from_date e to_date explícitos antes de executar "
+            "search --provider x com esses --catalog-filter, conforme docs/GUIDE.md. "
+            "O brief não inventa datas. A URL original e a mídia importada continuam no resolve acima."
+            if "x" in beat["allowed_sources"]
+            else "Nenhuma fonte deste beat é pesquisável por API ("
             + ", ".join(beat["allowed_sources"])
             + "): descubra a URL no navegador e registre com o resolve acima."
         )

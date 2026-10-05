@@ -1618,7 +1618,10 @@ class CatalogConfiguration(unittest.TestCase):
             self.assertEqual("process-precedence", os.environ["DVIDS_API_KEY"])
             self.assertNotIn("fixture-value", json.dumps(providers.capabilities()))
             self.assertNotIn("fixture-value", redact("fixture-value"))
-            self.assertFalse(providers.capabilities()["x"]["search"])
+            x_capabilities = providers.capabilities()["x"]
+            self.assertTrue(x_capabilities["search"])
+            self.assertFalse(x_capabilities["configured"])
+            self.assertFalse(x_capabilities["billing_fallback"])
             path.write_text("UNKNOWN_SETTING=value", encoding="utf-8")
             with self.assertRaises(ValueError):
                 load_env(path)
