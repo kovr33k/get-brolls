@@ -5,53 +5,51 @@ on:
       - 'v*'
 permissions:
   contents: write
+  actions: read
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Resolve tag and version
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14.4'
+          cache: 'pip'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Resolve production tag and version
         run: |
-          set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          case "$TAG" in
-            v*) ;;
-            *) printf 'Tag "%s" não começa com "v".\n' "$TAG" >&2; exit 1 ;;
-          esac
-          VERSION="${TAG#v}"
-          printf 'TAG=%s\n' "$TAG" >> "$GITHUB_ENV"
-          printf 'VERSION=%s\n' "$VERSION" >> "$GITHUB_ENV"
-      - name: Install FFmpeg (the contact-sheet tests need it)
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - name: Run preflight (version, frontmatter, internal material, skill mirror, anchors, suite, changelog section)
-        run: bash scripts/preflight.sh --version "$VERSION"
-      - name: Extract changelog section
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v.+$') { throw 'Release tag must start with v and include a version' }
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) { throw 'Release commit must belong to main' }
+          "TAG=$tag" >> $env:GITHUB_ENV
+          "VERSION=$($tag.Substring(1))" >> $env:GITHUB_ENV
+      - name: Prepare Windows verification tools
         run: |
-          set -euo pipefail
-          awk -v header="## $VERSION — " '
-            index($0, header) == 1 { inside = 1; next }
-            inside && /^## / { exit }
-            inside { print }
-          ' CHANGELOG.md > release-notes.md
-          if [ ! -s release-notes.md ]; then
-            printf 'CHANGELOG.md não tem a seção "## %s —".\n' "$VERSION" >&2
-            exit 1
-          fi
+          choco install ffmpeg --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw 'FFmpeg installation failed' }
+          ./scripts/install.ps1
+          python -m pip install -r requirements-dev.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Quality tooling installation failed' }
+      - name: Validate release and extract CHANGELOG notes
+        run: ./scripts/preflight.ps1 -Version "$env:VERSION" -CiRepository "$env:GITHUB_REPOSITORY" -NotesFile '${{ runner.temp }}/release-notes.md'
       - name: Create release
         run: |
-          set -euo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            printf 'Release %s já existe; nada a fazer.\n' "$TAG"
-            exit 0
-          fi
-          PRERELEASE=()
-          case "$TAG" in
-            *-*) PRERELEASE=(--prerelease) ;;
-          esac
-          gh release create "$TAG" \
-            --title "GET B-ROLLS $VERSION" \
-            --notes-file release-notes.md \
-            --verify-tag \
-            "${PRERELEASE[@]}"
+          gh release view "$env:TAG" --repo "$env:GITHUB_REPOSITORY" 2>$null
+          if ($LASTEXITCODE -eq 0) { Write-Host "Release $env:TAG already exists"; exit 0 }
+          $releaseArgs = @('release', 'create', $env:TAG, '--repo', $env:GITHUB_REPOSITORY,
+            '--title', "GET B-ROLLS $env:VERSION", '--notes-file', '${{ runner.temp }}/release-notes.md', '--verify-tag')
+          if ($env:TAG.Contains('-')) { $releaseArgs += '--prerelease' }
+          & gh @releaseArgs
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

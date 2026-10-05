@@ -12,6 +12,8 @@ tags: [get-brolls]
 
 ## 2.13.1 — 2026-10-05
 
+- Release: Windows/PowerShell replaces Ubuntu/Bash. Version, source contents, frontmatter, mirror, links and exact CHANGELOG gates remain mandatory. Successful complete Windows CI can be reused only for the identical clean source tree and matching Python/Windows evidence; missing, expired, failed or mismatched proof requires the full checks. Production tags and publication remain explicit maintainer actions.
+
 - Skill readability: exceeding the word-count or paragraph-length guidelines reports a warning instead of failing tests. Required instruction content, frontmatter and generated-mirror checks remain enforced.
 - Development guidance: related work shares one branch, PR and documentation update; agents reuse an appropriate open branch, create branches for separate deliveries and worktrees when isolation is needed, read affected code, use focused checks during implementation, reuse valid final CI evidence, and inspect successful check summaries. Required integration, release and live verification gates remain in place.
 - CI: one Windows job on Python 3.14.4 runs lint, types and the full offline suite, replacing the Python-version matrix and separate quality job. Full validation runs on PRs; merging into main does not start a duplicate suite. Operational guidance and the required check name follow the maintained validation policy.
