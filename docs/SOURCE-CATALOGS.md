@@ -10,7 +10,7 @@ tags: [get-brolls, catalogs, providers, search, access]
 
 Use this reference when choosing a catalog or implementing a provider. It consolidates the supplied 18-source inventory, the researched EC/UN/Destockd routes, and Instagram/TikTok. Catalog descriptions guide the agent's selection; they are not fixed topic-to-provider rules.
 
-**Status scope:** `Search` and `URL/browser` below describe code present in this get-brolls checkout on 2026-10-04, not a live availability guarantee. `Planned` means the route is retained from prior research but has no adapter here. Statements that an integration was implemented in the supplied notes refer to the previous project. Credentials and sessions from that project are not assumed to be available here. Dated Archive.org and existing-catalog samples are recorded separately in [QUALITY.md](QUALITY.md), including the YouTube preview HTTP 403 limitation. The remaining planned endpoints were not re-probed for this update.
+**Status scope:** `Search` and `URL/browser` below describe code present in this get-brolls checkout on 2026-10-05, not a live availability guarantee. `Planned` means the route is retained from prior research but has no adapter here. Statements that an integration was implemented in the supplied notes refer to the previous project. Credentials and sessions from that project are not assumed to be available here. Dated source samples and superseding access observations are recorded separately in [QUALITY.md](QUALITY.md). Configured credentials, acquired media, visual suitability and human acceptance remain separate facts.
 
 Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection and the personal library are covered in [providers.md](../references/providers.md).
 
@@ -31,7 +31,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 | Mapillary | Images of a particular street or place | Client token and geographic search | Geographic image search, URL/preview |
 | Telegram | Posts and attachments in selected public channels | Telethon, application credentials, user session | Bounded public whitelist route; one dated video acquisition/preview sample in QUALITY |
 | GDELT TV | Locating a television segment and time reference | Public TV search API; separate linked original | Implemented; dated caption/locator sample, restricted original |
-| X | Public posts, exact quotations, attached media | Retained xAI X Search through agreed Grok OAuth | OAuth unverified; original URL/local capture import |
+| X | Public posts, exact quotations, attached media | Retained xAI X Search through agreed Grok OAuth | Bounded OAuth discovery; separate original viewing and manual media/capture import |
 | EC Audiovisual Service | EU events, speeches, stockshots, institutional photos | AV Portal client endpoint, then portal backend | Implemented; one decoded shot sample |
 | UN Web TV | UN meetings, briefings, speeches | UN Transcripts API; catalog/direct links for older video | Implemented; transcript/player metadata sample, acquisition unverified |
 | UN Audiovisual Library | UN historical footage and high-quality originals | Browser attempt/import, asset URL/ID and supplied original | URL/browser; original request remains manual |
@@ -93,7 +93,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 
 - **Search:** Search API, then the selected record. Use the relevant collection, media type, date, place, and language metadata.
 - **Access:** confirm the issued type in `EUROPEANA_KEY_TYPE`: `personal` for development experiments, `project` for operational use. Without this confirmation, the adapter refuses network access. Follow the current key terms for the intended application.
-- **Acquisition:** inspect links to the holding institution and its media; a Europeana record does not guarantee a direct downloadable original.
+- **Acquisition:** inspect links to the holding institution and its media; a Europeana record does not guarantee a direct downloadable original. An actually obtained institution file can enter the common workflow with `resolve --file --original-for <Europeana-candidate> --original-conditions "<observed source/file conditions>"`. This retains record and fragment context with separate measured file/hash and rights gates; an API thumbnail or IIIF pointer is not an acquired original.
 - **Keep:** Europeana ID, holding institution, original record/media link, creator/date, and the record's rights statement.
 - **References:** [APIs](https://api.europeana.eu/en), [API keys](https://www.europeana.eu/en/how-to-register-for-and-manage-an-api-key).
 
@@ -152,11 +152,11 @@ Implemented as `gdelt_tv` with shared planned-query accounting and explicit Arch
 
 ## X
 
-- **Retained route:** discovery through xAI `x_search` using the previously agreed Grok OAuth mode. The old research records a successful search, not complete proof of media download or token refresh. Live OAuth/model/tool access remains unverified; `x-access` diagnoses prerequisites without inference, refresh or billing. Canonical original post URLs and separately supplied local captures can enter the [common workflow](GUIDE.md#providers--mapillary-telegram-and-x-access); this does not claim automated X discovery or media retrieval.
+- **Retained route:** bounded CLI discovery through native `x_search` using the previously agreed Grok OIDC mode. The current client's selected `grok-4.7` pair, expiry/refresh, installed version and proxy headers are validated without switching model, account mode or API billing. One native call per request shares planned query limits; completed results can replay/resume without another inference. Other selected models stay unverified. `x-access` remains local diagnostics without inference or refresh. See [commands](GUIDE.md#providers--mapillary-telegram-and-x-access) and the dated [CLI/media observation](QUALITY.md#catalog-acceptance-follow-up--2026-10-05-2132-candidate).
 - **Search:** use supported account/date filters and preserve the post URLs returned. Confirm exact quotations against the original post.
 - **Acquisition:** original-post retrieval, screenshot capture, and media download are separate operations. X Search is not a downloader; Grok OAuth does not substitute for credentials of a separate X API integration.
 - **Access:** verify supported model/tool, login, expiry, and refresh/re-login independently. Preserve the chosen OAuth mode rather than silently switching to API billing or a different model. Provider subscription limits still apply.
-- **Keep:** original post, author, date, original language, attached media, and source provenance. Keep translations and styled quotation cards separate from the original.
+- **Keep:** original post/account identity and citation evidence; search-reported date, original language and excerpts remain explicitly unverified until original viewing. Attached-media identity stays unknown until a separately verified operation establishes it. One public sample was viewed in the browser, acquired separately with yt-dlp and explicitly imported; this does not enable automatic remote X media acquisition. Keep translations and styled quotation cards separate from the original.
 - **Reference:** [xAI X Search](https://docs.x.ai/developers/tools/x-search). The subscription/OAuth route above is retained from project-specific research, not established solely by the public API guide.
 
 ## EC Audiovisual Service

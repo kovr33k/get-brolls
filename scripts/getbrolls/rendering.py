@@ -67,6 +67,17 @@ def source_domain(url):
     return host.removeprefix("www.")
 
 
+def _source_dates(c):
+    catalog = c.get("catalog") or {}
+    captured, published = c.get("captured_at"), catalog.get("published_at")
+    if c["provider"] == "telegram":
+        published = published or catalog.get("source_date")
+        # Legacy Telegram records stored the message date as capture time.
+        if captured == catalog.get("source_date"):
+            captured = None
+    return captured, published
+
+
 def source_card(c, source, sheet, poster, esc):
     """Collected source as a card: thumbnail (sheet when it exists), identity and link."""
     # The card shows the poster; the full contact sheet follows inline below it.
@@ -100,9 +111,10 @@ def source_card(c, source, sheet, poster, esc):
             )
     if c.get("creator", {}).get("name"):
         details.append(f"<p>Creator: {esc(c['creator']['name'])}</p>")
-    if c.get("captured_at"):
-        details.append(f"<p>Captured on: {esc(c['captured_at'])}</p>")
     catalog = c.get("catalog") or {}
+    captured, published = _source_dates(c)
+    if captured:
+        details.append(f"<p>Captured on: {esc(captured)}</p>")
     locator = c.get("locator") or {}
     reference = c.get("source_reference") or {}
     observed = c.get("source_metadata") or {}
@@ -127,7 +139,7 @@ def source_card(c, source, sheet, poster, esc):
         ("Conditions scope", catalog.get("scope")),
         ("Source location", catalog.get("location")),
         ("Higher-quality original request", catalog.get("original_request_url")),
-        ("Published on", catalog.get("published_at")),
+        ("Published on", published),
         ("Unit", catalog.get("unit")),
         ("Item rights", c["rights"].get("license_name") if catalog else None),
         ("Access limitation", c["acquisition"].get("restriction") if catalog else None),
@@ -374,7 +386,7 @@ def _fragment_article(row):
     return parts
 
 
-def _search_preface(ledger):
+def _search_preface(ledger, *, compact=False):
     """English search summary. Scenario text and agent observations stay in their original language."""
     from .fragment_search import progress
 
@@ -382,13 +394,15 @@ def _search_preface(ledger):
     if not rows:
         return ""
     parts = [
-        '<section class="search-options" aria-label="Fragment search options">',
+        '<details class="search-options" aria-label="Fragment search options"><summary>Search options and shortfalls</summary>'
+        if compact
+        else '<section class="search-options" aria-label="Fragment search options">',
         "<h2>Search options</h2>",
         "<p>Visual confirmation is not human approval and does not grant usage rights.</p>",
     ]
     for row in rows:
         parts.extend(_fragment_article(row))
-    parts.append("</section>")
+    parts.append("</details>" if compact else "</section>")
     return "".join(parts)
 
 
@@ -426,7 +440,11 @@ def render(ledger, *, ready_only=False):
             ]
         if ready_only:
             preview_path = safe_preview_url(
-                c["preview"].get("poster_path" if c.get("asset_type") == "image" else "gif_path")
+                c["preview"].get(
+                    "poster_path"
+                    if c.get("asset_type") in ("image", "news_screenshot", "web_screenshot")
+                    else "gif_path"
+                )
             )
             if not (c.get("narration") or "").strip() or not preview_path or not (ledger.root / preview_path).is_file():
                 continue
@@ -456,7 +474,8 @@ def render(ledger, *, ready_only=False):
                 "title": c["title"],
                 "segment": c["segment"],
                 "asset_type": c.get("asset_type", "video"),
-                "captured_at": c.get("captured_at"),
+                "captured_at": _source_dates(c)[0],
+                "published_at": _source_dates(c)[1],
                 "source": source,
                 "narration": c.get("narration"),
                 "collection_reason": c.get("match", {}).get("reason"),
@@ -464,7 +483,9 @@ def render(ledger, *, ready_only=False):
                 "poster": p,
                 "context_poster": context,
                 "review": (
-                    {**c.get("review", {}), "state": "approved"}
+                    {**c.get("review", {}), "state": "rejected"}
+                    if c["approval"]["status"] == "rejected"
+                    else {**c.get("review", {}), "state": "approved"}
                     if c["approval"]["status"] == "approved" and c["approval"].get("signature") == signature(c)
                     else {
                         **c.get("review", {}),
@@ -498,7 +519,7 @@ def render(ledger, *, ready_only=False):
 
     atomic_write(
         ledger.root / "review.html",
-        enhance(render_page(story_items, extra_html=_search_preface(ledger)), ledger, records),
+        enhance(render_page(story_items, extra_html=_search_preface(ledger, compact=ready_only)), ledger, records),
     )
     atomic_write(ledger.root / "credits.md", "\n".join(credits_lines))
     return str(ledger.root / "review.html")

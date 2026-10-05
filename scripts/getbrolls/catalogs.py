@@ -15,6 +15,7 @@ from .runtime import record_warning
 NAMES = ("loc", "dvids", "europeana", "nara")
 KEYS = {"dvids": "DVIDS_API_KEY", "europeana": "EUROPEANA_API_KEY", "nara": "NARA_API_KEY"}
 FILTERS = {
+    "x": {"allowed_x_handles", "excluded_x_handles", "from_date", "to_date"},
     "mapillary": {"bbox", "captured_after", "captured_before"},
     "telegram": {"channel", "from_date", "to_date"},
     "gdelt_tv": {"station", "STARTDATETIME", "ENDDATETIME", "timespan"},
@@ -73,6 +74,10 @@ def filters(name, values=None, language=None):
         from .account_catalogs import validate_filters
 
         validate_filters(name, result)
+    if name == "x":
+        from .grok_oauth import validate_filters
+
+        validate_filters(result)
     if name == "un_webtv":
         from .broadcasts import LOCALES
 
@@ -103,6 +108,36 @@ def _text(value):
     if isinstance(value, list):
         return "; ".join(filter(None, (_text(v) for v in value))) or None
     return str(value) if value is not None else None
+
+
+def select_file(current, fresh):
+    """Apply an explicit representation choice to the same catalog original/fragment."""
+    for field in ("id", "provider", "source_id", "source_url"):
+        if current.get(field) != fresh.get(field):
+            raise ProviderError("The selected catalog file must retain the same original identity and source page.")
+    if (current.get("catalog") or {}).get("asset_id") != fresh["catalog"].get("asset_id"):
+        raise ProviderError("A different catalog original requires its own candidate.")
+    updated = copy.deepcopy(current)
+    for key in (
+        "catalog",
+        "media",
+        "media_url",
+        "title",
+        "creator",
+        "captured_at",
+        "asset_type",
+        "acquisition",
+        "format",
+    ):
+        if key in fresh:
+            updated[key] = copy.deepcopy(fresh[key])
+    if signature(updated) != signature(current):
+        updated["rights"] = copy.deepcopy(fresh["rights"])
+        updated["preview"] = copy.deepcopy(fresh["preview"])
+        for key in ("local_path", "local_sha256", "local_start_s", "local_duration_s"):
+            updated.pop(key, None)
+        invalidate_approval(updated, bump_revision=True)
+    return updated
 
 
 def _number(value):

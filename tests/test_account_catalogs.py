@@ -16,6 +16,7 @@ from test_existing_catalog_fragments import call, confirm, image_rules, progress
 from getbrolls import account_catalogs as accounts
 from getbrolls import providers
 from getbrolls.ledger import Ledger
+from getbrolls.models import approve
 from getbrolls.runtime import OperationError, audited
 
 BBOX = "-3.709,40.414,-3.706,40.416"
@@ -349,6 +350,8 @@ class AccountContracts(unittest.TestCase):
             self.assertEqual(PAGE, rows[0]["source_url"])
             self.assertEqual("photo:1000", rows[0]["catalog"]["selected_file"])
             self.assertEqual("999", rows[0]["catalog"]["grouped_id"])
+            self.assertIsNone(rows[0].get("captured_at"))
+            self.assertEqual("2026-10-03T00:00:00+00:00", rows[0]["catalog"]["published_at"])
             self.assertTrue(rows[0]["catalog"]["forwarded"])
             self.assertIsNone(rows[0]["catalog"]["original_source_url"])
             self.assertNotIn(SECRET, json.dumps(rows))
@@ -359,6 +362,18 @@ class AccountContracts(unittest.TestCase):
         self.assertEqual({"fixture_channel"}, set(fake.entities))
         with patch.object(accounts, "_client", return_value=FakeClient([message(30)], public=False)):
             self.assertEqual([], providers.search("telegram", "bench", catalog_filters=PERIOD))
+
+    def test_changed_telegram_publication_date_invalidates_review(self):
+        original = accounts._message_row("fixture_channel", message(30))
+        assert original is not None
+        approve(original, "Synthetic fixture reviewer", statement="Approve this synthetic fixture only")
+        original["rights"]["status"] = "permitted"
+        later = message(30, date=datetime(2026, 10, 4, tzinfo=UTC))
+        with patch.object(accounts, "_client", return_value=FakeClient([later])):
+            refreshed = accounts.refresh(original)
+        self.assertIsNone(refreshed["captured_at"])
+        self.assertEqual("2026-10-04T00:00:00+00:00", refreshed["catalog"]["published_at"])
+        self.assertEqual("pending", refreshed["approval"]["status"])
 
     def test_audited_cursor_continues_after_restart_without_renewing_allowance(self):
         write_brief(self.project, ["telegram"])
@@ -452,6 +467,32 @@ class AccountContracts(unittest.TestCase):
             self.assertEqual("missing", accounts.x_access(self.project / "missing")["oauth"])
             self.assertFalse(transport.called)
 
+    def test_x_diagnostics_read_the_retained_clients_selected_default_model(self):
+        root = self.project / ".grok"
+        root.mkdir()
+        config = root / "config.toml"
+        config.write_text('[models]\ndefault = "retained-fixture-model"\n', encoding="utf-8")
+        with patch.object(Path, "home", return_value=self.project), patch.object(accounts, "get_json") as transport:
+            result = accounts.x_access()
+            self.assertEqual("retained-fixture-model", result["model"])
+            self.assertEqual("explicit-fixture-model", accounts.x_access(model="explicit-fixture-model")["model"])
+            self.assertEqual("unverified", result["search"])
+            self.assertFalse(result["model_tool_verified"])
+            config.write_text('model = "legacy-fixture-model"\n[models]\ndefault = "other"\n', encoding="utf-8")
+            self.assertEqual("legacy-fixture-model", accounts.x_access()["model"])
+            self.assertFalse(transport.called)
+
+    def test_catalog_inventory_remains_available_without_a_home_directory(self):
+        with (
+            patch.object(Path, "home", side_effect=RuntimeError("Could not determine home directory.")),
+            patch.object(accounts, "get_json") as transport,
+        ):
+            inventory = providers.capabilities()
+            self.assertFalse(inventory["x"]["configured"])
+            self.assertEqual("invalid_private_auth_metadata", accounts.x_access()["oauth"])
+            self.assertIn("europeana", inventory)
+            self.assertFalse(transport.called)
+
     @skip_unless_ffmpeg
     def test_mapillary_actual_image_enters_review_and_duplicate_count_is_one(self):
         write_brief(self.project, ["mapillary"])
@@ -537,6 +578,24 @@ class AccountContracts(unittest.TestCase):
                 ("Synthetic laboratory video", "Synthetic fixture; not live editorial evidence"),
             )
             self.assertEqual(1, progress_row(self.project)["suitable_count"])
+            self.assertIn("Original scenario narration", storyboard(self.project))
+            with self.assertRaisesRegex(OperationError, "Aprovação humana ausente"):
+                call(self.project, "fetch", "--candidate", row["id"])
+            call(
+                self.project,
+                "approve",
+                "--candidate",
+                row["id"],
+                "--by",
+                "Fixture reviewer",
+                "--statement",
+                "Approve this synthetic Telegram fixture only",
+            )
+            with self.assertRaisesRegex(OperationError, "permit"):
+                call(self.project, "fetch", "--candidate", row["id"])
+            call(self.project, "permit", "--candidate", row["id"], "--evidence", "Synthetic fixture permission")
+            fetched = call(self.project, "fetch", "--candidate", row["id"])
+            self.assertTrue(fetched["output"]["verified"])
             fake.authorized = False
             with self.assertRaisesRegex(OperationError, "telegram-login"):
                 call(self.project, "preview", "--candidate", row["id"], "--start", "0", "--end", "2")

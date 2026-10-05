@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mesma bateria de qualidade que o CI roda no job `quality`, para rodar antes do commit.
+# Bateria local de qualidade correspondente ao job Windows checks; escolha o escopo conforme CONTRIBUTING.md.
 # Instale as ferramentas uma vez: python3 -m pip install -r requirements-dev.txt
 set -euo pipefail
 

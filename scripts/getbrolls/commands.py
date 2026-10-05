@@ -38,7 +38,10 @@ REQUIRED_EXECUTABLES = {
     "node": (SYSTEM_TOOLS, "Playwright CLI e runtime EJS do yt-dlp ficam indisponíveis"),
     "npx": (SYSTEM_TOOLS, "Instalação e execução do Playwright CLI ficam indisponíveis"),
     "yt-dlp": (INSTALLER, "YouTube e TikTok ficam indisponíveis sem ele"),
-    "playwright-cli": (INSTALLER, "Instagram indisponível sem ele"),
+    "playwright-cli": (
+        INSTALLER,
+        "Playwright CLI ausente; captura pelo navegador depende das ferramentas e da sessão autorizada do agente",
+    ),
 }
 
 # Ausência esperada em parte dos ambientes: não bloqueia o fluxo principal.
@@ -1595,6 +1598,16 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         if shot and not re.fullmatch(SHOT_RE, shot):
             raise ValueError("--shot: use 1–80 letras, números, hífen ou underscore.")
         dry_run = bool(getattr(args, "dry_run", False))
+        if dry_run and args.provider == "x":
+            from .catalogs import filters
+
+            selected_filters = filters("x", getattr(args, "catalog_filter", None), args.language)
+            return {
+                "items": [],
+                "dry_run": True,
+                "would_dispatch": {"catalog": "x", "query": args.query, "filters": selected_filters},
+                "summary": {"line": "Validated X query filters; dry-run did not refresh OAuth or contact Grok."},
+            }
         names = rules["preferred_providers"][args.intent] if args.provider == "auto" else [args.provider]
         if not names:
             raise ValueError(
@@ -1625,10 +1638,10 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                                 "resume_history": getattr(args, "resume_history", False),
                                 "search_context": {"shot": shot},
                             }
-                            if name == "telegram"
+                            if name in ("telegram", "x")
                             else {}
                         ),
-                        **({"language": args.language} if name == "un_webtv" else {}),
+                        **({"language": args.language} if name in ("un_webtv", "x") else {}),
                     )
                 except ValueError as e:
                     errors.append({"provider": name, "error": str(e)})
@@ -1801,6 +1814,10 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             if (c["asset_type"] == "video") != (inferred == "video"):
                 raise ValueError("asset-type não corresponde ao formato do arquivo.")
             c["media"]["kind"] = "video" if c["asset_type"] == "video" else "image"
+            if c["media"]["kind"] == "image":
+                # ffprobe reports a one-frame demuxer clock for still files.
+                # It is neither a capture duration nor a frame rate.
+                c["media"].update(duration_s=None, fps=None)
             if args.title:
                 c["title"] = args.title
             if args.captured_at:
@@ -1835,6 +1852,16 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         if not allowed(c, rules):
             raise ValueError("Fonte ou tipo de asset bloqueado pelas regras do usuário.")
         c["format"] = format_report(c, rules)
+        if getattr(args, "catalog_file", None):
+            from .catalogs import NAMES, select_file
+
+            if c["provider"] in NAMES:
+                current = next((row for row in ledger.data["items"] if row["id"] == c["id"]), None)
+                if current is not None:
+                    selected = select_file(current, c)
+                    current.clear()
+                    current.update(selected)
+                    c = current
         c = ledger.add(c)
         ledger.save(cmd, c)
         logs.event(

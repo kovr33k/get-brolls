@@ -1,4 +1,4 @@
-# Mesma bateria de qualidade que o CI roda no job `quality`, para rodar antes do commit.
+# Bateria local de qualidade correspondente ao job Windows checks; escolha o escopo conforme CONTRIBUTING.md.
 # Instale as ferramentas uma vez: python -m pip install -r requirements-dev.txt
 #requires -Version 5.1
 $ErrorActionPreference = 'Stop'

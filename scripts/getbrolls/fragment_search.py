@@ -1560,9 +1560,24 @@ def reserve_attempt(ledger, plan, args, query, browser=False):
     return attempt, False
 
 
-def _dispatch(ledger, plan, args, rules, query):
+def _dispatch(ledger, plan, args, rules, query):  # noqa: C901 - persisted dispatch, Telegram continuation and completed X recovery
     attempt, replayed = reserve_attempt(ledger, plan, args, query)
-    if replayed and not (plan["catalog"] == "telegram" and getattr(args, "resume_history", False)):
+    resume_x = False
+    if replayed and plan["catalog"] == "x" and attempt["status"] == "dispatched":
+        from .grok_oauth import saved_result
+
+        resume_x = (
+            saved_result(
+                ledger,
+                query,
+                args.media,
+                attempt["catalog_filters"],
+                language=args.language,
+                context={"shot": args.shot, "pass": plan["pass"], "query_key": attempt["query_key"]},
+            )
+            is not None
+        )
+    if replayed and not resume_x and not (plan["catalog"] == "telegram" and getattr(args, "resume_history", False)):
         return attempt, True
     if replayed:
         entry = _current_entry(plan)
@@ -1582,14 +1597,14 @@ def _dispatch(ledger, plan, args, rules, query):
             args.limit,
             media=args.media,
             **({"catalog_filters": args.catalog_filter} if selected_filters else {}),
-            **({"language": args.language} if plan["catalog"] == "un_webtv" else {}),
+            **({"language": args.language} if plan["catalog"] in ("un_webtv", "x") else {}),
             **(
                 {
                     "ledger": ledger,
                     "resume_history": getattr(args, "resume_history", False),
                     "search_context": {"shot": args.shot, "pass": plan["pass"], "query_key": attempt["query_key"]},
                 }
-                if plan["catalog"] == "telegram"
+                if plan["catalog"] in ("telegram", "x")
                 else {}
             ),
         )
