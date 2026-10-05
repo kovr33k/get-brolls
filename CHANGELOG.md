@@ -12,6 +12,8 @@ tags: [get-brolls]
 
 ## 2.13.1 — 2026-10-05
 
+- Skill guidance: restore the original detailed editorial workflow and integrate the accepted catalog, access, language and prepared-review rules without trimming required instructions to a word budget. Ordinary search keeps its candidate metadata checkpoint; planned search requires distinct visually confirmed options. Preview examples preserve original scenario narration for ready-only review, and the plugin mirror is generated from the canonical source.
+
 - Release: Windows/PowerShell replaces Ubuntu/Bash. Version, source contents, frontmatter, mirror, links and exact CHANGELOG gates remain mandatory. Successful complete Windows CI can be reused only for the identical clean source tree and matching Python/Windows evidence; missing, expired, failed or mismatched proof requires the full checks. Production tags and publication remain explicit maintainer actions.
 
 - Skill readability: exceeding the word-count or paragraph-length guidelines reports a warning instead of failing tests. Required instruction content, frontmatter and generated-mirror checks remain enforced.
