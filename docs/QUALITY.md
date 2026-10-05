@@ -2,15 +2,49 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-04
+updated: 2026-10-05
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.13.0
+# Qualidade e evidências — GET B-ROLLS 2.13.1
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
-**Current validation policy — 2026-10-04.** Maintained CI validation is Windows, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Tests cover Python 3.11 and 3.13; the quality job also runs on Windows. Pull requests and pushes to `main` trigger CI, avoiding duplicate feature-push and PR runs. Historical sections retain the platforms and requirements recorded at their dates.
+**Current validation policy — 2026-10-05.** Maintained CI validation is one Windows job on Python 3.14.4, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Lint, types and the complete offline suite share that job. Pull requests and pushes to `main` trigger CI, avoiding duplicate feature-push and PR runs. Historical sections retain the platforms and requirements recorded at their dates.
+
+## Windows background-server termination — 2026-10-05, 2.13.1 candidate
+
+**Cause and correction.** A detached server could return an exit code while Windows was still completing termination and holding `.serve.log`. The focused probe observed exit code 1 with the process wait still returning `WAIT_TIMEOUT`. [Windows documents asynchronous process termination](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess). Windows liveness now reads the process termination signal with a zero-timeout wait and explicit native handle types, closing the handle on every path. The existing bounded stop loop therefore reports success after the server releases its files. Session identity remains required before termination, and status remains read-only.
+
+**Regression evidence.** The original code failed both a deterministic native-boundary regression for the early-exit-code state and a real background-server test requiring immediate log renaming after a successful stop. Both passed after the correction. All 33 server tests then passed in 12.976 seconds with two Windows symlink skips, including recycled-PID safety, slow-server identity and dead-PID read-only checks. The initial complete run cleared the cleanup errors and exposed a stale catalog-inventory expectation; it now distinguishes Telegram's dated successful sample from unverified current access. This follow-up supersedes the cleanup limitation recorded with the access samples below.
+
+**Final local validation.** Windows `scripts/check.ps1` passed: 1,200 tests in 259.031 seconds, 30 skips, no failures or errors. Ruff, formatting, Pyright, the generated skill mirror and documentation links passed in the same run. Hosted Windows CI remains required for production integration; this result covers the local candidate branch.
+
+## Instagram two-stream acquisition — 2026-10-05, 2.13.1 candidate
+
+**Live sample.** An authorized integrated browser opened the public [BRIDGE Summit Reel](https://www.instagram.com/reel/DULxZOokzEL/). Browser resource inventory identified separate 1080p VP9 video and AAC audio with matching `xpv_asset_id` 17855216619612456 and duration metadata. The player measured 1080×1920 and 53.866667 seconds. The asset-export tool could not fetch the bytes; its private manifest retained the observed URLs. Removing only `bytestart`/`byteend`, the normal collector downloaded both complete streams and produced a 16,289,997-byte H.264/AAC MP4, 1080×1920, 30 fps, 53.866667 seconds. FFmpeg decoded the entire merged video and audio with exit 0 and empty error output. Normal `resolve --file`, `inspect` and 0–3 second `preview` succeeded.
+
+**Observed content and limits.** The opened contact sheet shows a panel discussion at BRIDGE Summit, consistent with the public Reel's context. The browser query found an account named `bridge`; it did not demonstrate global keyword footage search or bridge imagery. Approval remains pending and reuse rights unknown; audio synchronization was not separately judged by a human. This single dated sample does not promise future session/CDN access. Signed URLs, configs, raw manifests/reports and media remain outside distributed source.
+
+**Collector correction and local checks.** Direct script invocation previously let the package's `queue.py` shadow Python's standard `queue` during logging initialization. Replacing the script-directory import path with the parent `scripts/` directory restores the documented command. Sixty-six focused tests passed across recovery, logging, existing-catalog and skill contracts; seven recovery tests and nineteen logging tests include a fresh subprocess `--help` from outside source, synthetic pair merging, public-DNS confinement, transfer failure, cooldown and logging redaction. Ruff, formatting, Pyright, skill-mirror, documentation-link and synchronized-version checks passed. The full Windows gate's existing background-server cleanup errors remain unresolved as recorded below; these focused checks do not establish a green complete suite.
+
+## Telegram access and login diagnostics — 2026-10-05, 2.13.1 candidate
+
+**Live access sample.** The private user session authenticated. One bounded `bridge` search in the explicitly whitelisted public channel returned two posts. The selected [public message](https://t.me/clashreport/99598) retained attachment `document:5915681395648241719`; the normal CLI acquired the 6,626,073-byte MP4. ffprobe measured 1920×1080, 30 fps and 30.656 seconds. The 0–3 second preview generated a contact sheet/GIF and decoded with exit 0. The viewed frames show a speaker at a lectern with flags, rather than bridge imagery. Original authorship/context, editorial acceptance and reuse rights are unverified; approval remains pending and rights unknown. No DMs, private groups or subscription enumeration were accessed. Session files, credentials, raw reports and media remain outside distributed source.
+
+**Login diagnostics.** Prompts clarify international phone format and the current request's code. Rejected numbers, invalid/empty/expired codes, incorrect 2FA passwords and exhausted SDK code retries have specific safe explanations. Expected login errors omit terminal tracebacks and unrelated project-review advice; private project diagnostics remain redacted. Phone/code input trims surrounding whitespace, while password whitespace is preserved. Interrupted login disconnects without deleting the session. Unexpected command bugs retain internal diagnostics.
+
+**Local verification limit.** Eighteen account-route tests and thirteen runtime-diagnostic tests passed. The complete Windows check passed Ruff, formatting, Pyright, the skill mirror and documentation anchors; its 1,198-test sweep finished with 30 skips and four errors in background-server test cleanup (`WinError 32` on `.serve.log`). A separate 32-test server run reproduced those four errors, and the unchanged production checkout reproduced them too. After version synchronization and the dated access observation, 119 focused account/runtime, provider, CLI, version and skill tests passed; lint, formatting, Pyright, mirror and documentation checks also passed. No full green gate or production integration is claimed for this candidate.
+
+## Catalog access follow-up — 2026-10-05, 2.13.0 plus LoC browser fallback
+
+**LoC.** A bounded JSON image query still received HTTP 403 with a browser-verification challenge. The recognized response has a separate diagnostic; it is not reported as a missing key, quota or empty results. Authorized browser search opened the actual [Britannia Bridge item](https://www.loc.gov/item/90710744/). Its observed description is Menai Bridge Village, Wales; date is `[between 1895 and 1905?]`, and the card states that full online access is only available at the Library of Congress. Audited `search-browser` converted the failed API query into the browser reservation, and `search-import` recorded that canonical image locator. Persisted query usage stayed at one. No browser cookies were exported, no protection was bypassed, and no original, decoded preview or visual suitability is claimed for this restricted item. Separate synthetic tests cover local-original linking/decoded preview, approval/rights refusal, restart, dry-run, the third-query handoff, and refusal to rewrite an ordinary permission failure as a challenge.
+
+**Europeana.** The issued key type was confirmed as personal and used for a development access probe. One bounded `bridge` image search returned two actual institution references. Resolving the selected [Royal Museums Greenwich record](https://www.europeana.eu/item/2022362/_Royal_Museums_Greenwich__http___collections_rmg_co_uk_collections_objects_125092) passed, but supplied no supported public original. It remains a manual locator. API search/record access is evidenced; institution acquisition, decoding, editorial match, human approval and reuse rights remain unverified.
+
+**YouTube.** A fresh audited resolution/preview of [B_7EUmCxcvE](https://www.youtube.com/watch?v=B_7EUmCxcvE) acquired the 0–3 second window: 352,385 bytes, 1920×1080, 25 fps, measured duration 3.0 seconds. ffprobe and FFmpeg decoding exited 0. The opened contact sheet shows a rocket and launch tower before liftoff. The previous dated CDN 403 did not recur. This is a working acquired preview, not a complete-source acquisition, representative-scenario acceptance, approval or reuse grant. Rights remain unknown and approval pending. Raw probes, caches, media and reports remain outside distributed source.
+
+**Local verification.** The complete Windows `scripts/check.ps1` passed 1,193 tests in 204.911 seconds, with 30 skips and no failures/errors. Ruff lint/format, Pyright, skill mirror and documentation anchors passed. Installer prerequisite and version synchronization checks passed. This local result is separate from hosted PR CI and live acquisition/editorial acceptance.
 
 ## Mapillary, Telegram and retained X access — 2026-10-04, 2.13.0
 

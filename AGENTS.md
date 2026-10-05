@@ -2,7 +2,7 @@
 type: instructions
 status: current
 created: 2026-09-15
-updated: 2026-10-04
+updated: 2026-10-05
 tags: [get-brolls, documentation]
 ---
 
@@ -64,7 +64,7 @@ Execute comandos do mesmo projeto serialmente. Preserve originais, eventos e jou
 ## Manutenção
 
 - A versão executável vem de `scripts/getbrolls/__init__.py`. Mudança de versão é feita com `python3 scripts/bump_version.py X.Y.Z [--date AAAA-MM-DD]`, que escreve numa passada só `scripts/getbrolls/__init__.py`, `package.json`, `package-lock.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `SKILL.md`, README, README.en, `docs/QUALITY.md` e o stub do CHANGELOG; `--check` só confere e sai 1 se algo divergir, sem escrever. `SKILL.md` da raiz é a fonte canônica; o espelho em `skills/get-brolls/SKILL.md` é **gerado**, nunca editado à mão — `python3 scripts/gen_skill_mirror.py` escreve o espelho (`--check` compara e sai 1 se divergir) e é esse gerador, não sincronia manual, que mantém `description` idêntica e o mesmo conteúdo com caminhos `${CLAUDE_PLUGIN_ROOT}`; CI e `scripts/check.sh`/`check.ps1` rodam o `--check` dos dois. Revisão documental sem alteração de versão deve aparecer no changelog vigente.
-- **`main` é produção.** O plugin instalado por quem usa a skill acompanha `main`, e cada release baixada pelos usuários sai de um commit dessa branch: mudança de comportamento chega por PR com CI verde no Windows, `bash scripts/preflight.sh` roda antes de qualquer `git tag`, não há push direto em `main`, e mudança de comportamento observável exige entrada no CHANGELOG e compatibilidade retroativa. A plataforma de validação mantida neste repositório é Windows; a matriz e os checks atuais estão em `.github/workflows/test.yml`.
+- **`main` é produção.** O plugin instalado por quem usa a skill acompanha `main`, e cada release baixada pelos usuários sai de um commit dessa branch: mudança de comportamento chega por PR com CI verde no Windows, `bash scripts/preflight.sh` roda antes de qualquer `git tag`, não há push direto em `main`, e mudança de comportamento observável exige entrada no CHANGELOG e compatibilidade retroativa. A validação mantida neste repositório usa um único job Windows; a versão de Python e os checks atuais estão em `.github/workflows/test.yml`.
 - Atualize a seção correspondente de `docs/GUIDE.md` junto com o código da rota afetada. O guia é a referência operacional única do produto.
 - Corrija a causa e adicione regressão quando houver bug. Não escreva testes que exijam retirar uma capacidade existente.
 - `status` é o único comando somente leitura: abre o ledger com `recover=False`, não cria a árvore `brolls/` e não pega a trava exclusiva do projeto. Ao mexer nele, preserve esse contrato — nada de recuperar pendência, sincronizar formatos ou escrever para relatar. Comandos de escrita continuam serializados pela trava.
@@ -74,6 +74,8 @@ Execute comandos do mesmo projeto serialmente. Preserve originais, eventos e jou
 - Não execute publicação, push ou instalação pessoal da skill como parte automática de uma revisão. Faça essas ações somente quando incluídas no pedido do usuário. A árvore do repositório é a fonte oficial da entrega.
 
 ## Verificação
+
+Durante o desenvolvimento e antes da integração, siga [Desenvolvimento e verificação](CONTRIBUTING.md#desenvolvimento-e-verificação) para escolher o escopo das verificações e reutilizar evidências válidas. Os comandos abaixo descrevem a bateria completa, não uma obrigação de repeti-la após cada edição.
 
 ```sh
 bash scripts/install.sh --check

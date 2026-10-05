@@ -150,6 +150,30 @@ class RetryAfterCapTests(unittest.TestCase):
 
 
 class GetJsonCacheWriteTests(unittest.TestCase):
+    def test_browser_challenge_is_distinct_from_permission_and_is_not_retried(self):
+        for headers, body, challenged in (
+            ({"cf-mitigated": "challenge"}, b"private challenge details", True),
+            ({}, b"<!DOCTYPE html><html><title>Just a moment...</title>", True),
+            ({}, b'{"error":"quota exceeded"}', False),
+        ):
+            with self.subTest(headers=headers, challenged=challenged):
+                http_headers = email.message.Message()
+                for key, value in headers.items():
+                    http_headers[key] = value
+                error = urllib.error.HTTPError(
+                    "https://www.loc.gov/search/", 403, "Forbidden", http_headers, io.BytesIO(body)
+                )
+                with patch.object(http, "_opener") as opener, self.assertRaises(ProviderError) as ctx:
+                    opener.return_value.open.side_effect = error
+                    http.get_json("https://www.loc.gov/search/")
+                opener.return_value.open.assert_called_once()
+                self.assertEqual(challenged, isinstance(ctx.exception, http.BrowserVerificationError))
+                if challenged:
+                    self.assertIn("search-browser", str(ctx.exception))
+                    self.assertNotIn("private challenge details", str(ctx.exception))
+                else:
+                    self.assertIn("quota exceeded", str(ctx.exception))
+
     @patch.object(http, "_safe_network")
     @patch.object(http.urllib.request, "build_opener")
     def test_cache_write_failure_does_not_look_like_a_provider_outage(self, builder, safe):

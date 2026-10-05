@@ -150,15 +150,24 @@ class RepositoryDocumentationTests(unittest.TestCase):
         self.assertIn("macOS e Windows", readme)
         self.assertIn("scripts/install.ps1", readme)
 
-    def test_ci_runs_primary_matrix_on_windows(self):
+    def test_ci_runs_once_on_the_maintained_windows_python(self):
         workflow = (ROOT / ".github/workflows/test.yml").read_text(encoding="utf-8")
         self.assertNotIn("macos-latest", workflow)
         self.assertNotIn("ubuntu-latest", workflow)
         self.assertIn("windows-latest", workflow)
+        self.assertNotIn("matrix", workflow)
+        self.assertEqual(workflow.count("python-version:"), 1)
+        self.assertIn("python-version: '3.14.4'", workflow)
         self.assertIn("./scripts/install.ps1\n", workflow)
         # Git Bash e PowerShell conferem a sintaxe no runner Windows.
         self.assertIn("bash -n", workflow)
         self.assertIn("[scriptblock]::Create", workflow)
+
+    def test_full_ci_requires_a_pull_request_without_duplicate_push_runs(self):
+        workflow = (ROOT / ".github/workflows/test.yml").read_text(encoding="utf-8")
+        self.assertRegex(workflow, r"(?m)^on:\n  pull_request:")
+        self.assertNotRegex(workflow, r"(?m)^  push:")
+        self.assertIn("python -m unittest discover -s tests -v", workflow)
 
     def test_ci_caches_pip_and_npm_and_checks_the_skill_mirror(self):
         workflow = (ROOT / ".github/workflows/test.yml").read_text(encoding="utf-8")
@@ -168,7 +177,7 @@ class RepositoryDocumentationTests(unittest.TestCase):
 
     def test_quality_stack_is_configured_and_runs_in_ci(self):
         # Lint e type check são parte do contrato de contribuição: config versionada,
-        # ferramentas pinadas e um job próprio no CI.
+        # ferramentas pinadas e a mesma bateria no job Windows do CI.
         config = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         for marker in ("[tool.ruff]", "[tool.pyright]", "line-length = 120", 'pythonVersion = "3.11"'):
             self.assertIn(marker, config, marker)
@@ -179,7 +188,7 @@ class RepositoryDocumentationTests(unittest.TestCase):
         for tool in ("ruff", "pyright"):
             self.assertNotIn(tool, runtime, "ferramenta de dev não entra no runtime")
         workflow = (ROOT / ".github/workflows/test.yml").read_text(encoding="utf-8")
-        self.assertIn("\n  quality:\n", workflow)
+        self.assertIn("python -m pip install -r requirements-dev.txt", workflow)
         for step in ("ruff check .", "ruff format --check .", "pyright"):
             self.assertIn(step, workflow, step)
 

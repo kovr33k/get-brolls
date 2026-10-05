@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-04
+updated: 2026-10-05
 tags: [get-brolls, documentation]
 ---
 
@@ -15,6 +15,16 @@ Leia [AGENTS](AGENTS.md) antes de alterar o código e [GUIDE](docs/GUIDE.md#inst
 Descreva o problema, o comportamento resultante e a validação realizada. Para bugs, reproduza a falha e adicione regressão relevante. Atualize a referência da rota afetada e o CHANGELOG. Comandos de um mesmo projeto devem ser executados serialmente.
 
 Testes automatizados usam mídia sintética e mocks, sem segredos ou conteúdo privado. Ensaios reais de plataforma ficam fora da pasta da skill e registram resultado técnico em [QUALITY](docs/QUALITY.md); falha de rede não deve ser escondida por fixture.
+
+## Desenvolvimento e verificação
+
+- Agrupe alterações de uma mesma tarefa em um PR, com uma descrição e uma atualização documental coerentes. Separe trabalhos independentes; não crie um PR por ajuste interno da mesma tarefa. Publicação continua sujeita à autorização do mantenedor.
+- Comece pelo estado do Git, pelo diff e pelas partes afetadas. Use buscas específicas e amplie a leitura para contratos, dependências e chamadores quando necessário; não releia arquivos inteiros apenas por mudança de etapa.
+- Durante a implementação, execute lint e testes relevantes às alterações. Amplie a cobertura quando houver impacto compartilhado em estado, recuperação, segurança, dependências ou configuração. Revisões documentais verificam frontmatter, links e exemplos afetados.
+- Antes da integração, exija a bateria completa prevista no CI para o estado final. Um CI concluído e aprovado para a revisão atual é evidência suficiente dessa bateria; não a duplique localmente apenas para abrir o PR ou redigir o relatório. Mudanças posteriores exigem nova verificação do que afetarem e os checks obrigatórios do PR atualizado. Preserve os portões de release e a validação real ou humana exigida pela rota.
+- Relate comando ou check, revisão verificada, resultado e contagens de testes e skips. Leia o resumo das verificações bem-sucedidas; examine logs detalhados em falhas ou quando o resumo não resolver uma dúvida. Não descreva um teste focado como validação completa.
+
+Comandos para a suíte completa e o diagnóstico de disponibilidade:
 
 ```sh
 python3 -m unittest discover -s tests -v
@@ -32,13 +42,13 @@ python3 -m pip install -r requirements-dev.txt
 bash scripts/check.sh
 ```
 
-No Windows, `./scripts/check.ps1` roda a mesma bateria. Os dois executam, em ordem, `ruff check`, `ruff format --check`, `pyright`, `python3 scripts/gen_skill_mirror.py --check` (o espelho da skill em `skills/get-brolls/SKILL.md` é gerado a partir do `SKILL.md` da raiz — nunca edite o espelho à mão), `python3 scripts/check_anchors.py` e a suíte de testes. O job `quality` e a matriz `Tests` rodam no Windows; a matriz cobre Python 3.11 e 3.13. O CI roda nos PRs e em pushes para `main`, evitando repetir os mesmos jobs no push de uma branch com PR aberto. A sintaxe Bash é conferida pelo Git Bash no runner Windows.
+No Windows, `./scripts/check.ps1` roda a mesma bateria. Os dois executam, em ordem, `ruff check`, `ruff format --check`, `pyright`, `python3 scripts/gen_skill_mirror.py --check` (o espelho da skill em `skills/get-brolls/SKILL.md` é gerado a partir do `SKILL.md` da raiz — nunca edite o espelho à mão), `python3 scripts/check_anchors.py` e a suíte de testes. O CI executa uma única bateria no Windows, com a versão de Python fixada em `.github/workflows/test.yml`; lint, tipos e testes compartilham o mesmo job. A bateria completa roda nos PRs; o merge em `main` não inicia uma repetição. O check obrigatório do PR deve passar antes da integração. A sintaxe Bash é conferida pelo Git Bash no runner Windows.
 
 ## Dependências e releases
 
 Revise `requirements.txt` e `package-lock.json` junto com mudanças nas dependências. Os instaladores usam o conjunto registrado; não faça atualização global nem incorpore bibliotecas no repositório. O Dependabot propõe atualizações por PR; elas exigem testes e, quando afetarem aquisição, ensaio da rota correspondente. As GitHub Actions ficam fixadas por SHA.
 
-A branch `main` é produção: o plugin instalado por quem usa a skill acompanha essa branch, e cada release baixada por um usuário sai de um commit dela. A branch principal deve exigir a matriz `Tests` antes do merge — essa proteção é uma configuração do GitHub feita pelo mantenedor, o arquivo do workflow não a ativa; verifique os nomes dos checks no PR ao configurar a regra. Siga a política de validação Windows em [AGENTS](AGENTS.md#manutenção). Mudança de comportamento entra por PR com CI verde, nunca por push direto em `main`, e vem acompanhada de entrada no CHANGELOG e de compatibilidade retroativa.
+A branch `main` é produção: o plugin instalado por quem usa a skill acompanha essa branch, e cada release baixada por um usuário sai de um commit dela. A branch principal deve exigir `Windows checks` antes do merge — essa proteção é uma configuração do GitHub feita pelo mantenedor, o arquivo do workflow não a ativa; confira o nome do check no PR ao configurar a regra. Siga a política de validação Windows em [AGENTS](AGENTS.md#manutenção). Mudança de comportamento entra por PR com CI verde, nunca por push direto em `main`, e vem acompanhada de entrada no CHANGELOG e de compatibilidade retroativa.
 
 Uma correção de código incrementa a versão com `python3 scripts/bump_version.py X.Y.Z --date AAAA-MM-DD`, que escreve numa passada só `scripts/getbrolls/__init__.py`, `package.json`/`package-lock.json`, `.claude-plugin/plugin.json`/`marketplace.json`, `SKILL.md` (o espelho é regerado junto), READMEs, `docs/QUALITY.md` e o stub do CHANGELOG; `--check` confere as mesmas fontes sem escrever. Antes de empurrar a tag, rode `bash scripts/preflight.sh --version X.Y.Z`: o mesmo portão que o release roda contra o commit da tag — versão coerente, frontmatter, ausência de material interno, espelho da skill, âncoras, suíte completa e seção do CHANGELOG no formato esperado — e sai 0 com `PREFLIGHT OK` ou nomeia o passo que reprovou. Só depois disso empurre uma tag `vX.Y.Z` apontando para o commit aprovado; nunca mova uma tag já distribuída para outro código. **O ato manual do mantenedor é o push da tag.** A partir dele, `.github/workflows/release.yml` publica sozinho: instala FFmpeg, roda `bash scripts/preflight.sh --version "$VERSION"` contra o commit da própria tag, extrai as notas da seção correspondente do CHANGELOG — que precisa começar exatamente com `## <versão> — ` (travessão em em dash, não hífen) — e cria a release com `gh`, marcada como pré-lançamento quando a tag tem hífen (por exemplo `v2.4.0-rc1`). Sem o preflight verde ou com a seção fora do formato esperado, nada é publicado.
 

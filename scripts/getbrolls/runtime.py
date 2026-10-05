@@ -244,6 +244,8 @@ def audited(args, execute):  # noqa: C901, PLR0912, PLR0915 - existing size; wra
         AttributeError,
         OverflowError,
     ) as exc:
+        from .http import ProviderError  # local: avoids a runtime<->http import cycle
+
         event["status"] = "error"
         event["recovery_pending"] = bool(log and (log.parent / ".pending-transaction.json").exists())
         # Diagnostics survive regardless of classification, redacted like everything else here.
@@ -258,19 +260,16 @@ def audited(args, execute):  # noqa: C901, PLR0912, PLR0915 - existing size; wra
                 f"Erro interno inesperado (bug) [type: {exc.__class__!r}]. Reporte incluindo diagnostics.jsonl"
                 + (f" ({log})." if log else ".")
             )
+        elif isinstance(exc, ProviderError):
+            event["error_code"] = getattr(exc, "error_code", "INVALID_DATA")
+            event["message"] = redact(exc) + ("" if args.command == "telegram-login" else " Confira docs/RULES.md.")
+            current = ACTIVE.get()
+            if current is not None:
+                current["warnings"].append({"code": "PROVIDER_ERROR", "message": redact(exc)})
+                event["warnings"] = current["warnings"]
         else:
-            from .http import ProviderError  # local: avoids a runtime<->http import cycle
-
-            if isinstance(exc, ProviderError):
-                event["error_code"] = "INVALID_DATA"
-                event["message"] = redact(exc) + " Confira docs/RULES.md."
-                current = ACTIVE.get()
-                if current is not None:
-                    current["warnings"].append({"code": "PROVIDER_ERROR", "message": redact(exc)})
-                    event["warnings"] = current["warnings"]
-            else:
-                event["error_code"] = "IO_ERROR" if isinstance(exc, OSError) else "INVALID_DATA"
-                event["message"] = redact(exc)
+            event["error_code"] = "IO_ERROR" if isinstance(exc, OSError) else "INVALID_DATA"
+            event["message"] = redact(exc)
         failure = OperationError(
             {
                 **event,
@@ -279,6 +278,13 @@ def audited(args, execute):  # noqa: C901, PLR0912, PLR0915 - existing size; wra
                 "app_log": str(app_log_path) if app_log_path and app_log_path.is_file() else None,
             }
         )
+        if args.command == "telegram-login" and isinstance(exc, ProviderError):
+            # Keep redacted diagnostics in the private log; expected login failures need no traceback on screen.
+            failure.payload.pop("repr", None)
+            failure.payload.pop("traceback", None)
+            failure.payload["hint"] = (
+                "Correct the input or configuration and retry telegram-login in a local terminal. See docs/GUIDE.md#providers--mapillary-telegram-and-x-access."
+            )
         raise failure from None
     except KeyboardInterrupt:
         event["status"] = "interrupted"
@@ -286,7 +292,11 @@ def audited(args, execute):  # noqa: C901, PLR0912, PLR0915 - existing size; wra
         failure = OperationError(
             {
                 **event,
-                "message": "Operação interrompida. O próximo comando recuperará uma gravação pendente, se houver.",
+                "message": (
+                    "Telegram login interrupted. Run telegram-login again locally when ready."
+                    if args.command == "telegram-login"
+                    else "Operação interrompida. O próximo comando recuperará uma gravação pendente, se houver."
+                ),
                 "log": str(log) if log else None,
                 "app_log": str(app_log_path) if app_log_path and app_log_path.is_file() else None,
             }

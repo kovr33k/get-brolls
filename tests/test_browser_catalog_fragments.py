@@ -14,6 +14,7 @@ from test_archive_fragment_search import META, confirm
 from test_search_chains import advance, brief_data, call, plan_chain, progress, stored, write_brief
 
 from getbrolls import archive, providers
+from getbrolls.http import BrowserVerificationError, ProviderError
 from getbrolls.ledger import Ledger
 from getbrolls.runtime import OperationError
 
@@ -71,6 +72,90 @@ class BrowserCatalogFragments(unittest.TestCase):
         self.assertEqual(1, progress(self.project)["queries_used"])
         with self.assertRaisesRegex(OperationError, "Assess prior results"):
             self.reserve("different meaningful query")
+
+    def test_loc_challenge_handoff_preserves_budget_restart_and_public_locator(self):
+        write_brief(self.project, brief_data(["loc"]))
+        plan_chain(self.project, ["loc"])
+        with patch.object(providers, "search", side_effect=BrowserVerificationError("Browser CAPTCHA required")):
+            call(self.project, "search", "--planned", "--shot", "opening", "--query", "factory")
+        self.assertEqual(1, progress(self.project)["queries_used"])
+        self.assertEqual("reserve_browser_query", progress(self.project)["next"])
+        before = stored(self.project)
+        self.reserve("factory", "--dry-run")
+        self.assertEqual(before, stored(self.project))
+        attempt = self.reserve()["attempt"]
+        self.assertEqual("browser", attempt["route"])
+        self.assertIn("CAPTCHA", attempt["api_error"])
+        self.assertEqual(1, progress(self.project)["queries_used"])
+        with patch.object(providers, "resolve") as resolve:
+            row = self.complete(
+                attempt,
+                [
+                    {
+                        "url": "https://www.loc.gov/item/fixture-film/",
+                        "title": "Synthetic observed film",
+                        "media_kind": "video",
+                    }
+                ],
+            )["items"][0]
+            resolve.assert_not_called()
+        self.assertEqual("loc", row["provider"])
+        self.assertEqual("manual", row["acquisition"]["method"])
+        self.assertEqual("unknown", row["rights"]["status"])
+        self.assertEqual("pending", row["approval"]["status"])
+        self.assertEqual(1, progress(self.project)["queries_used"])
+        self.assertEqual(attempt["id"], self.reserve()["attempt"]["id"])
+
+    def test_loc_browser_handoff_after_third_query_does_not_reopen_closed_catalog(self):
+        write_brief(self.project, brief_data(["loc", "archive"]))
+        plan_chain(self.project, ["loc", "archive"])
+        with patch.object(providers, "search", side_effect=BrowserVerificationError("Browser CAPTCHA required")):
+            for query in ("first", "second", "third"):
+                call(self.project, "search", "--planned", "--shot", "opening", "--query", query)
+        attempt = self.reserve("third")["attempt"]
+        self.assertEqual(3, progress(self.project)["queries_used"])
+        self.complete(attempt, None, "access-failure")
+        advance(self.project, "loc", "unavailable-access", "Browser access unavailable")
+        with self.assertRaises(OperationError):
+            self.reserve("third")
+
+    def test_loc_permission_failure_cannot_be_rewritten_as_challenge(self):
+        write_brief(self.project, brief_data(["loc"]))
+        plan_chain(self.project, ["loc"])
+        with patch.object(providers, "search", side_effect=ProviderError("Permission denied")):
+            call(self.project, "search", "--planned", "--shot", "opening", "--query", "factory")
+        with self.assertRaisesRegex(OperationError, "cannot be rewritten"):
+            self.reserve()
+        self.assertEqual(1, progress(self.project)["queries_used"])
+
+    @skip_unless_ffmpeg
+    def test_loc_browser_locator_links_a_decoded_local_original_with_separate_gates(self):
+        write_brief(self.project, brief_data(["loc"]))
+        plan_chain(self.project, ["loc"])
+        attempt = self.reserve()["attempt"]
+        url = "https://www.loc.gov/item/fixture-film/"
+        with patch.object(providers, "resolve", side_effect=AssertionError("No blocked API call")):
+            row = self.complete(attempt, [{"url": url, "title": "Synthetic film", "media_kind": "video"}])["items"][0]
+        source = self.project / "observed-original.mp4"
+        synth_video(source)
+        original = call(
+            self.project,
+            "resolve",
+            "--file",
+            str(source),
+            "--original-for",
+            row["id"],
+            "--original-conditions",
+            "Synthetic observed original",
+        )
+        self.assertEqual(url, original["source_reference"]["source_url"])
+        self.assertEqual("opening", original["shot"])
+        call(self.project, "preview", "--candidate", original["id"], "--start", "0", "--end", "1")
+        call(self.project, "review", "--ready-only")
+        self.assertEqual("pending", original["approval"]["status"])
+        self.assertEqual("unknown", original["rights"]["status"])
+        with self.assertRaises(OperationError):
+            call(self.project, "fetch", "--candidate", original["id"])
 
     def test_all_four_catalogs_import_observed_metadata_without_network(self):
         for catalog, url in SOCIAL.items():

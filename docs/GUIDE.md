@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-04
+updated: 2026-10-05
 tags: [get-brolls, guide, installation, providers, storyboard]
 ---
 
@@ -232,7 +232,7 @@ A prévia remota agora pode adquirir um trecho e guardar `local_start_s` junto a
 
 Projetos que já possuíam arquivo local continuam usando esse arquivo. Preserve os caminhos dos originais e `.getbrolls-sources/` para regenerar prévias; compartilhar só `brolls/` permite visualizar o storyboard, não continuar toda a edição em outro computador.
 
-A matriz da 2.3.4 passou em macOS e Windows em Python 3.11/3.13, com Linux/Python 3.13 como plataforma secundária. O Windows usa instalador PowerShell, layout `.venv\Scripts` e trava nativa; os helpers Bash opcionais não fazem parte do caminho principal nesse sistema. Cada atualização deve passar pela matriz do próprio PR antes do merge. As versões de dependências ensaiadas estão na seção [Instalação](#instalação).
+As plataformas ensaiadas na 2.3.4 permanecem registradas em QUALITY. A validação mantida atualmente usa um único job Windows com Python 3.14.4, incluindo testes, lint e tipos; a configuração está em `.github/workflows/test.yml`. O Windows usa instalador PowerShell, layout `.venv\Scripts` e trava nativa; os helpers Bash opcionais não fazem parte do caminho principal nesse sistema. Cada atualização deve passar pelo check do próprio PR antes do merge. As versões de dependências ensaiadas estão na seção [Instalação](#instalação).
 
 ## Fluxo editorial
 
@@ -422,6 +422,8 @@ python3 scripts/gb.py resolve --url https://catalog.archives.gov/id/<NAID> --cat
 
 `inspect` reads supplied, credential-free SRT/VTT captions through the existing bounded reader (three files, 2 MiB each). LoC plain `.txt` transcripts appear in `source_transcripts` with a 32,768-character excerpt and explicit truncation; untimed text never becomes invented timed cues. Inspection of a catalog search asset records the actual selected file before cache reuse; changed source context invalidates stale approval without approving anything. HLS-only, credential-bearing links and unconfirmed LoC streaming services remain unsupported/manual. Missing keys, rejected access, empty results and incomplete coverage stay distinct. `providers` separates implementation, configuration and dated live evidence; see [QUALITY.md](QUALITY.md).
 
+**LoC browser verification.** A recognized CAPTCHA/Cloudflare challenge reports `BROWSER_VERIFICATION_REQUIRED`, not invalid credentials or an empty catalog. Complete the challenge yourself in the authorized browser. Its clearance belongs to that browser; the CLI does not export cookies or bypass protection. For a planned query, run `search-browser` with the same fragment, query, language, media and catalog filters, then perform the browser search and use `search-import`. The failed API attempt becomes the browser reservation without spending another query, even when it was the third attempt; a closed fragment/catalog stays closed. The original API error remains in the history. Browser imports require an observed canonical LoC `/item/<id>/` URL and `media_kind: image` or `video`, with public title/creator/date/description when observed. They are manual locators, not API-resolved originals. Download the actual selected file through its normal item-page control and import it with `resolve --file <file> --original-for <locator-id> --original-conditions "<observed file/source conditions>"`. Preview, visual confirmation, human review and rights gates stay separate. Replaying the reservation/import does not reset allowance or rewrite the saved outcome.
+
 ## Providers — GDELT TV, EC Audiovisual and UN Web TV
 
 These three providers reuse `search-plan`, `search --planned`, visual confirmation and the existing Storyboard. Every language or filter change shares the catalog's three-query allowance. Discovery is credential-free; an actual file, decoded preview, suitable option, access decision, usage rights and human approval are separate facts.
@@ -536,7 +538,9 @@ python scripts/gb.py search --planned --shot event --provider telegram --query "
 python scripts/gb.py resolve --url https://t.me/public_channel/123 --catalog-file document:<attachment-id> --shot event --project <project>
 ```
 
-Run `telegram-login` in a local interactive terminal; it prompts privately for phone, login code and account 2FA. Never put those values on command lines or in review data. Search verifies a user session and that each target is the whitelisted public broadcast channel. Both UTC date filters are required, inclusive; `channel` optionally selects one whitelist member. Each run traverses at most 100 matching messages and has a bounded connection/search timeout. Cursor, public results and fragment/query association are saved together. Repeating a query returns saved results; `--resume-history` explicitly continues the same query after restart, without another allowance. Increase `--limit` to request more attachments, up to 50. Closed fragments/catalogs and completed targets cannot resume history. Dry-run never writes history.
+Run `telegram-login` in a local interactive terminal; it prompts privately for phone, login code and account 2FA. Enter the account's full international phone number as `+country-code` followed by the number, preferably without spaces. Typed characters stay hidden. Use the latest code for the current login request; Telegram may deliver it as a service notification to another logged-in Telegram app or through another delivery method selected by Telegram. The separate 2FA prompt takes the account's two-step verification password, not that code. Phone/code input trims surrounding whitespace; password whitespace is preserved. A rejected number, code, expired code or 2FA password produces a specific safe explanation. Exhausted code retries require running `telegram-login` again with the new request's code. Expected login errors omit the terminal traceback and project-review advice, retaining redacted diagnostics in a private project log when a project is supplied. Interrupting login disconnects without deleting the session. Never put those values on command lines or in review data. See [Telegram's authorization flow](https://core.telegram.org/api/auth) and [Telethon's login contract](https://docs.telethon.dev/en/stable/modules/client.html#telethon.client.auth.AuthMethods.start).
+
+Search verifies a user session and that each target is the whitelisted public broadcast channel. Both UTC date filters are required, inclusive; `channel` optionally selects one whitelist member. Each run traverses at most 100 matching messages and has a bounded connection/search timeout. Cursor, public results and fragment/query association are saved together. Repeating a query returns saved results; `--resume-history` explicitly continues the same query after restart, without another allowance. Increase `--limit` to request more attachments, up to 50. Closed fragments/catalogs and completed targets cannot resume history. Dry-run never writes history.
 
 One short FloodWait of at most three seconds can be waited out. Longer/repeated waits persist `next_eligible_at`; access is deferred for the Telegram session across other queries so another catalog can continue. Inaccessible channels and partial history remain incomplete coverage. Message ID/permalink, date, caption, selected attachment and album grouping remain distinct. A Telegram album contains individual messages: choose the exact message permalink and attachment; no first-album-item substitution occurs. Forwarded material preserves the fact of forwarding without exposing private peer details; its original source remains unverified until established separately. Text discovery, authorization, metadata, image/video viewing and actual attachment retrieval are separate facts. Selected SDK media is bounded to 512 MiB. Cached attachments still require current session/channel access and the same attachment identity before preview or fetch.
 
@@ -710,6 +714,8 @@ Windows PowerShell:
 5. Os URLs observados nesse formato tinham `bytestart`/`byteend`, seletores explícitos de faixa. Para obter o arquivo completo, remova **somente esses dois parâmetros de faixa**, preservando todos os demais parâmetros e assinatura exatamente como capturados. Não remova `oh`, `oe` ou parâmetros desconhecidos. Valide duração e decodificação completa; um fragmento/HTTP 206 não comprova download integral. Se a CDN rejeitar a URL completa, recapture a representação pelo manifesto; não altere assinatura nem credenciais.
 6. Grave somente as duas URLs selecionadas em configs privados. Nunca exporte cookies, headers de autenticação ou todo o perfil para o pacote.
 
+No navegador integrado, consulte as capacidades disponíveis na aba autorizada. Se houver `pageAssets`, leia sua documentação e use `list()` para obter os recursos já observados. Selecione apenas as duas representações do Reel confirmado, relacionando `efg`, duração/dimensões do player e conteúdo conforme os passos acima. Use `bundle()` com os dois IDs e o ID daquele inventário para salvar um manifesto local privado; ele pode preservar as URLs observadas mesmo quando a ferramenta não consegue baixar os bytes. Entregue somente esse par ao coletor. Inventários/manifestos e configs contêm URLs assinadas e ficam fora da fonte, logs públicos e exemplos. O ensaio de [2026-10-05](QUALITY.md#instagram-two-stream-acquisition--2026-10-05-2131-candidate) validou essa captura e o download completo pelo coletor.
+
 Exemplo de inspeção CLI, com saída sensível retida no projeto:
 
 ```sh
@@ -750,7 +756,7 @@ São **dois arquivos**, com o mesmo prefixo e sufixos `_video.conf` / `_audio.co
 ### 2. Baixar os dois canais, juntar e verificar
 
 ```sh
-python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py"   --video-config "$GB_PROJECT/work/instagram-configs/01_REEL_video.conf"   --audio-config "$GB_PROJECT/work/instagram-configs/01_REEL_audio.conf"   --output "$GB_PROJECT/sources/instagram/01_REEL.mp4"   --parts-dir "$GB_PROJECT/work/instagram-parts"   --config-output-root "$GB_PROJECT"   --summary-json "$GB_PROJECT/work/instagram-summary.json"
+python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py"   --video-config "$GB_PROJECT/work/instagram-configs/01_REEL_video.conf"   --audio-config "$GB_PROJECT/work/instagram-configs/01_REEL_audio.conf"   --output "$GB_PROJECT/sources/instagram/01_REEL.mp4"   --parts-dir "$GB_PROJECT/work/instagram-parts"   --project "$GB_PROJECT"   --config-output-root "$GB_PROJECT"   --summary-json "$GB_PROJECT/work/instagram-summary.json"
 ```
 
 Windows PowerShell:
@@ -761,16 +767,17 @@ python "$env:GB_SKILL_DIR\scripts\getbrolls\instagram_pairs.py" `
   --audio-config "$env:GB_PROJECT\work\instagram-configs\01_REEL_audio.conf" `
   --output "$env:GB_PROJECT\sources\instagram\01_REEL.mp4" `
   --parts-dir "$env:GB_PROJECT\work\instagram-parts" `
+  --project "$env:GB_PROJECT" `
   --config-output-root "$env:GB_PROJECT" `
   --summary-json "$env:GB_PROJECT\work\instagram-summary.json"
 ```
 
-O script baixa com curl, mapeia vídeo do primeiro input e áudio do segundo, normaliza H.264/yuv420p + AAC e verifica streams via ffprobe. Se a URL expirou, recapture no navegador. Um erro de acesso não significa que a plataforma é somente referência.
+O script baixa com curl, mapeia vídeo do primeiro input e áudio do segundo, normaliza H.264/yuv420p + AAC e verifica streams via ffprobe. Informe `--project` para persistir o cooldown se houver HTTP 403/429. Se a URL expirou, recapture no navegador. Um erro de acesso não significa que a plataforma é somente referência.
 
 ### 3. Batch e áudio duplicado
 
 ```sh
-python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py"   --config-dir "$GB_PROJECT/work/instagram-configs"   --output-dir "$GB_PROJECT/sources/instagram"   --parts-dir "$GB_PROJECT/work/instagram-parts"   --config-output-root "$GB_PROJECT"   --layout flat --fail-on-duplicate-audio   --summary-json "$GB_PROJECT/work/instagram-summary.json"
+python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py"   --config-dir "$GB_PROJECT/work/instagram-configs"   --output-dir "$GB_PROJECT/sources/instagram"   --parts-dir "$GB_PROJECT/work/instagram-parts"   --project "$GB_PROJECT"   --config-output-root "$GB_PROJECT"   --layout flat --fail-on-duplicate-audio   --summary-json "$GB_PROJECT/work/instagram-summary.json"
 ```
 
 Windows PowerShell:
@@ -780,6 +787,7 @@ python "$env:GB_SKILL_DIR\scripts\getbrolls\instagram_pairs.py" `
   --config-dir "$env:GB_PROJECT\work\instagram-configs" `
   --output-dir "$env:GB_PROJECT\sources\instagram" `
   --parts-dir "$env:GB_PROJECT\work\instagram-parts" `
+  --project "$env:GB_PROJECT" `
   --config-output-root "$env:GB_PROJECT" `
   --layout flat --fail-on-duplicate-audio `
   --summary-json "$env:GB_PROJECT\work\instagram-summary.json"
@@ -892,6 +900,7 @@ python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py" \
   --audio-config /path/to/01_CODE_audio.conf \
   --output /path/to/output/01_CODE.mp4 \
   --parts-dir /path/to/work/instagram_parts \
+  --project /path/to/project \
   --config-output-root /path/to/root_that_resolves_conf_output_lines \
   --summary-json /path/to/output/01_CODE.summary.json
 ```
@@ -905,6 +914,7 @@ python3 "$GB_SKILL_DIR/scripts/getbrolls/instagram_pairs.py" \
   --config-dir /path/to/curl_configs \
   --output-dir /path/to/outputs \
   --parts-dir /path/to/work/instagram_parts \
+  --project /path/to/project \
   --config-output-root /path/to/root_that_resolves_conf_output_lines \
   --layout auto \
   --fail-on-duplicate-audio \
@@ -978,6 +988,15 @@ For scenario review, use `review --ready-only --project <PROJECT>` after prepari
 The Storyboard interface, preview/contact-sheet labels, and print/export controls are in English. Scenario narration and source material remain in their original language. The operational language policy is defined in [SKILL.md](../SKILL.md#language-policy). Refreshing a review page preserves existing content and decisions. Other CLI routes and documentation may still contain Portuguese during the gradual migration.
 
 A standalone review artifact, independent of the landing page. `gb.py review` generates `brolls/review.html` with embedded CSS and JavaScript, system fonts, and images/GIFs in `previews/`.
+
+To serve that generated page locally, start the background server and open a returned URL. Stop it when review is finished. Windows PowerShell:
+
+```powershell
+python "$env:GB_SKILL_DIR\scripts\gb.py" serve --background --project "$env:GB_PROJECT"
+python "$env:GB_SKILL_DIR\scripts\gb.py" serve --stop --project "$env:GB_PROJECT"
+```
+
+`serve --stop` checks the saved server-session identity before terminating the process. On Windows, a successful `stopped: true` waits for complete process termination and release of its log handles. The next start retains the previous log through the existing rotation.
 
 1. Resolve the authorized original and use a distinct `--shot` for each insert.
 2. Run `preview` with the interval, `--narration` (the exact supplied script line; omit when absent), and `--reason` (why this source was selected).

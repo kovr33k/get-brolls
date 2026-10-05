@@ -261,6 +261,9 @@ class BackgroundServeTests(unittest.TestCase):
             finally:
                 stopped = serve.stop(root)
             self.assertTrue(stopped["stopped"])
+            # A successful stop must release the log immediately, including on Windows.
+            log = root / "brolls" / serve.LOG_FILE
+            log.rename(log.with_name(".serve.closed.log"))
             self.assertFalse((root / "brolls" / ".serve.pid").exists())
             self.assertFalse(serve.state(root)["running"])
 
@@ -571,6 +574,28 @@ class SlowButAliveServerTests(unittest.TestCase):
     def test_the_two_budgets_are_the_documented_ones(self):
         self.assertEqual(0.25, serve.PING_TIMEOUT_S)
         self.assertEqual(1.0, serve.PING_TIMEOUT_ACT_S)
+
+
+@unittest.skipUnless(sys.platform == "win32", "Windows process synchronization")
+class WindowsProcessLivenessTests(unittest.TestCase):
+    def test_early_exit_code_does_not_mean_process_cleanup_has_finished(self):
+        import ctypes
+        from unittest.mock import Mock, patch
+
+        kernel = Mock()
+        kernel.OpenProcess.return_value = 123
+
+        def early_exit_code(_handle, pointer):
+            ctypes.cast(pointer, ctypes.POINTER(ctypes.c_ulong))[0] = 1
+            return 1
+
+        kernel.GetExitCodeProcess.side_effect = early_exit_code
+        kernel.WaitForSingleObject.return_value = 258  # WAIT_TIMEOUT: still terminating
+        with patch.object(ctypes.windll, "kernel32", kernel):
+            self.assertTrue(serve._alive(1234))
+            kernel.WaitForSingleObject.return_value = 0  # WAIT_OBJECT_0: fully terminated
+            self.assertFalse(serve._alive(1234))
+        self.assertEqual(2, kernel.CloseHandle.call_count)
 
 
 class DeadPidCostsNothingTests(unittest.TestCase):

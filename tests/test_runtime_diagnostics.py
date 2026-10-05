@@ -53,6 +53,12 @@ class InternalErrorClassificationTests(unittest.TestCase):
                 audited(self._args(project), boom)
             self.assertEqual(ctx.exception.payload["error_code"], "INTERNAL_ERROR")
 
+    def test_login_bug_retains_internal_diagnostics(self):
+        with self.assertRaises(OperationError) as ctx:
+            audited(argparse.Namespace(command="telegram-login"), lambda args: {}["missing_field"])
+        self.assertEqual("INTERNAL_ERROR", ctx.exception.payload["error_code"])
+        self.assertIn("traceback", ctx.exception.payload)
+
     def test_value_error_keeps_invalid_data_behavior(self):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "proj"

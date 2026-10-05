@@ -2,7 +2,7 @@
 type: reference
 status: current
 created: 2026-10-01
-updated: 2026-10-04
+updated: 2026-10-05
 tags: [get-brolls, catalogs, providers, search, access]
 ---
 
@@ -22,14 +22,14 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 | Wikimedia Commons | Historical photos, documents, video | Public MediaWiki Action API | Search |
 | Internet Archive | Archival films, newsreels, FedFlix, images | Public search and item Metadata API | Search + explicit item/file URL; inspect/preview/common delivery |
 | NASA Image and Video Library | Space, science, NASA media | Public Images API; no general NASA API key | Search |
-| Library of Congress | Historical films, photos, maps, documents | Public JSON API and item resources | Search + item/resource originals; multi-resource selection; live access unverified |
+| Library of Congress | Historical films, photos, maps, documents | Public JSON API and item resources; authorized browser for verification challenges | Search + item/resource originals; bounded browser fallback + supplied-original import; API live access unverified |
 | DVIDS | Official military footage, exercises, briefings | Application API key; optional server secret | Search + selected asset/files; common inspect/preview/review gates |
 | Europeana | European cultural and historical collections | Confirmed personal/project key type according to use | Search + Record API and institution media; absent originals stay manual locators |
 | NARA | US national archival records and media | Catalog API key; separate API/storage conditions | Search + explicit NAID/digital-object selection; common preview/review gates |
 | Pexels | Illustrative atmosphere and context | Pexels API key; current adapter searches video | Search |
 | Pixabay | Illustrative atmosphere and context | Pixabay API key; current adapter searches video | Search |
 | Mapillary | Images of a particular street or place | Client token and geographic search | Geographic image search, URL/preview |
-| Telegram | Posts and attachments in selected public channels | Telethon, application credentials, user session | Bounded public whitelist route; live user access unverified |
+| Telegram | Posts and attachments in selected public channels | Telethon, application credentials, user session | Bounded public whitelist route; one dated video acquisition/preview sample in QUALITY |
 | GDELT TV | Locating a television segment and time reference | Public TV search API; separate linked original | Implemented; dated caption/locator sample, restricted original |
 | X | Public posts, exact quotations, attached media | Retained xAI X Search through agreed Grok OAuth | OAuth unverified; original URL/local capture import |
 | EC Audiovisual Service | EU events, speeches, stockshots, institutional photos | AV Portal client endpoint, then portal backend | Implemented; one decoded shot sample |
