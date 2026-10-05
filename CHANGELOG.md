@@ -15,6 +15,7 @@ tags: [get-brolls]
 - LoC: browser-verification challenges have a separate diagnostic and an audited browser fallback. Reuse the failed query's allowance, import observed item references, and link a locally supplied original without exporting browser cookies or bypassing protection.
 - Telegram login: prompts clarify international phone format and the current request's code; rejected numbers, codes and 2FA passwords have actionable private messages. Expected login failures omit terminal tracebacks and unrelated project-review advice; interruption retains the session and asks for a local retry.
 - Instagram: the documented standalone collector starts without the package's `queue.py` shadowing Python's standard library. The guide covers observed asset capture in an authorized integrated browser and project-scoped cooldowns; dated full two-stream acquisition, decoding and preview evidence is recorded in QUALITY and provider capabilities.
+- Windows Storyboard server: process liveness uses the termination signal instead of an early exit code. `serve --stop` waits for complete termination and released log handles before reporting success; session identity checks still guard recycled PIDs.
 
 ## 2.13.0 — 2026-10-04
 

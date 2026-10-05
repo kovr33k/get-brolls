@@ -989,6 +989,15 @@ The Storyboard interface, preview/contact-sheet labels, and print/export control
 
 A standalone review artifact, independent of the landing page. `gb.py review` generates `brolls/review.html` with embedded CSS and JavaScript, system fonts, and images/GIFs in `previews/`.
 
+To serve that generated page locally, start the background server and open a returned URL. Stop it when review is finished. Windows PowerShell:
+
+```powershell
+python "$env:GB_SKILL_DIR\scripts\gb.py" serve --background --project "$env:GB_PROJECT"
+python "$env:GB_SKILL_DIR\scripts\gb.py" serve --stop --project "$env:GB_PROJECT"
+```
+
+`serve --stop` checks the saved server-session identity before terminating the process. On Windows, a successful `stopped: true` waits for complete process termination and release of its log handles. The next start retains the previous log through the existing rotation.
+
 1. Resolve the authorized original and use a distinct `--shot` for each insert.
 2. Run `preview` with the interval, `--narration` (the exact supplied script line; omit when absent), and `--reason` (why this source was selected).
 3. The selected insert keeps its original aspect ratio; its source and review controls appear alongside it. Gallery animation offers Static, GIF on hover, and GIF on modes. Click the selected preview to pause or play its GIF. Reduced-motion preferences are respected.
