@@ -27,7 +27,7 @@ Este arquivo é o índice central para agentes e mantenedores: tudo que um agent
 | Manual + tutorial para quem está chegando (comandos explicados, JSON de saída, automação) | [MANUAL.md](docs/MANUAL.md) |
 | Qualidade, evidências reais e limites conhecidos | [QUALITY.md](docs/QUALITY.md) |
 | Medir qualidade editorial (blind tests) | [eval/README.md](eval/README.md) — processo, rubrica, corpus e rodadas; execute um caso com [`/get-brolls-eval`](commands/get-brolls-eval.md). |
-| Contribuir (fluxo de mudança, revisão, PR) | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Decidir sobre nova branch/worktree ou contribuir (mudança, revisão e PR) | [CONTRIBUTING.md](CONTRIBUTING.md#desenvolvimento-e-verificação) |
 | Segurança, egress e dados privados | [SECURITY.md](docs/SECURITY.md) |
 | O que mudou em cada versão | [CHANGELOG.md](CHANGELOG.md) |
 | Visão do produto e primeiro uso | [README.md](README.md) · [README.en.md](README.en.md) |
