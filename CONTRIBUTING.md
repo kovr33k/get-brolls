@@ -24,6 +24,8 @@ Testes automatizados usam mídia sintética e mocks, sem segredos ou conteúdo p
 - Antes da integração, exija a bateria completa prevista no CI para o estado final. Um CI concluído e aprovado para a revisão atual é evidência suficiente dessa bateria; não a duplique localmente apenas para abrir o PR ou redigir o relatório. Mudanças posteriores exigem nova verificação do que afetarem e os checks obrigatórios do PR atualizado. Preserve os portões de release e a validação real ou humana exigida pela rota.
 - Relate comando ou check, revisão verificada, resultado e contagens de testes e skips. Leia o resumo das verificações bem-sucedidas; examine logs detalhados em falhas ou quando o resumo não resolver uma dúvida. Não descreva um teste focado como validação completa.
 
+O tamanho do `SKILL.md` é uma orientação de legibilidade: exceder as referências de palavras emite avisos, sem reprovar testes. Preserve os contratos importantes; reduza repetições e consulte as referências para detalhes. As verificações de conteúdo, frontmatter e sincronização do espelho continuam obrigatórias.
+
 Comandos para a suíte completa e o diagnóstico de disponibilidade:
 
 ```sh

@@ -12,6 +12,7 @@ tags: [get-brolls]
 
 ## 2.13.1 — 2026-10-05
 
+- Skill readability: exceeding the word-count or paragraph-length guidelines reports a warning instead of failing tests. Required instruction content, frontmatter and generated-mirror checks remain enforced.
 - Development guidance: related work shares one PR and documentation update; agents read affected code, use focused checks during implementation, reuse valid final CI evidence, and inspect successful check summaries. Required integration, release and live verification gates remain in place.
 - CI: one Windows job on Python 3.14.4 runs lint, types and the full offline suite, replacing the Python-version matrix and separate quality job. Full validation runs on PRs; merging into main does not start a duplicate suite. Operational guidance and the required check name follow the maintained validation policy.
 - LoC: browser-verification challenges have a separate diagnostic and an audited browser fallback. Reuse the failed query's allowance, import observed item references, and link a locally supplied original without exporting browser cookies or bypassing protection.
