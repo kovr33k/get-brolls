@@ -315,11 +315,19 @@ def capabilities():
     }
     result["europeana"]["live_observation"] = {
         "date": "2026-10-05",
-        "version": "2.13.0",
+        "version": "2.13.2",
         "status": "partial_sample",
-        "operations": ["search", "resolve_url"],
-        "preview": "unverified",
-        "limitations": "Confirmed personal key enabled one bounded two-result image query. Selected institution record supplied no supported public original; it remains a manual locator. No acquired media, decode or editorial acceptance is claimed.",
+        "source_url": "https://www.europeana.eu/item/2022362/_Royal_Museums_Greenwich__http___collections_rmg_co_uk_collections_objects_125092",
+        "selected_file": "https://collections.rmg.co.uk/mediaLib/342/media-342106/large.jpg",
+        "operations": ["search", "resolve_url", "manual_media_import", "preview", "decode"],
+        "preview": "passed_sample",
+        "width": 899,
+        "height": 1280,
+        "duration_s": None,
+        "limitations": "One institution JPEG was acquired, linked to the record, decoded and viewed. "
+        "This bridge drawing is not the Venezuela scenario or a verified highest-quality master. "
+        "Record CC BY-NC-SA and resource In Copyright statements conflict; rights and human approval remain unknown. "
+        "The initial personal-key search used 2.13.0; this observation is not current API clearance.",
     }
     for name, url, width, height, duration, size in (
         ("nara", "https://catalog.archives.gov/id/115446171", 3152, 4728, None, 5070979),
@@ -362,12 +370,6 @@ def capabilities():
             "Shot I-294661-INT-1+002; decoded 6.36-9.36s MP4 window, 1920x1080/25fps/338.88s parent, 432162335 bytes. Viewed sign is unsuitable for literal speech. Live HLS/fallback unverified.",
         ),
         (
-            "un_webtv",
-            "https://webtv.un.org/en/asset/k14/k140iyou7p",
-            "partial_sample",
-            "English full-text transcript and actual yt-dlp/Kaltura metadata passed, 11247s. Acquisition, decoding and suitability unverified without an explicit access decision.",
-        ),
-        (
             "gdelt_tv",
             "https://archive.org/details/CNNW_20170926_160000_Inside_Politics#start/3561/end/3596",
             "partial_sample",
@@ -382,6 +384,51 @@ def capabilities():
             "source_url": url,
             "limitations": limit + " One dated sample; no current access, human approval or reuse grant.",
         }
+    result["un_webtv"].update(
+        live="sample_verified",
+        live_observation={
+            "date": "2026-10-06",
+            "version": "2.13.2",
+            "status": "passed_sample",
+            "source_url": "https://webtv.un.org/en/asset/k14/k140iyou7p",
+            "operations": ["full_text_search", "inspect", "access_decision", "preview", "viewing", "decode"],
+            "bytes": 359186,
+            "width": 1280,
+            "height": 720,
+            "fps": 25,
+            "duration_s": 3.0,
+            "source_duration_s": 11247.0,
+            "interval_s": [1908, 1911],
+            "visual_verdict": "unsuitable",
+            "limitations": "One acquired Kaltura working window under a separate explicit access decision. "
+            "Viewed delegates do not establish an environmental-policy speech; automatic transcripts are not official records. "
+            "The 2.13.3 candidate selection correction was exercised before its metadata version bump. "
+            "Full-recording acquisition, editing original, current access, rights and human approval remain unverified.",
+        },
+    )
+    result["destockd"].update(
+        live="sample_verified",
+        live_observation={
+            "date": "2026-10-06",
+            "version": "2.13.2",
+            "status": "passed_sample",
+            "source_url": "https://destockd.com/#/shot/SYMPHONY%20IN%20F/shot_080",
+            "original_url": "https://archive.org/details/fc-fc-4355_HD_2Mbps",
+            "selected_file": "fc-fc-4355_HD_2Mbps.mp4",
+            "operations": ["browser_import", "preview", "linked_original", "inspect", "viewing", "decode"],
+            "bytes": 134437955,
+            "width": 1920,
+            "height": 1080,
+            "duration_s": 450.165958,
+            "original_interval_s": None,
+            "decoded_interval_s": [0, 3],
+            "visual_verdict": "unsuitable",
+            "limitations": "Website preview and its observed source film were acquired separately. "
+            "The decoded source opening is an archives bumper, not the website's car shot. "
+            "Exact original cut boundaries, reuse rights and human approval remain unknown. "
+            "No undocumented API or automatic direct Destockd original acquisition is enabled.",
+        },
+    )
     result["un_avlibrary"].update(
         live="sample_verified",
         live_observation={

@@ -10,6 +10,11 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.13.7 — 2026-10-06
+
+- Provider diagnostics: reconcile dated Europeana institution-image acquisition, the UN Web TV working window and Destockd's separately acquired source film with the existing saved evidence. Keep live access, unknown master quality or cut boundaries, rights and human approval independent; no additional search or acquisition route is enabled.
+- Integrated acceptance: reconcile all twenty retained catalogs and the current eight-fragment, eleven-preview scenario. Preserve the user's saved choices as test evidence and expose the pending human, permitted-delivery and native print/PDF checkpoints explicitly.
+
 ## 2.13.6 — 2026-10-06
 
 - LoC: import public observed metadata for a known canonical item with `resolve --locator-metadata` before any blocked API request, without fabricating a keyword search or renewing its allowance. Require matching item identity and image/video kind; keep the record manual until an actual supplied original is linked.

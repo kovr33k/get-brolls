@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-06
+updated: 2026-10-07
 tags: [get-brolls, guide, installation, providers, storyboard]
 ---
 
@@ -533,6 +533,8 @@ For a multi-file page, select a real asset with `resolve --url https://archive.o
 Prepared previews enter `review --ready-only` with their original narration. Human approval and rights evidence remain independent prerequisites for `fetch`, then `verify` and `deliver`. See [source contracts](SOURCE-CATALOGS.md#internet-archive--archiveorg) and [dated quality observations](QUALITY.md).
 
 `providers` lists twenty retained catalogs plus local import. `implementation`, operation flags, `configured`, and `live_observation` express separate facts. A configured key or session reference is not authenticated access. Unverified adapters never advertise working discovery. The private configuration allowlist accepts DVIDS, Europeana, NARA, Mapillary, Telegram, and optional AI settings shown in `.env.example`; process values still win and unknown names are rejected. Optional Gemini/xAI keys do not select API billing. The account routes below distinguish geographic discovery, local user authorization, public-channel scope and retained OAuth access.
+
+`live_observation` records a dated, bounded source sample: the version used, operations actually exercised, selected media and remaining limits. A decoded working window or linked institution file does not establish current access, a complete recording or editing master, exact original cut boundaries, editorial suitability, human approval or reuse permission. Read its date and limitations alongside the implemented capabilities and current access result. Later media acquisition can update an earlier metadata-only observation without enabling another transport; see [dated source evidence](QUALITY.md).
 
 `doctor` reports installed executables and local configuration. A missing standalone Playwright CLI does not determine whether the managing agent has another authorized browser/session for capture; neither result proves live platform access. Check the actual browser and acquisition route separately.
 

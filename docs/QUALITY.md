@@ -2,15 +2,27 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-06
+updated: 2026-10-07
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.13.6
+# Qualidade e evidências — GET B-ROLLS 2.13.7
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
 The current [catalog acceptance checklist](CATALOG-ACCEPTANCE.md) maps the twenty retained routes and remaining criteria to this dated evidence. It does not replace the source-specific observations below or claim completion of the remaining tickets.
+
+## Integrated acceptance reconciliation — 2026-10-07, 2.13.7 candidate
+
+**Current source state.** PR #38 completed social browser acquisition and PR #40 completed LoC supplied-master acquisition; source tickets #3–19 are closed. PR #40's full required Windows check passed 1,249 tests with 26 skips. Its saved verification artifact and main tree match; 94 focused post-merge checks passed with one skip, together with version/mirror/links and actual master-state verification. This evidence precedes this diagnostic/documentation follow-up, whose final Windows CI remains required.
+
+**Reused real media and decisions.** All eleven representative media hashes still match their successful strict decode records. All eleven saved human-test signatures and review epochs match the current pilot; its eight Spanish narration fragments are preserved. Six viewed options have qualified matches and five shown examples remain unsuitable. Searches remain resumable, no fragment reaches three and no absence or completed-montage claim is made. Eight Approve and three Reject remain test-only, not operational approvals. No new source search, quota, entitlement probe or download was required to validate the unchanged files.
+
+**Diagnostic reconciliation.** Europeana now reports the separately acquired, linked and decoded 899×1280 institution JPEG while preserving conflicting item/resource rights and unknown master quality. UN Web TV reports the actual 1908–1911s acquired/decoded 1280×720 window under its separate access decision, not acquisition of the 11,247s source or environmental-policy suitability. Destockd records its website preview and separately linked 1920×1080 source film without inventing the shot's original boundaries or enabling its undocumented API. These are dated observations, not current access promises; the original evidence remains in the sections below.
+
+**Candidate verification.** Seventy affected provider, CLI-help/surface, version, mirror and skill-contract tests pass without skips. Ruff lint and formatting, Pyright, version coherence, mirror, relative links and affected command help pass. On the real board, next/previous navigation, selector, source/original-narration switching and the search-options journal pass. A 390×844 viewport has 375px content width, no horizontal overflow and all shown images loaded; the normal viewport is restored. Required full Windows PR CI and post-merge verification remain separate integration gates.
+
+**Remaining gates.** A separate unchanged 2179×1440 [Commons photograph](https://commons.wikimedia.org/wiki/File:9A83ME_TEL_-_Antey-2500_SAM_02.jpg), credited to Vitaly V. Kuzmin under its published CC BY-SA 4.0 conditions, is prepared for an explicit human-approved file-delivery test. The technical narration labels that purpose; it does not establish Venezuelan ownership or operation footage. Permission evidence is recorded, but final fetch refuses the pending human approval. Native printing of the isolated synthetic board again blocks the available integrated-browser control; no exported/rendered PDF is claimed. The installer prerequisite check passes; doctor reports the standalone Playwright CLI missing while integrated browser use is separately observed. Human acceptance, permitted test delivery, PDF verification and final integration remain open in the [acceptance checkpoint](CATALOG-ACCEPTANCE.md).
 
 ## LoC supplied master — 2026-10-06, 2.13.6 candidate
 

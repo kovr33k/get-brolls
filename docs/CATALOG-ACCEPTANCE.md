@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-10-05
-updated: 2026-10-06
+updated: 2026-10-07
 tags: [get-brolls, catalogs, acceptance, evidence]
 ---
 
@@ -11,6 +11,31 @@ tags: [get-brolls, catalogs, acceptance, evidence]
 This checklist tracks [issue #20](https://github.com/kovr33k/get-brolls/issues/20) and the remaining source tickets against the [accepted specification](SPEC-CATALOG-INTEGRATION.md). It is an acceptance checkpoint, not a completion statement or a replacement specification. Source implementation, dated access/media observations, visual suitability, human approval and reuse conditions remain separate. Detailed public sample URLs and measured outcomes live in [QUALITY.md](QUALITY.md); private projects, media and access material stay outside distribution.
 
 ## Source evidence and remaining checks
+
+### Current integrated checkpoint — 2026-10-07, 2.13.7 candidate
+
+All source tickets #3–19 are closed. [PR #38](https://github.com/kovr33k/get-brolls/pull/38) completed Instagram/TikTok and [PR #40](https://github.com/kovr33k/get-brolls/pull/40) completed the supplied LoC master handoff. PR #40's Windows CI passed 1,249 tests with 26 skips; its verified tree matches main. Ninety-four focused post-merge tests passed with one skip. The dated source reconciliations below retain their historical closure gates; this checkpoint supersedes those gates.
+
+The current inventory has exactly twenty catalogs, excluding local import and UNifeed. Every supported entry route has audited offline coverage and dated bounded live evidence or an explicit access failure. Native LoC JSON access remains unverified after HTTP 403; its known-card/supplied-TIFF route is separately verified. GDELT's selected original remains restricted. UN archive originals and Destockd exact source boundaries are not silently promoted from previews. Stock remains explicit; retained X/Grok OAuth has no billing or model fallback.
+
+The 2026-10-07 reconciliation verifies the unchanged hashes of all eleven representative media files against their successful decode records and validates all eleven saved decision signatures/epochs. The eight original Spanish narration fragments remain unchanged. The scenario contains six qualified viewed options, five unsuitable examples and no fragment at the three-option target. Its existing chains remain **resumable**, not declared exhausted. Actual exhausted/access-limited shortfalls and stop-at-three behavior have separate dated source and audited offline evidence. This is a bounded acceptance scenario, not a completed montage or verification of its factual claims.
+
+The user's eight Approve and three Reject choices remain **test-only**. They have not been imported as operational approvals. A separate 2179×1440 Commons photograph is prepared for a licensed file-delivery test: item-level CC BY-SA 4.0 evidence, author credit and conditions are recorded, its existing bytes are preserved and final fetch is refused until the human decision arrives. This does not clear Telegram/X footage or establish Venezuelan ownership of the photographed equipment.
+
+The installed prerequisite check passes. Doctor's missing standalone Playwright CLI remains distinct from the available integrated browser. The real board's next/previous buttons, selector, source/narration switching and search-option journal pass. At 390×844, its 375px content has no horizontal overflow and every shown image loads; the default viewport is restored afterwards. Current native print on an isolated synthetic board blocks browser control; Escape does not recover the page. No rendered PDF is claimed. The separate synthetic fixture's reference-only fetch refusal remains a gate check, not a successful delivery.
+
+| #20 criterion | Current evidence | Remaining closure gate |
+|---|---|---|
+| Twenty retained catalogs and truthful capabilities | Existing provider-family contract suites and dated source observations; Europeana, UN Web TV and Destockd diagnostics now reconcile later acquired media without changing entry routes | Final candidate CI and integration |
+| Independent fragments, budgets, duplicates, transitions, two passes, shortfalls and recovery | Audited CLI scenarios in search-chain, Archive-fragment and provider-family suites; all covered by the full 1,249-test main CI | Repeat required PR CI for this diagnostic/doc candidate |
+| Backward compatibility and review/approval/rights/delivery | Existing CLI/ledger/status/review/delivery regressions; real saved choices and media match; separate licensed delivery sample has closed human gate | Actual final human decision, file delivery and rendered print/PDF check |
+| Bounded real routes and media | Dated evidence for every retained source, acquired pixels and decode where available; rejected access remains explicitly unverified | No new credential, procurement or universal-access claim |
+| Representative real-preview review | Eight narration fragments, eleven actual previews, six qualified viewed options, unsuitable examples and eight/three saved test choices | Explicit acceptance of the documented bounded workflow result |
+| Guidance and scope | Canonical skill/mirror, GUIDE, SOURCE-CATALOGS, QUALITY, configuration and changelog; managing agent keeps planning responsibility | Final version/mirror/links/help verification |
+| Prerequisites and quality gates | Current installer check and doctor; reusable main CI and focused post-merge evidence | Final required Windows candidate CI and post-merge checks |
+| Remaining limits and deferred policy | Manual acquisition, access failures, unknown rights, resumable scenario and ADR requested-original counting remain explicit | No silent catalog exclusion, auto-approval, publication or procurement |
+
+Issue #20 remains open for these gates. Parent #2 is separate. Technical checks or this candidate checkpoint do not supply the missing human decision, PDF artifact or permitted delivery.
 
 [PR #32](https://github.com/kovr33k/get-brolls/pull/32) merged the reconciled #8–12 implementation batch. Its required Windows CI passed 1,241 tests with 26 skips; the merge tree equals the tested PR tree. Seventy-five focused local checks and version/mirror/links passed after merge. Those five tickets are closed. Production tagging and personal installation remain separate actions.
 
@@ -107,12 +132,12 @@ The remaining ticket evidence maps to the following observable checks. This map 
 
 ## Completion checklist for #20
 
-- [ ] Reconcile every source ticket's actual criteria with implementation, tests and separately dated live evidence; keep unresolved/manual/paused operations explicit.
-- [ ] Reconcile required X/Grok OAuth implementation, live search/manual-media evidence and final-state checks; local diagnostics remain separate from authenticated tool access and API billing stays unused.
-- [ ] Resolve source-access/original gaps without protection bypass, invented timing or automatic procurement.
-- [ ] Exercise the selected representative scenario with original narration, actual viewed options and honest shortfalls. Preserve and verify resume state.
+- [x] Reconcile every source ticket's actual criteria with implementation, tests and separately dated live evidence; keep unresolved/manual/paused operations explicit.
+- [x] Reconcile required X/Grok OAuth implementation, live search/manual-media evidence and final-state checks; local diagnostics remain separate from authenticated tool access and API billing stays unused.
+- [x] Resolve source-access/original gaps under the source-ticket criteria, keeping unavailable operations explicit and without protection bypass, invented timing or automatic procurement.
+- [x] Exercise the selected representative scenario with original narration, actual viewed options and honest current shortages. Preserve and verify resumable state; terminal shortfalls have separate audited evidence.
 - [ ] Obtain human Storyboard decisions, record actual reuse conditions, then exercise fetch, verify and delivery for selected material.
-- [ ] Validate canonical skill/mirror, operational/catalog guidance, configuration examples, changelog, affected command help and relative links for the final contents.
+- [x] Validate canonical skill/mirror, operational/catalog guidance, configuration examples, changelog, affected command help and relative links for the final contents.
 - [ ] Ensure installer prerequisites, doctor, complete offline/lint/type/packaging checks and the required Windows Python 3.14.4 PR CI cover the final state. Doctor is diagnostics, not acquisition evidence.
 - [ ] Integrate the coherent completion batch through the authorized PR workflow. Close #20 last among child tickets, then reconcile parent #2; production release and personal skill installation remain separate actions.
 
