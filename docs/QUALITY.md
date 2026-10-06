@@ -64,6 +64,6 @@ The [complete quality archive](archive/quality-evidence-through-2026-10-07.md) p
 - [Instagram/TikTok browser lifecycles](archive/quality-evidence-through-2026-10-07.md#instagram-and-tiktok-browser-lifecycle--2026-10-06-2135-candidate) and [Instagram two-stream acquisition](archive/quality-evidence-through-2026-10-07.md#instagram-two-stream-acquisition--2026-10-05-2131-candidate).
 - [UN archive working preview](archive/quality-evidence-through-2026-10-07.md#un-archive-working-preview--2026-10-06-2134-candidate) and [UN Web TV/Europeana/Destockd reconciliation](archive/quality-evidence-through-2026-10-07.md#remaining-catalog-reconciliation--2026-10-06-2133-candidate).
 - [X OAuth and catalog acceptance follow-up](archive/quality-evidence-through-2026-10-07.md#catalog-acceptance-follow-up--2026-10-05-2132-candidate).
-- [Earlier QA and blind-test baseline](archive/quality-evidence-through-2026-10-07.md#blind-tests).
+- [QA 2.4.0 and the complete blind-test round](archive/quality-evidence-through-2026-10-07.md#qa-da-versão-240--17092026); [earlier blind-test baseline](archive/quality-evidence-through-2026-10-07.md#blind-tests).
 
 Earlier source-ticket closure checkpoints are also preserved in the [acceptance archive](archive/catalog-acceptance-2026-10-07.md). Private projects, media, account material and saved decisions remain outside distribution.
