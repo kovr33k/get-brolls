@@ -77,6 +77,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 
 - **Search:** public JSON responses (`fo=json`), keyword query, and facets for format, collection, date, place, language, or contributor. Available full text can include video transcripts.
 - **Acquisition:** inspect item resources and their actual file variants. Prefer the master/highest available quality, especially for maps and scans, rather than a small web derivative.
+- **Known-card handoff:** observed metadata for a canonical item can enter `resolve --locator-metadata` without another search or blocked API call. It remains a manual locator until an actually obtained master is linked with `--original-for`. Both TIFF suffixes are supported. A dated supplied 5880×3049 TIFF passed decoding, preview and viewed confirmation on 2026-10-06; JSON API access remains unverified after browser-verification 403. See [QUALITY](QUALITY.md) for the separate evidence and limitations.
 - **Inside a video:** use supplied timed captions or plain transcript text. The current adapter supports direct image/video files; HLS and unconfirmed Streaming Services operations remain unsupported/manual.
 - **Keep:** item/resource identifiers, actual file, source page, date, and item-level rights/access statements.
 - **References:** [APIs](https://www.loc.gov/apis/), [query parameters](https://www.loc.gov/apis/json-and-yaml/requests/parameters/).

@@ -3,7 +3,7 @@ name: get-brolls
 description: 'Coleta, pré-visualiza e entrega B-rolls com revisão humana e origem registrada. Use quando alguém pedir b-roll, vídeos de apoio, imagens de apoio, cutaways, inserts, footage, "um corte do X falando Y", um print da tela de um site ou de uma notícia, ou material para ilustrar um vídeo, Reel ou aula — buscando em YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org ou bancos (Pexels, Pixabay), gerando prévias para revisão humana e entregando os trechos com origem e condições de uso. Also in English: collect B-roll, cutaways, inserts, supporting footage, stock video, screen grabs. Não serve para editar, montar ou renderizar o vídeo final. Not for editing or rendering the finished video.'
 license: MIT
 metadata:
-  version: "2.13.5"
+  version: "2.13.6"
   type: "skill"
   status: "current"
   created: "2026-09-15"
@@ -78,6 +78,8 @@ Consulte [SOURCE-CATALOGS.md](${CLAUDE_PLUGIN_ROOT}/docs/SOURCE-CATALOGS.md) par
 - **Referência de arquivo e original de edição.** UN Audiovisual Library e Destockd podem oferecer referência/prévia sem um original pronto para edição. Preserve essa limitação: essas prévias ficam adiadas na contagem adequada até um original associado ser visto e confirmado. Associe o original real com `--original-for` e registre as condições fornecidas. Não invente o intervalo do filme pelo número do shot nem presuma que o registro envia um pedido, aceita termos ou paga licença.
   Para uma URL/Asset ID já conhecido, `resolve --locator-metadata` importa o objeto JSON público observado sem inventar busca ou gastar consulta. Um player UN realmente disponível pode usar a própria URL canônica em `preview_url`; `inspect` e `preview` usam yt-dlp, com transporte privado. Isso continua sendo uma referência, não um original liberado. Veja os campos e limites no guia de locators.
 - **Mapillary, Telegram e X.** Mapillary pesquisa imagens por geografia real; o texto do assunto não é busca de palavras-chave. Telegram usa login local e apenas a whitelist pública explícita, sem DMs ou varredura das assinaturas da conta. X pesquisa pelo OAuth Grok retido, com modelo/ferramenta efetivamente verificados, datas explícitas e uma chamada nativa por pedido, dentro da mesma cota de tentativas. Diagnóstico local não prova acesso atual; resumo, citação e link não provam texto original, material visível ou download. Confira o post original e importe apenas a captura/mídia realmente obtida por uma rota separadamente verificada. Não delegue código ao Grok, troque modelo ou habilite faturamento como fallback automático. Consulte [as rotas de acesso](${CLAUDE_PLUGIN_ROOT}/docs/GUIDE.md#providers--mapillary-telegram-and-x-access).
+Para uma **card LoC já conhecida**, importe somente os metadados públicos observados com `resolve --url <item> --locator-metadata <json>`; não invente outra busca nem trate isso como resposta da API. Informe `media_kind`, mantenha desconhecidos sem preencher e associe o master realmente obtido com `--original-for` e as condições observadas. TIFF `.tif`/`.tiff` conserva dimensões medidas sem duração/FPS inventados. O [guia LoC](${CLAUDE_PLUGIN_ROOT}/docs/GUIDE.md#providers--loc-dvids-europeana-and-nara) detalha esse handoff e seus portões independentes.
+
 ## Passo 4 — Analise e pré-visualize
 
 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gb.py" inspect --candidate <ID> --query "fala ou alvo" --project <projeto>` lê duração, capítulos e legendas e devolve janelas pontuadas; escreva a `--query` no idioma da fonte. Escolha `--start/--end` a partir delas, nunca de palpite.

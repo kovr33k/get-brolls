@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import _isolation  # noqa: F401
-from _media import skip_unless_ffmpeg, synth_video
+from _media import skip_unless_ffmpeg, synth_image, synth_video
 from _paths import ROOT  # noqa: F401
 from test_archive_fragment_search import META, confirm
 from test_search_chains import advance, brief_data, call, plan_chain, progress, stored, write_brief
@@ -127,6 +127,77 @@ class BrowserCatalogFragments(unittest.TestCase):
         with self.assertRaisesRegex(OperationError, "cannot be rewritten"):
             self.reserve()
         self.assertEqual(1, progress(self.project)["queries_used"])
+
+    @skip_unless_ffmpeg
+    def test_known_loc_card_links_a_tiff_without_api_or_fabricated_search(self):
+        write_brief(self.project, brief_data(["loc"]))
+        plan_chain(self.project, ["loc"])
+        url = "https://www.loc.gov/item/fixture-stereograph/"
+        metadata = self.project / "observed-card.json"
+        metadata.write_text(
+            json.dumps({"url": url, "title": "Synthetic observed stereograph", "media_kind": "image"}),
+            encoding="utf-8",
+        )
+        with patch.object(providers, "resolve", side_effect=AssertionError("No blocked API call")):
+            locator = call(
+                self.project, "resolve", "--url", url, "--locator-metadata", str(metadata), "--shot", "opening"
+            )
+        self.assertEqual("loc", locator["provider"])
+        self.assertEqual("manual", locator["acquisition"]["method"])
+        self.assertEqual(0, progress(self.project)["queries_used"])
+        self.assertEqual([], stored(self.project)["attempts"])
+        original_file = self.project / "master.tif"
+        synth_image(original_file)
+        original = call(
+            self.project,
+            "resolve",
+            "--file",
+            str(original_file),
+            "--asset-type",
+            "image",
+            "--original-for",
+            locator["id"],
+            "--original-conditions",
+            "Synthetic matching TIFF master",
+        )
+        self.assertEqual(url, original["source_reference"]["source_url"])
+        self.assertEqual("image", original["media"]["kind"])
+        self.assertIsNone(original["media"]["duration_s"])
+        self.assertIsNone(original["media"]["fps"])
+        self.assertIsNone(original["creator"]["name"])
+        call(self.project, "preview", "--candidate", original["id"])
+        confirm(self.project, original["id"], viewed="preview", preview="poster")
+        self.assertEqual(1, progress(self.project)["suitable_count"])
+        self.assertEqual(0, progress(self.project)["queries_used"])
+        call(self.project, "review", "--ready-only")
+        current = Ledger(self.project, recover=False).get(original["id"])
+        self.assertEqual("pending", current["approval"]["status"])
+        self.assertEqual("unknown", current["rights"]["status"])
+        with self.assertRaises(OperationError):
+            call(self.project, "fetch", "--candidate", original["id"])
+
+    def test_known_loc_metadata_rejects_wrong_card_and_missing_media_kind(self):
+        url = "https://www.loc.gov/item/fixture-stereograph/"
+        metadata = self.project / "observed-card.json"
+        initial = call(self.project, "resolve", "--un-asset-id", "d3411148")
+        before = (self.project / "brolls/manifest.json").read_bytes()
+        for entry in (
+            {"url": "https://www.loc.gov/item/other/", "media_kind": "image"},
+            {"url": url},
+            {"url": url, "media_kind": "image", "cookie": "private"},
+        ):
+            with self.subTest(entry=entry):
+                metadata.write_text(json.dumps(entry), encoding="utf-8")
+                with self.assertRaises(OperationError):
+                    call(self.project, "resolve", "--url", url, "--locator-metadata", str(metadata))
+                self.assertEqual(before, (self.project / "brolls/manifest.json").read_bytes())
+        self.assertEqual("manual", initial["acquisition"]["method"])
+
+        metadata.write_text(json.dumps({"url": url, "media_kind": "image"}), encoding="utf-8")
+        for flag in ("--catalog-file", "--archive-file"):
+            with self.subTest(flag=flag), self.assertRaises(OperationError):
+                call(self.project, "resolve", "--url", url, "--locator-metadata", str(metadata), flag, "master.tif")
+            self.assertEqual(before, (self.project / "brolls/manifest.json").read_bytes())
 
     @skip_unless_ffmpeg
     def test_loc_browser_locator_links_a_decoded_local_original_with_separate_gates(self):

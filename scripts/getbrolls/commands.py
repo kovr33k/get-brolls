@@ -1766,6 +1766,12 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             from .browser_results import un_asset
 
             c = un_asset(args.un_asset_id)
+        elif getattr(args, "locator_metadata", None):
+            from .browser_results import locator
+
+            if args.catalog_file or args.archive_file:
+                raise ValueError("Observed locator metadata cannot select a native file; link a local --original-for.")
+            c = locator(args.url)
         else:
             c = (
                 providers.resolve(
@@ -1812,7 +1818,9 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                 c[field + "_media"] = probe(auxiliary)
         if args.file:
             inferred = (
-                "image" if path.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff") else "video"
+                "image"
+                if path.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff")
+                else "video"
             )
             c["asset_type"] = args.asset_type or inferred
             if (c["asset_type"] == "video") != (inferred == "video"):
