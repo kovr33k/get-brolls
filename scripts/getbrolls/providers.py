@@ -343,6 +343,27 @@ def capabilities():
             "source_url": url,
             "limitations": limit + " One dated sample; no current access, human approval or reuse grant.",
         }
+    result["un_avlibrary"].update(
+        live="sample_verified",
+        live_observation={
+            "date": "2026-10-06",
+            "version": "2.13.4",
+            "status": "passed_sample",
+            "source_url": "https://media.un.org/avlibrary/en/asset/d231/d2313786",
+            "operations": ["asset_id_import", "inspect", "preview", "viewing", "review", "decode"],
+            "bytes": 231215,
+            "width": 960,
+            "height": 540,
+            "fps": 29.97002997002997,
+            "duration_s": 3.036,
+            "interval_s": [22, 25],
+            "visual_verdict": "unsuitable",
+            "limitations": "One dated canonical-card Kaltura working preview. Viewed a speaker and seated audience, "
+            "not factory or rural electrification imagery. This is a license-required viewing reference; "
+            "original availability/timing, reuse rights and human approval remain unverified. "
+            "No universal keyword search, archive-wide player support or procurement is established.",
+        },
+    )
     return result
 
 

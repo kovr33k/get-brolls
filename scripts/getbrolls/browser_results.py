@@ -238,11 +238,26 @@ def _locator_metadata(row, entry, texts):
         data["source_interval"] = copy.deepcopy(interval)
     preview = data.get("preview_url")
     if preview:
-        if Path(urlsplit(preview).path).suffix.lower() not in (".mp4", ".webm", ".mov", ".m4v"):
+        un_player = row["provider"] == "un_avlibrary" and preview == row["source_url"]
+        if not un_player and Path(urlsplit(preview).path).suffix.lower() not in (".mp4", ".webm", ".mov", ".m4v"):
             raise ValueError("preview_url must identify an observed public media file, not a player page or blob.")
         row["media_url"] = preview
-        row["acquisition"]["method"] = "https"
+        row["acquisition"]["method"] = "yt-dlp" if un_player else "https"
         data["representation_role"] = "preview"
+
+
+def observed_locator(row, path):
+    """Import observed metadata for one known card, without dispatching a search."""
+    if row["provider"] not in ("un_avlibrary", "destockd"):
+        raise ValueError("--locator-metadata requires a known UN or Destockd card.")
+    path = Path(path)
+    if path.stat().st_size > MAX_IMPORT_BYTES:
+        raise ValueError("Locator metadata import exceeds 512 KiB.")
+    entry = json.loads(path.read_text(encoding="utf-8-sig"))
+    observed = _observed_row(entry, row["provider"])
+    if observed["source_url"] != row["source_url"]:
+        raise ValueError("Observed locator metadata must match the selected card or Asset ID.")
+    return observed
 
 
 def reserve_command(ledger, args, rules):

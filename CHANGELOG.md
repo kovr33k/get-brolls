@@ -10,6 +10,10 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.13.4 — 2026-10-06
+
+- UN archive previews: import observed metadata for a known UN/Destockd card with `resolve --locator-metadata`, retaining identity, context and query allowance without fabricating a browser search. A confirmed UN canonical-card player uses the existing yt-dlp inspection/preview route; public media files retain HTTPS acquisition. Preview references remain license-required, deferred from the suitable-option target and blocked from final-original acquisition. Add audited CLI regressions for the player, provenance, secrets and independent human/rights gates.
+
 ## 2.13.3 — 2026-10-06
 
 - UN Web TV: prefer identified video HLS and the canonical page's audio locale before the existing direct-file fallback. Some Kaltura MP4 entries advertise 1080p but deliver audio only; working previews still require measured video, the requested duration and successful decoding. Add an audio-only regression with real synthetic media for English and French pages.

@@ -304,6 +304,101 @@ class BrowserCatalogFragments(unittest.TestCase):
         self.assertNotIn("preview_url", shot["locator"])
         self.assertIsNone(shot["media"]["duration_s"])
 
+    @skip_unless_ffmpeg
+    def test_direct_un_player_metadata_preview_without_fabricated_search_or_original(self):
+        plan_chain(self.project, ["un_avlibrary"])
+        metadata = self.project / "observed-card.json"
+        metadata.write_text(
+            json.dumps(
+                {
+                    "asset_id": "d3411148",
+                    "title": "Synthetic observed UN card",
+                    "date": "2025-01-02",
+                    "shotlist": "Observed scene list; no source times supplied.",
+                    "preview_url": UN,
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch("getbrolls.http.get_json") as network:
+            row = call(
+                self.project,
+                "resolve",
+                "--un-asset-id",
+                "d3411148",
+                "--locator-metadata",
+                str(metadata),
+                "--shot",
+                "opening",
+            )
+            network.assert_not_called()
+        ident = row["id"]
+        self.assertEqual(0, progress(self.project)["queries_used"])
+        self.assertEqual([], stored(self.project)["attempts"])
+        self.assertEqual("yt-dlp", row["acquisition"]["method"])
+        self.assertEqual("preview", row["locator"]["representation_role"])
+        self.assertTrue(row["locator"]["license_required"])
+        self.assertNotIn("source_interval", row["locator"])
+        self.assertNotIn("source_reference", row)
+
+        def download(url, target, start, end):
+            self.assertEqual(UN, url)
+            synth_video(target, duration=end - start)
+
+        with patch("getbrolls.social.download_segment", side_effect=download):
+            call(self.project, "preview", "--candidate", ident, "--start", "1", "--end", "3")
+        confirm(self.project, ident)
+        report = progress(self.project)
+        self.assertEqual(0, report["suitable_count"])
+        self.assertTrue(report["deferred_options"])
+        call(self.project, "review", "--ready-only")
+        page = (self.project / "brolls/review.html").read_text(encoding="utf-8")
+        self.assertIn("Synthetic observed UN card", page)
+        self.assertIn("d3411148", page)
+        item = Ledger(self.project, recover=False).get(ident)
+        self.assertEqual("pending", item["approval"]["status"])
+        self.assertEqual("unknown", item["rights"]["status"])
+        with self.assertRaises(OperationError):
+            call(self.project, "fetch", "--candidate", ident)
+        self.assertEqual(0, progress(self.project)["queries_used"])
+        call(
+            self.project,
+            "approve",
+            "--candidate",
+            ident,
+            "--by",
+            "Synthetic fixture reviewer",
+            "--channel",
+            "chat",
+            "--statement",
+            "Synthetic fixture preview approval",
+        )
+        call(self.project, "permit", "--candidate", ident, "--evidence", "Synthetic fixture media")
+        with self.assertRaisesRegex(OperationError, "somente referência"):
+            call(self.project, "fetch", "--candidate", ident)
+
+    def test_direct_locator_metadata_rejects_wrong_identity_secrets_and_unrelated_players(self):
+        metadata = self.project / "observed-card.json"
+        initial = call(self.project, "resolve", "--un-asset-id", "d3411148")
+        before = (self.project / "brolls/manifest.json").read_bytes()
+        for entry in (
+            {"asset_id": "d3419999"},
+            {"url": UN, "preview_url": "https://example.org/player"},
+            {"url": UN, "preview_url": "https://cdn.example.org/preview.mp4?Signature=private"},
+            {"url": UN, "cookie": "private"},
+            [{"url": UN}],
+        ):
+            with self.subTest(entry=entry):
+                metadata.write_text(json.dumps(entry), encoding="utf-8")
+                with self.assertRaises(OperationError):
+                    call(self.project, "resolve", "--un-asset-id", "d3411148", "--locator-metadata", str(metadata))
+                self.assertEqual(before, (self.project / "brolls/manifest.json").read_bytes())
+        metadata.write_text(json.dumps({"url": UN, "preview_url": UN}), encoding="utf-8")
+        with self.assertRaisesRegex(OperationError, "diferentes"):
+            call(self.project, "resolve", "--un-asset-id", "d3411148", "--locator-metadata", str(metadata))
+        self.assertEqual(before, (self.project / "brolls/manifest.json").read_bytes())
+        self.assertEqual("manual", initial["acquisition"]["method"])
+
     def test_tiktok_short_links_need_canonical_browser_result(self):
         plan_chain(self.project, ["tiktok"])
         attempt = self.reserve()["attempt"]

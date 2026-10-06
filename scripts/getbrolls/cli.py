@@ -604,6 +604,10 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 help="Observed supplied-original conditions; records context without granting rights",
             )
             p.add_argument(
+                "--locator-metadata",
+                help="Public observed UN/Destockd card metadata JSON; imports a known locator without a search",
+            )
+            p.add_argument(
                 "--catalog-file", help="Actual file URL or NARA object ID in a multi-resource catalog record"
             )
             p.add_argument(

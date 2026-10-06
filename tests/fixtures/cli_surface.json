@@ -1695,6 +1695,18 @@
           "action": "_StoreAction",
           "choices": null,
           "default": null,
+          "dest": "locator_metadata",
+          "help": "Public observed UN/Destockd card metadata JSON; imports a known locator without a search",
+          "nargs": null,
+          "option_strings": [
+            "--locator-metadata"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
           "dest": "catalog_file",
           "help": "Actual file URL or NARA object ID in a multi-resource catalog record",
           "nargs": null,
