@@ -1777,6 +1777,10 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                 else providers.resolve(args.url)
             )
             fill_remote_metadata(c)
+        if getattr(args, "locator_metadata", None):
+            from .browser_results import observed_locator
+
+            c = observed_locator(c, args.locator_metadata)
         if getattr(args, "original_conditions", None) and not getattr(args, "original_for", None):
             raise ValueError("--original-conditions requires --original-for.")
         if getattr(args, "original_for", None):

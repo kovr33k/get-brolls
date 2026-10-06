@@ -357,7 +357,17 @@ Choose one outcome. An access failure has no coverage verdict and does not estab
 
 This dated example records an observed card; its original-film interval was not shown. Shot numbers, film keys and preview duration are not timing evidence. Imported social posts retain their canonical identity and observed caption/account context. Instagram stream pairs stay in the existing private capture/collector route; TikTok short links need browser resolution to the complete post URL before import. Global social keyword APIs remain unimplemented.
 
-**UN Audiovisual Library.** `resolve --url CARD_URL` or `resolve --un-asset-id d2313786` registers an archive reference without a search request. UNifeed asset IDs use this same provider. `license_required` remains visible; the archive is not automatically public domain. A player or blob reference alone supplies no downloadable editing original. When an authorized original is supplied, link it explicitly:
+**UN Audiovisual Library.** `resolve --url CARD_URL` or `resolve --un-asset-id d2313786` registers an archive reference without a search request. UNifeed asset IDs use this same provider. `license_required` remains visible; the archive is not automatically public domain. A player or blob reference alone supplies no downloadable editing original.
+
+For a known UN or Destockd card, `resolve --locator-metadata observed-card.json` imports one observed public metadata object using the same fields and validation as `search-import`. Its URL/Asset ID must match the selected card. This direct import does not reserve or claim a browser search, consume a query, or replace changed metadata on an existing candidate. Use another fragment record for changed context. Cookies, signed transport URLs and blob URLs remain forbidden in that JSON.
+
+For an actually available UN player, `preview_url` may equal its canonical asset card. `inspect` and `preview` then use yt-dlp on that public card; extracted transport details stay private. This supports the observed Kaltura sample, not every historical player. Failure remains an explicit access limitation. Direct public MP4/WebM/MOV/M4V previews retain their HTTPS-file route. Both player and file previews remain viewing references, deferred from the suitable-option target and blocked from final acquisition as editing originals.
+
+```sh
+python scripts/gb.py resolve --un-asset-id d2313786 --locator-metadata observed-card.json --shot opening --project PROJECT
+```
+
+The metadata object uses the observed `asset_id`, title/date/description, optional script/shotlist reference and request link, with `preview_url` set to the canonical card only after confirming its player. Keep unavailable original timing and authorship unknown. Supplied originals continue to use the separate command below:
 
 ```sh
 python scripts/gb.py resolve --file SUPPLIED_ORIGINAL --original-for LOCATOR_ID --original-conditions "Recorded supplied-file conditions" --project PROJECT

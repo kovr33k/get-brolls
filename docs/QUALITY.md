@@ -6,13 +6,19 @@ updated: 2026-10-06
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.13.3
+# Qualidade e evidências — GET B-ROLLS 2.13.4
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
 The current [catalog acceptance checklist](CATALOG-ACCEPTANCE.md) maps the twenty retained routes and remaining criteria to this dated evidence. It does not replace the source-specific observations below or claim completion of the remaining tickets.
 
 **Current validation policy — 2026-10-05.** Maintained CI validation is one Windows job on Python 3.14.4, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Lint, types and the complete offline suite share that job. The [Tests workflow](../.github/workflows/test.yml) runs on pull requests; merging into `main` does not trigger a duplicate suite. Historical sections retain the platforms and requirements recorded at their dates.
+
+## UN archive working preview — 2026-10-06, 2.13.4 candidate
+
+The [Model Rural Electrification Centre card](https://media.un.org/avlibrary/en/asset/d231/d2313786) was read through its public website and imported by Asset ID with observed metadata, without claiming a browser search or consuming a query. Its card date, silent-language label, script link, request route and license-required status were retained. The actual Kaltura player resolved through yt-dlp; `inspect` reported an 88s representation without captions. The 22–25s working preview measured 960×540, H.264/AAC, 29.97fps, 3.036s and 231,215 bytes. Complete decoding of that acquired window passed; the full 88s film was not acquired or decoded.
+
+The contact sheet was actually viewed: a man speaking beside a curtained window, then seated men in suits. It does not show factory equipment or rural electrification infrastructure and was recorded as unsuitable for the technical fragment. The ready-only Storyboard retained the preview and canonical source. Rights remained unknown, human approval pending, output absent and final fetch refused. This verifies the selected working-preview route, not editing-original availability, archive-wide access or clearance. No footage request, correspondence, license or payment was submitted. Synthetic audited-CLI checks separately cover linked-original import, deferred counting and the refusal to fetch a preview even after fixture approval/permission.
 
 ## Remaining catalog reconciliation — 2026-10-06, 2.13.3 candidate
 

@@ -219,6 +219,8 @@ Implemented with shared locale/query accounting, public timed-transcript inspect
 
 **Retained provider ID:** `un_avlibrary`. This is an implemented browser/import archive locator and explicit supplied-original route. See [commands](GUIDE.md#browser-attempts-and-archive-locators).
 
+**Dated working-preview evidence (2026-10-06, 2.13.4):** direct Asset ID plus observed card metadata reached yt-dlp inspection, acquired/viewed 22–25s Kaltura preview, Storyboard and successful window decoding for `d2313786` (960×540). Known cards can import their metadata without claiming a browser search; public canonical-card players remain preview references. Original/request availability, original timing, reuse rights and human approval remain separate. This sample does not establish working playback for other legacy players.
+
 - **Search/access:** website discovery, public cards, and direct URL/Asset ID. The supplied research found no universal public search API; do not invent one.
 - **Keep:** title, date, description, preview reference, shotlist/time markers when available, asset ID, and the footage-request link.
 - **Acquisition:** a candidate marked `license_required` remains useful and visible. Public preview is a viewing reference, not a cleared editing original. The user requests the selected asset/interval; import the officially supplied file together with its conditions.
