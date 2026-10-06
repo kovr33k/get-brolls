@@ -56,7 +56,7 @@ try {
     Write-Host 'Crie a venv com um interpretador dessa faixa ou atualize requirements.txt como um conjunto revisado.'
     throw
 }
-Invoke-Native -Label 'Importação yt-dlp/EJS' -File $VenvPython -Arguments @('-c', 'import yt_dlp, yt_dlp_ejs; print(''yt-dlp e EJS importados'')')
+Invoke-Native -Label 'yt-dlp/EJS/TikTok transport imports' -File $VenvPython -Arguments @('-c', 'import yt_dlp, yt_dlp_ejs, curl_cffi; print(''yt-dlp, EJS and TikTok transport imported'')')
 $Tools = Join-Path $Root '.tools'
 New-Item -ItemType Directory -Path $Tools -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $Root 'package.json'), (Join-Path $Root 'package-lock.json') -Destination $Tools -Force

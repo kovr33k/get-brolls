@@ -406,6 +406,77 @@ class BrowserCatalogFragments(unittest.TestCase):
             self.complete(attempt, [{"url": "https://vm.tiktok.com/short/"}])
         self.assertEqual(1, progress(self.project)["queries_used"])
 
+    @skip_unless_ffmpeg
+    def test_instagram_pair_handoff_keeps_browser_identity_context_and_gates(self):
+        plan_chain(self.project, ["instagram"])
+        attempt = self.reserve()["attempt"]
+        post = self.complete(
+            attempt,
+            [
+                {
+                    "url": SOCIAL["instagram"],
+                    "title": "Observed panel",
+                    "account": "@fixture",
+                    "description": "Original source caption",
+                    "language": "en",
+                    "date": "2026-10-06",
+                }
+            ],
+        )["items"][0]
+        pair = self.project / "joined.mp4"
+        synth_video(pair)
+        original = call(
+            self.project,
+            "resolve",
+            "--file",
+            str(pair),
+            "--source-url",
+            SOCIAL["instagram"],
+            "--original-for",
+            post["id"],
+            "--original-conditions",
+            "Synthetic matching Reel video/audio pair",
+        )
+        self.assertEqual("local", original["provider"])
+        self.assertEqual(post["id"], original["source_reference"]["candidate"])
+        self.assertEqual("ABC123", original["source_reference"]["source_id"])
+        self.assertEqual(post["source_metadata"], original["source_metadata"])
+        self.assertEqual(post["creator"], original["creator"])
+        self.assertEqual(post["title"], original["title"])
+        self.assertEqual(post["query"], original["query"])
+        self.assertEqual(post["source_url"], original["source_url"])
+        self.assertEqual(post["narration"], original["narration"])
+        self.assertEqual("opening", original["shot"])
+        call(self.project, "inspect", "--candidate", original["id"])
+        call(self.project, "preview", "--candidate", original["id"], "--start", "0", "--end", "1")
+        confirm(self.project, original["id"])
+        self.assertEqual(1, progress(self.project)["queries_used"])
+        self.assertEqual(1, progress(self.project)["suitable_count"])
+        call(self.project, "review", "--ready-only")
+        self.assertEqual("pending", original["approval"]["status"])
+        self.assertEqual("unknown", original["rights"]["status"])
+        with self.assertRaises(OperationError):
+            call(self.project, "fetch", "--candidate", original["id"])
+        self.assertEqual(attempt["id"], self.reserve()["attempt"]["id"])
+
+    @skip_unless_ffmpeg
+    def test_instagram_pair_handoff_refuses_missing_or_different_post_provenance(self):
+        plan_chain(self.project, ["instagram"])
+        post = self.complete(self.reserve()["attempt"], [{"url": SOCIAL["instagram"]}])["items"][0]
+        pair = self.project / "joined.mp4"
+        synth_video(pair)
+        before = (self.project / "brolls/manifest.json").read_bytes()
+        for flags in (
+            [],
+            ["--source-url", SOCIAL["instagram"]],
+            ["--source-url", "https://www.instagram.com/reel/OTHER123/", "--original-conditions", "Different post"],
+            ["--source-url", SOCIAL["tiktok"], "--original-conditions", "Different platform"],
+        ):
+            with self.subTest(flags=flags), self.assertRaises(OperationError):
+                call(self.project, "resolve", "--file", str(pair), "--original-for", post["id"], *flags)
+            self.assertEqual(before, (self.project / "brolls/manifest.json").read_bytes())
+        self.assertEqual(1, progress(self.project)["queries_used"])
+
     def test_destockd_archive_original_keeps_separate_identity_and_interval(self):
         plan_chain(self.project, ["destockd"])
         attempt = self.reserve()["attempt"]

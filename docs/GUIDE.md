@@ -318,6 +318,8 @@ O MP4 unido entra com `resolve --file --source-url --creator --shot`; depois pre
 
 Recebe URL completa `https://www.tiktok.com/@usuario/video/ID` e usa o extrator TikTok do yt-dlp para obter o intervalo. `resolve --url`, `preview`, revisão e `fetch` seguem o mesmo fluxo. Sem API key da plataforma.
 
+The installer includes pinned `curl-cffi` and its dependencies for yt-dlp's TikTok web transport. A working authenticated browser does not establish that a separate yt-dlp process has the required transport or access. On extraction failure, confirm the installed dependencies before attributing the failure to the post; keep unavailable/session/rate-limit outcomes explicit. No browser cookies are exported by this route.
+
 Descubra a URL pelo navegador; não há busca global TikTok por palavra-chave implementada. Links encurtados precisam ser abertos no navegador para obter URL canônica. A existência do extrator não garante acesso a todo vídeo; teste a URL real e registre eventual exigência de sessão/indisponibilidade. Consulte [Qualidade e evidências](QUALITY.md) para a evidência desta versão.
 
 Desde a 2.4.0, `resolve --url` de um post do TikTok faz **um** pedido de metadados ao yt-dlp (`--dump-single-json --skip-download`) e já grava `title`, `creator.name`, `creator.handle` (o `@usuario`) e `media.duration_s`. Antes disso o candidato entrava como `TikTok · <id>` com autoria e duração nulas, e o checkpoint C2 — "título, canal, duração" — não tinha o que listar. O pedido é opcional por construção: se a página recusar (post privado, região bloqueada, 429), o candidato é registrado do mesmo jeito, com os campos vazios e um aviso no diagnóstico.
@@ -864,6 +866,14 @@ python3 "$GB_SKILL_DIR/scripts/gb.py" review --project "$GB_PROJECT"
 ```
 
 Windows PowerShell usa os mesmos argumentos com `python "$env:GB_SKILL_DIR\scripts\gb.py"`, `$env:GB_PROJECT`, `$env:REEL_URL` e `$env:CREATOR`.
+
+For a Reel already imported through a reserved fragment browser attempt, associate the collector's merged MP4 with that record instead of dropping its discovery context:
+
+```sh
+python scripts/gb.py resolve --file MERGED_MP4 --source-url CANONICAL_REEL_URL --original-for IMPORTED_REEL_ID --original-conditions "Observed matching video/audio asset and duration; working representation only" --project PROJECT
+```
+
+The source URL must identify the same canonical Reel and the pair conditions must describe the actual capture. The local representation keeps its own measured quality/hash, the original Reel identity, public account/caption/date/language, query and fragment narration. Inspect and preview the returned local candidate. Linking records does not verify pairing automatically, grant rights or supply human approval. Existing unlinked local imports remain supported.
 
 Use o ID local retornado e um intervalo que caiba no vídeo. Confira visualmente sincronização, identidade e conteúdo; áudio presente não comprova que é o áudio correto. O candidato fica pendente; não se autoaprove. Aprovação vem sempre de uma pessoa: pelo Storyboard (`import-review`) ou por fala explícita no chat (`approve --by NOME --channel chat --statement "frase"`, com `--statement` obrigatório no canal chat). Nunca inferir de silêncio. O download das partes para inspecionar a mídia é preparação, distinta do corte final aprovado.
 

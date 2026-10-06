@@ -246,12 +246,14 @@ Implemented with shared locale/query accounting, public timed-transcript inspect
 - **Optional external search route:** Agent Reach documents OpenCLI user search, profiles, recent posts, and Explore through an existing logged-in Chrome session. This is an integration option, not installed get-brolls functionality or proof of full-content keyword search.
 - **Current acquisition route:** browser/Playwright → capture video and audio representations of the same Reel → private temporary configs → pair collector/curl → FFmpeg merge → ffprobe/full decoding. yt-dlp by full post URL is another route when it works for the item.
 - **Critical pairing:** match Reel ID/manifest/asset identity and duration. Preloaded recommendations may supply unrelated streams; the first two MP4 requests are not sufficient evidence. `blob:` is not a downloadable source URL.
+- **Fragment handoff:** reserve before browser discovery, import the observed canonical Reel, then link the collector MP4 with `resolve --original-for` and matching `--source-url`/observed pair conditions. A bounded 2026-10-06 sample completed capture, pairing, merge, full decoding, inspect, viewed preview and common review; human approval/rights remain separate.
 - **Keep:** canonical Reel URL, account, caption/context/date, and selected representation. Signed CDN URLs/configs remain private and may need recapture after expiry. The capture tool must actually expose the required responses; the pair collector does not discover them itself.
 - **References:** [current browser/acquisition procedure](GUIDE.md#instagram--navegadorplaywright-dois-streams-e-mp4), [Agent Reach access option](https://github.com/Panniantong/Agent-Reach/blob/main/docs/README_en.md#supported-platforms).
 
 ## TikTok
 
 - **Discovery:** browser → complete canonical `https://www.tiktok.com/@USER/video/ID` URL. Resolve shortened links first. The current CLI has no global TikTok keyword search.
+- **Dated working sample:** on 2026-10-06, reserved browser discovery/import and yt-dlp with pinned `curl-cffi` obtained a decoded 7.5–10.5s city-panorama window, measured 576×1024. This proves that selected route/sample, not future access, the whole source, editorial acceptance or reuse rights.
 - **Profile discovery detail:** the current guide records `https://www.tiktok.com/embed/@USER` as a way to discover recent post IDs when the ordinary logged-out profile grid is empty or challenged. Check this route for the actual profile; it is not a guaranteed universal bypass or a global search API.
 - **Acquisition:** yt-dlp on the full post URL; resolve gathers title, handle, creator, and duration when the metadata request succeeds. Individual posts may require a session or be inaccessible.
 - **Keep:** post ID, canonical page, account, date/context, source language, and conditions. A discovered embed/post address is not reuse authorization.

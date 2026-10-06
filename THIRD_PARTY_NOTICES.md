@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-09-15
+updated: 2026-10-06
 tags: [get-brolls]
 ---
 
@@ -16,5 +16,6 @@ A distribuição contém instruções, comandos, scripts customizados e interfac
 - Nenhum vídeo, poster ou material de coleta real integra o repositório. Novas coletas retêm condições dos provedores e precisam de créditos/evidências no projeto.
 
 - yt-dlp e EJS são dependências externas, instaladas pelo instalador via PyPI; licenças próprias.
+- curl-cffi, cffi and pycparser are external PyPI dependencies for yt-dlp's TikTok transport. Their own licenses and binary notices apply; no library or compiled binary is bundled in this repository.
 - Os utilitários Bash e o coletor Instagram são código próprio do projeto. Não são cópias das bibliotecas yt-dlp, Playwright ou FFmpeg.
 - Playwright/navegador, Node/Deno e curl são dependências externas, não incluídas como binários.

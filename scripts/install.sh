@@ -34,7 +34,7 @@ if ! "$ROOT/.venv/bin/python" -m pip install -r "$ROOT/requirements.txt"; then
   printf 'Crie a venv com um interpretador dessa faixa ou atualize requirements.txt como um conjunto revisado.\n' >&2
   exit 1
 fi
-"$ROOT/.venv/bin/python" -c 'import yt_dlp, yt_dlp_ejs; print("yt-dlp e EJS importados")'
+"$ROOT/.venv/bin/python" -c 'import yt_dlp, yt_dlp_ejs, curl_cffi; print("yt-dlp, EJS and TikTok transport imported")'
 # Install the reviewed dependency tree locally, without global npm changes.
 mkdir -p "$ROOT/.tools"
 cp "$ROOT/package.json" "$ROOT/package-lock.json" "$ROOT/.tools/"
