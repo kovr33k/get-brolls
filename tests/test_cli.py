@@ -216,6 +216,24 @@ class CliTest(unittest.TestCase):
             self.assertEqual(1, state["counts"]["previews"])
             self.assertEqual([c["id"]], state["stages"]["previews"])
 
+    @unittest.skipUnless(shutil.which("ffmpeg"), "FFmpeg required")
+    def test_tiff_masters_are_still_images_with_a_ready_preview(self):
+        for suffix in (".tif", ".TIFF"):
+            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                src = root / ("master" + suffix)
+                synth_image(src)
+                row = self.call("resolve", "--file", src, "--asset-type", "image", "--project", root)
+                self.assertEqual("image", row["media"]["kind"])
+                self.assertIsNone(row["media"]["duration_s"])
+                self.assertIsNone(row["media"]["fps"])
+                preview = self.call(
+                    "preview", "--candidate", row["id"], "--narration", "Synthetic TIFF image", "--project", root
+                )
+                self.assertTrue((root / "brolls" / preview["preview"]["poster_path"]).is_file())
+                self.call("review", "--ready-only", "--project", root)
+                self.assertIn(row["id"], (root / "brolls/review.html").read_text(encoding="utf-8"))
+
     def test_a_video_without_an_interval_is_told_about_reference_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

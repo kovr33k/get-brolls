@@ -341,14 +341,18 @@ def capabilities():
             "limitations": "One dated technical sample. Viewed preview is unsuitable for a literal bridge shot; no human approval or reuse rights. Current access and complete catalog coverage remain unverified.",
         }
     result["loc"]["live_observation"] = {
-        "date": "2026-10-05",
-        "version": "2.13.0",
+        "date": "2026-10-06",
+        "version": "2.13.6",
         "status": "partial_sample",
-        "source_url": "https://www.loc.gov/item/90710744/",
-        "operations": ["search-browser", "search-import"],
+        "source_url": "https://www.loc.gov/item/2022645714/",
+        "operations": ["resolve", "preview", "search-confirm", "review"],
         "api_search": "browser_verification_required",
-        "preview": "unverified",
-        "limitations": "JSON search still received a browser-verification 403. Authorized browser search/item viewing and audited import passed with one shared attempt. The selected photograph restricts full online access to the Library of Congress; no original, decoded preview or visual match is claimed.",
+        "preview": "passed_sample",
+        "width": 5880,
+        "height": 3049,
+        "bytes": 53848181,
+        "selected_object": "stereo.1s40338 supplied TIFF master",
+        "limitations": "Known card opened in ordinary Chrome; published JPEG files acquired and a supplied TIFF master linked, decoded, previewed and viewed through the common route. JSON API still received browser-verification 403; no automated API access, capture date, photographer, reuse permission or human approval is claimed. Earlier restricted-item search and its consumed allowance remain preserved.",
     }
     for name, url, status, limit in (
         (

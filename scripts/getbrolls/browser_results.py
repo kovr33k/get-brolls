@@ -248,8 +248,8 @@ def _locator_metadata(row, entry, texts):
 
 def observed_locator(row, path):
     """Import observed metadata for one known card, without dispatching a search."""
-    if row["provider"] not in ("un_avlibrary", "destockd"):
-        raise ValueError("--locator-metadata requires a known UN or Destockd card.")
+    if row["provider"] not in ("un_avlibrary", "destockd", "loc"):
+        raise ValueError("--locator-metadata requires a known UN, Destockd or LoC card.")
     path = Path(path)
     if path.stat().st_size > MAX_IMPORT_BYTES:
         raise ValueError("Locator metadata import exceeds 512 KiB.")

@@ -6,11 +6,21 @@ updated: 2026-10-06
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.13.5
+# Qualidade e evidências — GET B-ROLLS 2.13.6
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
 The current [catalog acceptance checklist](CATALOG-ACCEPTANCE.md) maps the twenty retained routes and remaining criteria to this dated evidence. It does not replace the source-specific observations below or claim completion of the remaining tickets.
+
+## LoC supplied master — 2026-10-06, 2.13.6 candidate
+
+The known [Menai Bridge stereograph item](https://www.loc.gov/item/2022645714/) opened in ordinary Chrome after the embedded browser remained at verification. The ordinary CLI item JSON request still received HTTP 403; successful browser viewing does not grant API clearance. The published `stereo.1s40338` JPEG variants were actually acquired: the thumbnail is 150×78 / 69,409 bytes and the selected JPEG is 1024×531 / 316,216 bytes. The separately supplied TIFF master is 5880×3049 / 53,848,181 bytes; complete FFmpeg decoding passed for all three. Its public TIFF transport URL was not supplied and remains unknown.
+
+The existing audited CLI now imports the observed known-card metadata without a fabricated keyword search, links the actual TIFF through `resolve --file --original-for`, produces a poster and ready-only Storyboard, and records explicit viewing evidence. The actually viewed master-derived poster shows a stereo pair along a suspension-bridge deck, hangers/railings and distant pedestrians; its caption names Menai Bridge. It is suitable for this separate technical Menai Bridge sample, not the earlier Britannia Bridge fragment or Venezuela scenario. The known-card sample consumed zero search queries; the original Britannia search retains all three attempts, two locators, incomplete coverage and its access shortfall.
+
+Image duration/FPS, capture date, photographer and item-level reuse conditions remain unknown. Human approval is pending, rights unknown and output absent; final fetch refused without approval. Existing fixtures separately cover permitted synthetic acquisition after explicit fixture approval/permission. The supplied master and provenance close the prior acquired-media gap for this sample, while native API success, future access, video/transcript availability and integrated editorial acceptance remain separate. No browser cookies, protection bypass, licensing request or purchase was used. Private files, hashes and logs remain outside distribution.
+
+The live handoff exposed two implementation gaps: `.tif` was misclassified as video, and known LoC cards could not use the existing observed-metadata import before blocked API resolution. Focused synthetic CLI regressions cover TIFF preview/review, the known-card no-network/no-query route, mismatched identity, missing image/video kind, secret fields and independent approval/rights gates.
 
 **Current validation policy — 2026-10-05.** Maintained CI validation is one Windows job on Python 3.14.4, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Lint, types and the complete offline suite share that job. The [Tests workflow](../.github/workflows/test.yml) runs on pull requests; merging into `main` does not trigger a duplicate suite. Historical sections retain the platforms and requirements recorded at their dates.
 

@@ -10,6 +10,12 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.13.6 — 2026-10-06
+
+- LoC: import public observed metadata for a known canonical item with `resolve --locator-metadata` before any blocked API request, without fabricating a keyword search or renewing its allowance. Require matching item identity and image/video kind; keep the record manual until an actual supplied original is linked.
+- TIFF masters: recognize both `.tif` and `.tiff` as still images, retaining measured dimensions without a false duration/frame rate. Add synthetic CLI regressions for master preview/review, known-card provenance, incompatible selectors and independent approval/rights gates.
+- Catalog evidence: record the supplied Menai Bridge TIFF master at 5880×3049, full decoding, linked preview, actual viewing and ready-only review. Preserve the earlier search shortfall and current JSON API verification 403; technical source evidence does not grant reuse permission or integrated scenario acceptance.
+
 ## 2.13.5 — 2026-10-06
 
 - Instagram: link the explicitly supplied paired MP4 to its browser-imported Reel with `resolve --original-for`, a matching canonical `--source-url` and observed `--original-conditions`. Preserve caption, account, language, query and fragment context while retaining the local file's identity and independent approval/rights gates. Add audited synthetic-media regressions for the full handoff and refusal of missing or mismatched provenance.
