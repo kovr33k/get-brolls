@@ -2,13 +2,19 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-05
+updated: 2026-10-06
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+## 2.13.5 — 2026-10-06
+
+- Instagram: link the explicitly supplied paired MP4 to its browser-imported Reel with `resolve --original-for`, a matching canonical `--source-url` and observed `--original-conditions`. Preserve caption, account, language, query and fragment context while retaining the local file's identity and independent approval/rights gates. Add audited synthetic-media regressions for the full handoff and refusal of missing or mismatched provenance.
+- TikTok: include pinned `curl-cffi` and its dependencies in the runtime set and check its import in both installers. The same public post failed yt-dlp extraction without this transport and completed inspection, acquisition and preview with it; no cookie export or keyword-search API was introduced.
+- Catalog evidence: record dated, bounded Instagram and TikTok browser reservations/imports, measured acquisition, decoding, viewed confirmations and ready-only review. Technical source checks remain separate from integrated scenario acceptance, human decisions and reuse permission.
 
 ## 2.13.4 — 2026-10-06
 

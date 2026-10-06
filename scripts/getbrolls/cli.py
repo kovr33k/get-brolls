@@ -597,7 +597,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         if name == "resolve":
             p.add_argument(
                 "--original-for",
-                help="UN, Destockd, GDELT, X or LoC locator, or Europeana record linked to this supplied original",
+                help="UN, Destockd, GDELT, X or LoC locator, Europeana record or Instagram Reel linked to this supplied original",
             )
             p.add_argument(
                 "--original-conditions",

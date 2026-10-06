@@ -2,7 +2,7 @@
 type: reference
 status: current
 created: 2026-09-17
-updated: 2026-09-17
+updated: 2026-10-06
 tags: [get-brolls, instagram, reels, playwright]
 ---
 
@@ -32,6 +32,8 @@ python3 scripts/gb.py resolve --file <MP4> --source-url <URL do post> --creator 
 ```
 
 Preserve a sessão e **nunca publique URLs assinadas nem os arquivos `.conf`**.
+
+Quando o Reel já entrou por `search-import`, use o handoff vinculado com `resolve --original-for`, a mesma `--source-url` canônica e `--original-conditions` descrevendo o par observado. O [guia do fluxo comum](../docs/GUIDE.md#4-entrar-no-fluxo-comum-de-b-roll) traz o comando completo e as verificações; o vínculo preserva a descoberta sem conceder direitos ou aprovação.
 
 ## Lotes de Reels
 

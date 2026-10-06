@@ -390,16 +390,30 @@ def import_command(ledger, args, rules):
     }
 
 
+def _link_instagram_pair(args, row, source):
+    if not args.source_url or providers.resolve(args.source_url)["source_url"] != source["source_url"]:
+        raise ValueError("Instagram pair handoff requires --source-url matching the canonical imported Reel.")
+    if not args.original_conditions:
+        raise ValueError("Instagram pair handoff requires --original-conditions describing the observed pair.")
+    args.source_url = source["source_url"]
+    row["title"] = source["title"]
+    row["creator"] = copy.deepcopy(source["creator"])
+    row["source_metadata"] = copy.deepcopy(source.get("source_metadata") or {})
+    row["query"] = source.get("query")
+
+
 def link_original(ledger, args, row, rules):
     source = ledger.get(args.original_for)
-    if source["provider"] not in (*LOCATORS, "europeana") or row["provider"] not in ("local", "archive"):
+    if source["provider"] not in (*LOCATORS, "europeana", "instagram") or row["provider"] not in ("local", "archive"):
         raise ValueError(
-            "--original-for links a local supplied original or Archive.org file to an observed catalog locator or Europeana record."
+            "--original-for links a local supplied original or Archive.org file to an observed catalog locator, Europeana record or Instagram Reel."
         )
-    if source["provider"] in ("un_avlibrary", "x", "loc", "europeana") and row["provider"] != "local":
+    if source["provider"] in ("un_avlibrary", "x", "loc", "europeana", "instagram") and row["provider"] != "local":
         raise ValueError(
-            "UN/LoC/Europeana originals and X post captures must be supplied explicitly as a local --file."
+            "UN/LoC/Europeana originals, Instagram pairs and X post captures require an explicit local --file."
         )
+    if source["provider"] == "instagram":
+        _link_instagram_pair(args, row, source)
     if args.shot and source.get("shot") and args.shot != source["shot"]:
         raise ValueError("The linked original must retain its locator's fragment.")
     data = source.get("locator") or {}

@@ -6,13 +6,23 @@ updated: 2026-10-06
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.13.4
+# Qualidade e evidências — GET B-ROLLS 2.13.5
 
 Este documento reúne o estado de qualidade, as regressões cobertas, os limites conhecidos e as evidências reais por provedor. Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
 The current [catalog acceptance checklist](CATALOG-ACCEPTANCE.md) maps the twenty retained routes and remaining criteria to this dated evidence. It does not replace the source-specific observations below or claim completion of the remaining tickets.
 
 **Current validation policy — 2026-10-05.** Maintained CI validation is one Windows job on Python 3.14.4, under the integration policy in [AGENTS](../AGENTS.md#manutenção). Lint, types and the complete offline suite share that job. The [Tests workflow](../.github/workflows/test.yml) runs on pull requests; merging into `main` does not trigger a duplicate suite. Historical sections retain the platforms and requirements recorded at their dates.
+
+## Instagram and TikTok browser lifecycle — 2026-10-06, 2.13.5 candidate
+
+Both source checks used the ordinary audited CLI: persist a fragment-bound `search-browser` reservation before browser discovery, observe the original public post, `search-import` its public metadata, then inspect, acquire a working representation, preview, view the actual frames, record technical suitability and generate ready-only review. They are two explicitly labelled technical fragments, not the representative scenario or human editorial acceptance. Instagram used one query; TikTok used two, retaining an earlier rule-excluded attempt without resetting the allowance. Canonical imported identities, original-language captions, accounts and limitations remain recorded; signed URLs, access material and raw browser captures stay private outside distributed source.
+
+**TikTok.** The browser-discovered [Plaza Venezuela post](https://www.tiktok.com/@alairus/video/7665771745487359252) by `@alairus` reported a 30-second recording. Its displayed publication date was `7-23`; the year remains unknown. The initial yt-dlp 2026.08.19 extraction failed without `curl_cffi`. Adding the pinned transport to an isolated runtime made the same post inspectable and obtainable without exporting browser cookies. The acquired 7.5–10.5s window is 858,361 bytes, 576×1024, 30fps, H.264/AAC and 3.000s. Strict complete-window decoding passed; the full 30-second post was not acquired or decoded. Viewed contact-sheet frames show a city panorama, roads and a fountain/plaza, suitable for the technical city-panorama target. Caption attribution does not independently establish location, authorship or capture time. This is one public post, not proof of future access or CLI keyword search.
+
+**Instagram.** The original [BRIDGE Summit Reel](https://www.instagram.com/reel/DULxZOokzEL/) by `@bridge` was observed in the authorized browser after its reservation. Its English caption was retained; publication date remains unknown. The selected 1080p video and audio representations both identified asset `17855216619612456` and a 53-second duration. Fresh private configs captured their current URLs; the existing collector downloaded both streams and merged a 16,289,997-byte, 1080×1920/30fps, H.264/AAC MP4 lasting 53.866667s. Strict decoding of the entire merged file passed. Explicit local import links it to the original browser candidate while preserving its public context; the 13.467–16.467s contact sheet shows a panel participant holding a microphone, suitable for this technical event target. Matching assets/durations and decoding do not certify perceived audio synchronization; human audio-sync judgment remains unverified.
+
+Both previews retain canonical provenance in the common Storyboard. Each fragment has one technically suitable option and incomplete coverage, not three options. Human approval remains pending, rights unknown and output absent; actual `fetch` attempts were refused before approval. Acquisition exercised the current route before the mechanical 2.13.5 version bump; subsequent final-state checks reuse the unchanged media and hashes. Synthetic audited-CLI regressions separately cover Instagram provenance refusal, shared budgets/recovery, private transport and independent human/rights gates. No editorial approval, reuse grant or final delivery was fabricated.
 
 ## UN archive working preview — 2026-10-06, 2.13.4 candidate
 

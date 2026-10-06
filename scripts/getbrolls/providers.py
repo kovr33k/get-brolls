@@ -199,20 +199,55 @@ def capabilities():
     }
     result["instagram"]["live"] = "sample_verified"
     result["instagram"]["live_observation"] = {
-        "date": "2026-10-05",
-        "version": "2.13.1",
+        "date": "2026-10-06",
+        "version": "2.13.5",
         "status": "passed_sample",
         "source_url": "https://www.instagram.com/reel/DULxZOokzEL/",
         "selected_file": "17855216619612456",
-        "operations": ["browser_capture", "pair_acquisition", "local_import", "preview", "decode"],
+        "operations": [
+            "browser_reservation",
+            "browser_import",
+            "browser_capture",
+            "pair_acquisition",
+            "linked_local_import",
+            "inspect",
+            "preview",
+            "decode",
+            "suitable_confirmation",
+        ],
         "bytes": 16289997,
         "width": 1080,
         "height": 1920,
         "fps": 30,
         "duration_s": 53.866667,
-        "interval_s": [0, 3],
-        "limitations": "One dated authorized-browser Reel and matching video/audio pair. Viewed a panel discussion, not bridge imagery. Global keyword footage search, current session access, editorial acceptance, human approval and reuse rights remain unverified.",
+        "interval_s": [13.467, 16.467],
+        "limitations": "One dated complete browser reservation/import and matching Reel video/audio acquisition. Viewed a panel event, suitable only for the technical event fragment. Human audio synchronization, editorial acceptance, reuse rights, future access and catalog-wide coverage remain unverified.",
     }
+    result["tiktok"].update(
+        live="sample_verified",
+        live_observation={
+            "date": "2026-10-06",
+            "version": "2.13.5",
+            "status": "passed_sample",
+            "source_url": "https://www.tiktok.com/@alairus/video/7665771745487359252",
+            "operations": [
+                "browser_reservation",
+                "browser_search",
+                "browser_import",
+                "inspect",
+                "preview",
+                "decode",
+                "suitable_confirmation",
+            ],
+            "bytes": 858361,
+            "width": 576,
+            "height": 1024,
+            "fps": 30,
+            "duration_s": 3.0,
+            "interval_s": [7.5, 10.5],
+            "limitations": "One dated yt-dlp working window with curl-cffi transport. Viewed city panorama suitable for the technical fragment; location is source-caption attribution and displayed date lacks a year. Full 30s source was not acquired. Future access, human approval, reuse rights and catalog-wide coverage remain unverified; no CLI keyword API.",
+        },
+    )
     result["archive"]["live"] = "sample_verified"
     result["archive"]["live_observation"] = {
         "date": "2026-10-03",
