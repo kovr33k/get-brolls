@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-05
+updated: 2026-10-06
 tags: [get-brolls, guide, installation, providers, storyboard]
 ---
 
@@ -459,6 +459,8 @@ python scripts/gb.py resolve --url https://webtv.un.org/en/asset/k14/k140iyou7p 
 ```
 
 Recent meeting search covers the last 365 days. Find older pages through the Web TV catalog/browser and resolve their complete asset URL; missing recent transcripts do not prove an older video is absent. Inspection checks the actual yt-dlp/Kaltura player and separately reads timed transcripts. Player failure leaves representation access unverified even when speech timing exists. Preview times use the recording's clock. For a better original, use the UN Audiovisual Library's request route and record the actual supplied file/conditions; its availability and clearance are not assumed.
+
+Working Web TV acquisition prefers an identified video HLS representation up to 1080p with the audio track matching the canonical page's locale. Kaltura may advertise a direct 1080p MP4 with incomplete codec/geometry metadata that actually delivers audio only. The existing direct-file selection remains the fallback when the matching HLS pair is unavailable; the result must still contain video, match the requested duration and decode successfully. Record measured dimensions rather than the advertised rendition label. This preference neither grants access nor clears reuse rights.
 
 **GDELT TV (`gdelt_tv`).** Caption search returns a broadcast/time locator with station, program, broadcast and match dates, snippet and public Archive viewing URL. It has no visual/AI search or direct media-download capability. The observed API requires a station; use an actual `station:CODE` query operator or `--catalog-filter station=CODE`. Other filters are `STARTDATETIME`, `ENDDATETIME`, `timespan`. StationDetails supplies the actual channel date range when available; unknown coverage stays unknown. A recent empty search can lie outside an archive's coverage.
 

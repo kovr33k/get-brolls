@@ -10,6 +10,11 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.13.3 — 2026-10-06
+
+- UN Web TV: prefer identified video HLS and the canonical page's audio locale before the existing direct-file fallback. Some Kaltura MP4 entries advertise 1080p but deliver audio only; working previews still require measured video, the requested duration and successful decoding. Add an audio-only regression with real synthetic media for English and French pages.
+- Catalog evidence: reconcile GDELT locator limits, native X OAuth refresh/search and separately supplied media, exact EC shots, acquired UN Web TV windows, and Destockd/Archive originals. Record the earlier merged source-ticket batch and remaining LoC, paused TikTok, UN archive preview and integrated review gaps. Correct stale catalog text that still called native X and retained browser routes unimplemented.
+
 ## 2.13.2 — 2026-10-05
 
 - Storyboard: preserve a CLI rejection when generating full or ready-only review, and keep an untouched browser default from masking it. Explicit new browser choices retain their timestamps across reloads; changed context still invalidates stale decisions. Prepared news/web screenshots use their image poster in ready-only review, with the search journal available in a collapsed disclosure. Preserve navigation controls when the review layer remounts them after changing a shot. Add audited CLI and executable navigation regressions.

@@ -2,7 +2,7 @@
 type: reference
 status: current
 created: 2026-10-01
-updated: 2026-10-05
+updated: 2026-10-06
 tags: [get-brolls, catalogs, providers, search, access]
 ---
 
@@ -211,7 +211,7 @@ Implemented with shared locale/query accounting, public timed-transcript inspect
 - API read endpoints require no authentication. Select the supported locale/language for the requested transcript; the documented locales include `en`, `fr`, `es`, `ar`, `zh`, and `ru`.
 - **Coverage:** meeting search covers the last 365 days. For older events, use the Web TV catalog or a direct `webtv.un.org/en/asset/...` URL/asset ID. Empty transcript search is incomplete coverage, not proof that no recording exists. A sitemap can discover URLs but is not full-text speech search.
 - **Inside a meeting:** retain matching text, speaker, date, language, and source timing; canonical/deep links with `?t=` point to the spoken moment. The transcripts are generated automatically and are not official UN records.
-- **Acquisition:** after selection, check actual representations through yt-dlp on the public Web TV page; the retained route uses its Kaltura player. Preserve the canonical page, not an expiring signed stream URL. Keep the candidate visible for an explicit access/rights decision before acquisition.
+- **Acquisition:** after selection, check actual representations through yt-dlp on the public Web TV page; the retained route uses its Kaltura player. Working acquisition prefers identified video HLS with the page-locale audio track before the existing direct-file fallback. An advertised MP4 resolution does not prove it contains video. Preserve the canonical page, not an expiring signed stream URL. Keep the candidate visible for an explicit access decision before acquisition, independently of rights and human approval.
 - **High-quality original:** refer to UN Audiovisual Library when the available Web TV representation is insufficient.
 - **References:** [Transcripts API](https://github.com/united-nations/transcripts/blob/main/docs/api.md), [Web TV](https://webtv.un.org/), [UN media services](https://media.un.org/en/about-us).
 
@@ -263,8 +263,8 @@ Local files are an import route rather than another catalog. Import them with th
 
 ## Integration design
 
-The accepted [fragment-specific search chain planning decision](adr/0001-fragment-catalog-search-chain.md) records the search behavior and an integrated rollout covering the complete target inventory. [CONTEXT.md](../CONTEXT.md) defines its domain terms; neither document establishes additional implemented provider capabilities. LoC, DVIDS, Europeana and NARA join the common route with [explicit original selection and access/filter requirements](GUIDE.md#providers--loc-dvids-europeana-and-nara). GDELT TV, EC Audiovisual and UN Web TV have implemented bounded adapters. Mapillary geographic images and Telegram's optional public-whitelist user-session route are implemented. X OAuth discovery remains explicitly unverified; original references/local captures have their own supported entry. Browser/locator limits and dated live evidence remain separate from implementation.
+The accepted [fragment-specific search chain planning decision](adr/0001-fragment-catalog-search-chain.md) records the search behavior and an integrated rollout covering the complete target inventory. [CONTEXT.md](../CONTEXT.md) defines its domain terms; neither document establishes additional implemented provider capabilities. LoC, DVIDS, Europeana and NARA join the common route with [explicit original selection and access/filter requirements](GUIDE.md#providers--loc-dvids-europeana-and-nara). GDELT TV, EC Audiovisual and UN Web TV have implemented bounded adapters. Mapillary geographic images and Telegram's optional public-whitelist user-session route are implemented. Bounded native X discovery through retained Grok OIDC and `grok-4.7` has dated live evidence; original references/local captures have their own supported entry. Browser/locator limits and dated live evidence remain separate from implementation.
 
 The accepted [catalog integration specification](SPEC-CATALOG-INTEGRATION.md) defines implementation contracts and offline/live acceptance checks for this scope.
 
-YouTube, Wikimedia Commons, NASA, Pexels, and Pixabay share Archive's implemented bounded fragment commands and catalog chains: `search-plan`, `search --planned`, preview, `search-confirm`, and `search-assess`. Stills use the measured poster. Planned Pexels and Pixabay hits stay stock and illustrative. Planned photo search on YouTube and the stock banks is refused before a query is spent. One additional disjoint chain is supported. The remaining planned adapters are not implemented. Dated samples for these five are in [QUALITY.md](QUALITY.md).
+YouTube, Wikimedia Commons, NASA, Pexels, and Pixabay share Archive's implemented bounded fragment commands and catalog chains: `search-plan`, `search --planned`, preview, `search-confirm`, and `search-assess`. Stills use the measured poster. Planned Pexels and Pixabay hits stay stock and illustrative. Planned photo search on YouTube and the stock banks is refused before a query is spent. One additional disjoint chain is supported. The retained browser/locator routes use the shared reservation/import contract rather than universal keyword APIs. Dated samples and remaining acquired-original/browser acceptance gaps are in [QUALITY.md](QUALITY.md) and the [acceptance checkpoint](CATALOG-ACCEPTANCE.md).

@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-10-05
-updated: 2026-10-05
+updated: 2026-10-06
 tags: [get-brolls, catalogs, acceptance, evidence]
 ---
 
@@ -12,7 +12,9 @@ This checklist tracks [issue #20](https://github.com/kovr33k/get-brolls/issues/2
 
 ## Source evidence and remaining checks
 
-The current integration batch closes the reconciled implementation tickets #8–12 only after its required Windows PR checks and merge. LoC #7 stays open for acquired-original access and preview; #13–20 and parent #2 are not completed by this batch. Native X discovery and common review fixes are included as tested implementation work, without claiming completion of those remaining acceptance tickets. Production tagging and personal installation are separate from merging this batch.
+[PR #32](https://github.com/kovr33k/get-brolls/pull/32) merged the reconciled #8–12 implementation batch. Its required Windows CI passed 1,241 tests with 26 skips; the merge tree equals the tested PR tree. Seventy-five focused local checks and version/mirror/links passed after merge. Those five tickets are closed. Production tagging and personal installation remain separate actions.
+
+The next closure scope is the reconciled source contracts #14–17 and #19, subject to this follow-up's required Windows PR checks and integration. LoC #7, the paused TikTok live check in #13, UN archive preview #18, integrated acceptance #20 and parent #2 remain open. Their blockers are explicit below; implementation or fixture success alone does not remove them.
 
 All twenty retained catalogs remain in the inventory. Required X/Grok OAuth now has bounded CLI discovery and separately observed original/manual-media evidence; final review and acceptance remain open. TikTok live work is paused; its existing URL/import behavior stays supported, and paused acquisition is not a passed acceptance check. Local import and UNifeed do not increase the catalog count.
 
@@ -63,7 +65,21 @@ This reconciliation found and corrected a local still-import bug: ffprobe's one-
 
 Review of this point found a remaining legacy date-export defect: the card distinguished Telegram publication from capture, but print records still exported the legacy message date as capture. Generated review records now use the same date distinction, and print notes include publication separately. A regression fails on the former export and passes after the correction. All 42 focused account/Storyboard tests pass. Regenerating the real eleven-item board left the manifest and saved eleven test choices unchanged; all six Telegram print records now have unknown capture dates and known publication dates. Browser review still shows eight Approve and three Reject. The native print call prevented further page automation, so rendered PDF acceptance remains unverified.
 
-Both tickets are technically ready for the coherent batch's final review, hosted Windows CI and integration; neither is closed yet. Human test choices do not grant reuse permission or establish the factual claims in the scenario. LoC #7 remains open for actual original access and preview, as agreed separately.
+Both tickets subsequently closed through PR #32 after the required Windows CI and merge. Human test choices do not grant reuse permission or establish the factual claims in the scenario. LoC #7 remains open for actual original access and preview, as agreed separately.
+
+### Remaining source reconciliation — 2026-10-06
+
+| Ticket | Reconciled criteria and evidence | Remaining operational limits |
+|---|---|---|
+| #13 Instagram/TikTok | Shared browser lifecycle, canonical import and recovery fixtures are implemented; the saved 1080×1920 Instagram pair/preview hash matches dated complete decoding | TikTok live acquisition remains paused. The paired Instagram sample does not replace an end-to-end live fragment browser reservation/import check; no browser is exposed in this continuation |
+| #14 GDELT TV | Bounded caption/station/date search preserves CNN broadcast identity and source 3561–3596s; the linked actual Archive file is explicitly access-restricted. Fixtures cover supplied originals, timing, coverage, review and refusal | This is a caption/time locator. No editing original, visual-search route or suitable option is claimed for the restricted sample |
+| #15 X/Grok OAuth | Native `grok-4.7`/`x_search` has completed dated tool/citation evidence and three-query CLI accounting. Same-account expired OIDC refresh succeeded on 2026-10-06. The separately acquired X file and preview hash still match complete decoding | No fourth query, new inference, API billing, coding delegation or alternative model. Refresh is not a fresh entitlement probe. Original viewing and manual media stay separate from discovery and rights |
+| #16 EC Audiovisual | Current selected-shot refresh preserves `I-275419-INT-1+002`, its parent, actual file and source start 14.92s. Saved 1080p media/preview and source-clock regressions cover single offsets, explicit overrides, access and final cuts | The summit sample is archival, not a 2026 reaction. Fallback/HLS and restricted-access variants retain fixture-only evidence |
+| #17 UN Web TV | Existing recent full-text search/English transcript is followed by actual 1908–1911s Kaltura acquisition, 1280×720/25fps, complete working-window decode, viewed confirmation and common review. Acquisition was refused before the separate brief-bound access decision; fetch remains refused | Fixed a real advertised-1080p MP4 yielding no video by preferring identified HLS video/page-locale audio. Viewed delegates alone do not establish literal environmental-climate discussion; suitability is recorded as unsuitable. No supplied high-quality UN archive original or reuse permission |
+| #18 UN AV Library | Actual card, asset/script/request identity, license-required visibility, private supplied-original linkage and independent gates are implemented and tested | No acquired/viewed working preview or supplied original. The dated blob player and failed Putin player remain references; browser access is unavailable in this continuation. No request, licensing or procurement submitted |
+| #19 Destockd | Saved website shot and 1080p preview hash match. Its observed source-film Archive item now resolves to the actual `fc-fc-4355_HD_2Mbps.mp4`; 134,437,955 bytes, 1920×1080, 450.165958s acquired. Separate linked identity, 0–3s preview/decode, viewed unsuitable confirmation and fetch refusal passed | Exact original-film timing for `shot_080` stays unknown. The viewed original opening is a National Archives bumper, not the Destockd black-car cut. Item/insert rights and human approval remain ungranted; no undocumented API used |
+
+The shared browser contract required by #18/#19 is already implemented. Keeping #13 open for its separate live social gap does not turn the proved Destockd route into an unimplemented dependency. Retain #7/#13/#18 and their specific evidence gaps rather than closing them as exceptions. Common #20 acceptance and parent #2 cannot be completed while these required source checkpoints remain unresolved; actual print/PDF acceptance also remains unverified.
 
 The existing audited CLI and synthetic-media tests provide these seams; their presence alone does not certify the final branch. Reuse passed evidence only while the exercised code, dependencies, configuration, artifacts and relevant environment still match.
 

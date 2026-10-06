@@ -513,6 +513,20 @@ def download_segment(url, target, start, end, *, source_url=None):
 
     # Only recognized social pages, never a user-provided command or arbitrary URL.
     _validate_transport(url, source_url)
+    selection = "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/b"
+    from urllib.parse import urlsplit
+
+    page = urlsplit(source_url or url)
+    if page.hostname == "webtv.un.org":
+        from .broadcasts import LOCALES
+
+        locale = page.path.strip("/").split("/")[0]
+        if locale not in LOCALES:
+            raise ProviderError("Use a supported UN Web TV locale for working media.")
+        # Some Kaltura MP4 entries advertise a height but deliver audio only.
+        # Prefer its identified video HLS and the requested interpretation track;
+        # keep the existing direct-file route when HLS is unavailable.
+        selection = f"bv[height<=1080][protocol^=m3u8]+ba[protocol^=m3u8][language={locale}]/" + selection
     if not all(math.isfinite(v) for v in (start, end)) or start < 0 or end <= start:
         raise ProviderError("Intervalo inválido para download social.")
     target = Path(target)
@@ -524,7 +538,7 @@ def download_segment(url, target, start, end, *, source_url=None):
         _, warnings = run(
             [
                 "-f",
-                "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/b",
+                selection,
                 "--download-sections",
                 f"*{start}-{end}",
                 "--force-keyframes-at-cuts",
