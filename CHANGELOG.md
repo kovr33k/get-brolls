@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-06
+updated: 2026-10-07
 tags: [get-brolls]
 ---
 
@@ -10,6 +10,10 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.13.8 — 2026-10-07
+
+- Storyboard print: preload print images during review, wait for decoding before opening Print / PDF and preserve those image nodes through native `beforeprint`. Refresh decisions and notes without racing new image requests. Add an executable delayed-image regression covering decode failure and print-button recovery.
+- Integrated acceptance: inspect the supplied eleven-page scenario PDF, reproduce its two missing images and verify the corrected eleven-image PDF. Preserve eight Approve and three Reject choices as test evidence; remove the extra blanket acceptance and licensed-photo delivery prerequisites that were not part of #20. Real operational approval and reuse gates remain unchanged.
 ## 2.13.7 — 2026-10-06
 
 - Provider diagnostics: reconcile dated Europeana institution-image acquisition, the UN Web TV working window and Destockd's separately acquired source film with the existing saved evidence. Keep live access, unknown master quality or cut boundaries, rights and human approval independent; no additional search or acquisition route is enabled.

@@ -325,9 +325,15 @@
     const printButton = document.querySelector("#print-review");
     if (printButton && !printButton.dataset.wired) {
       printButton.dataset.wired = "1";
-      printButton.onclick = () => {
-        buildPrintNotes();
-        window.print();
+      printButton.onclick = async () => {
+        printButton.disabled = true;
+        try {
+          const section = buildPrintNotes();
+          await Promise.all([...section.querySelectorAll("img")].map((img) => img.decode().catch(() => {})));
+          window.print();
+        } finally {
+          printButton.disabled = false;
+        }
       };
     }
   }
@@ -448,21 +454,25 @@
     done.append(" ", copy);
   }
   function buildPrintNotes() {
-    document.querySelector(".print-notes")?.remove();
-    const section = document.createElement("section");
+    const section = document.querySelector(".print-notes") || document.createElement("section");
     section.className = "print-notes";
-    data.items.forEach((item) => {
-      const article = document.createElement("article"),
-        h = document.createElement("h2");
-      h.textContent = item.title;
-      article.append(h);
-      for (const source of [item.poster, item.context_poster].filter(Boolean)) {
-        const poster = document.createElement("img");
-        poster.src = source;
-        poster.alt = item.title;
-        poster.loading = "eager";
-        article.append(poster);
+    data.items.forEach((item, index) => {
+      let article = section.children[index];
+      if (!article) {
+        article = document.createElement("article");
+        const h = document.createElement("h2");
+        h.textContent = item.title;
+        article.append(h);
+        for (const source of [item.poster, item.context_poster].filter(Boolean)) {
+          const poster = document.createElement("img");
+          poster.src = source;
+          poster.alt = item.title;
+          poster.loading = "eager";
+          article.append(poster);
+        }
+        section.append(article);
       }
+      article.querySelectorAll("p").forEach((p) => p.remove());
       const d = decisions[item.id];
       for (const text of [
         item.asset_type && item.asset_type !== "video"
@@ -483,9 +493,11 @@
         p.textContent = text;
         article.append(p);
       }
-      section.append(article);
     });
-    document.querySelector("main").append(section);
+    if (!section.parentNode) document.querySelector("main").append(section);
+    return section;
   }
+  // Load print images while reviewing; beforeprint must preserve the decoded nodes.
+  buildPrintNotes();
   window.addEventListener("beforeprint", buildPrintNotes);
 })();
