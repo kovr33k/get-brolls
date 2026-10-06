@@ -514,6 +514,40 @@ class BroadcastWorkflow(unittest.TestCase):
             with self.assertRaises(OperationError):
                 call(self.project, "fetch", "--candidate", ident)
 
+    def test_un_segment_prefers_video_hls_and_the_asset_locale_over_mislabeled_mp4(self):
+        # A real Kaltura response can advertise 1080p MP4 with an empty codec
+        # and zero width, although that representation yields audio only.
+        for locale in ("en", "fr"):
+            target = self.project / f"un-{locale}.mp4"
+
+            def transport(arguments, *, selected_locale=locale, **kwargs):
+                selection = arguments[arguments.index("-f") + 1].split("/")[0]
+                output = Path(arguments[arguments.index("-o") + 1])
+                if "protocol^=m3u8" in selection and f"language={selected_locale}" in selection:
+                    cut(self.video, output, 2, 4)
+                else:
+                    subprocess.run(
+                        [
+                            "ffmpeg",
+                            "-v",
+                            "error",
+                            "-f",
+                            "lavfi",
+                            "-i",
+                            "sine=duration=2",
+                            "-c:a",
+                            "aac",
+                            str(output),
+                        ],
+                        check=True,
+                    )
+                return "", []
+
+            with patch.object(social, "run", side_effect=transport):
+                social.download_segment(UN_PAGE.replace("/en/", f"/{locale}/"), target, 2, 4)
+            self.assert_red(target)
+            self.assertAlmostEqual(2, probe(target)["duration_s"], delta=0.1)
+
     def test_gdelt_linked_local_original_retains_source_interval_and_closed_gates(self):
         write_brief(self.project, ["gdelt_tv", "local"])
         save_plan(self.project, "gdelt_tv")
