@@ -75,6 +75,20 @@ class StoryboardTest(unittest.TestCase):
         )
         self.assertEqual(0, result.returncode, result.stderr)
 
+    @unittest.skipUnless(shutil.which("node"), "Node.js required")
+    def test_print_waits_for_delayed_images_and_preserves_decisions(self):
+        node = shutil.which("node")
+        assert node is not None
+        result = subprocess.run(
+            [node, str(ROOT / "tests/fixtures/storyboard_print.cjs"), str(ROOT / "assets/review.js")],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+            timeout=10,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+
     def test_cli_rejection_survives_ready_storyboard_and_context_invalidation(self):
         import copy
         import json
