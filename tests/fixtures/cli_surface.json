@@ -1696,7 +1696,7 @@
           "choices": null,
           "default": null,
           "dest": "locator_metadata",
-          "help": "Public observed UN/Destockd card metadata JSON; imports a known locator without a search",
+          "help": "Public observed UN/Destockd/LoC card metadata JSON; imports a known locator without a search",
           "nargs": null,
           "option_strings": [
             "--locator-metadata"
