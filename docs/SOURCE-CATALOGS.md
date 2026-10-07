@@ -2,7 +2,7 @@
 type: reference
 status: current
 created: 2026-10-01
-updated: 2026-10-06
+updated: 2026-10-07
 tags: [get-brolls, catalogs, providers, search, access]
 ---
 
@@ -10,7 +10,7 @@ tags: [get-brolls, catalogs, providers, search, access]
 
 Use this reference when choosing a catalog or implementing a provider. It consolidates the supplied 18-source inventory, the researched EC/UN/Destockd routes, and Instagram/TikTok. Catalog descriptions guide the agent's selection; they are not fixed topic-to-provider rules.
 
-**Status scope:** `Search` and `URL/browser` below describe code present in this get-brolls checkout on 2026-10-05, not a live availability guarantee. `Planned` means the route is retained from prior research but has no adapter here. Statements that an integration was implemented in the supplied notes refer to the previous project. Credentials and sessions from that project are not assumed to be available here. Dated source samples and superseding access observations are recorded separately in [QUALITY.md](QUALITY.md). Configured credentials, acquired media, visual suitability and human acceptance remain separate facts.
+**Status scope:** `Search` and `URL/browser` below describe capabilities in version 2.13.8, reconciled on 2026-10-07, not a live availability guarantee. The [engineering acceptance](CATALOG-ACCEPTANCE.md) is complete for all twenty retained catalogs. Credentials and sessions from the previous project are not assumed to be available here. [QUALITY.md](QUALITY.md) summarizes current evidence and links to dated source reports. Configured access, acquired media, visual suitability and human acceptance remain separate facts.
 
 Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection and the personal library are covered in [providers.md](../references/providers.md).
 
@@ -33,7 +33,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 | GDELT TV | Locating a television segment and time reference | Public TV search API; separate linked original | Implemented; dated caption/locator sample, restricted original |
 | X | Public posts, exact quotations, attached media | Retained xAI X Search through agreed Grok OAuth | Bounded OAuth discovery; separate original viewing and manual media/capture import |
 | EC Audiovisual Service | EU events, speeches, stockshots, institutional photos | AV Portal client endpoint, then portal backend | Implemented; one decoded shot sample |
-| UN Web TV | UN meetings, briefings, speeches | UN Transcripts API; catalog/direct links for older video | Implemented; transcript/player metadata sample, acquisition unverified |
+| UN Web TV | UN meetings, briefings, speeches | UN Transcripts API; catalog/direct links for older video | Implemented; transcript/player metadata and a decoded 1280×720 working window; editing original not cleared |
 | UN Audiovisual Library | UN historical footage and high-quality originals | Browser attempt/import, asset URL/ID and supplied original | URL/browser; original request remains manual |
 | Destockd | Individual shots from FedFlix films | Browser attempt/import, shot preview and Archive original link | URL/browser; no undocumented API calls |
 | Instagram | Reels, participant posts, contemporary event footage | Authorized browser; video/audio acquisition route | URL/browser; no CLI keyword search |
@@ -153,7 +153,7 @@ Implemented as `gdelt_tv` with shared planned-query accounting and explicit Arch
 
 ## X
 
-- **Retained route:** bounded CLI discovery through native `x_search` using the previously agreed Grok OIDC mode. The current client's selected `grok-4.7` pair, expiry/refresh, installed version and proxy headers are validated without switching model, account mode or API billing. One native call per request shares planned query limits; completed results can replay/resume without another inference. Other selected models stay unverified. `x-access` remains local diagnostics without inference or refresh. See [commands](GUIDE.md#providers--mapillary-telegram-and-x-access) and the dated [CLI/media observation](QUALITY.md#catalog-acceptance-follow-up--2026-10-05-2132-candidate).
+- **Retained route:** bounded CLI discovery through native `x_search` using the previously agreed Grok OIDC mode. The current client's selected `grok-4.7` pair, expiry/refresh, installed version and proxy headers are validated without switching model, account mode or API billing. One native call per request shares planned query limits; completed results can replay/resume without another inference. Other selected models stay unverified. `x-access` remains local diagnostics without inference or refresh. See [commands](GUIDE.md#providers--mapillary-telegram-and-x-access) and the dated [CLI/media observation](archive/quality-evidence-through-2026-10-07.md#catalog-acceptance-follow-up--2026-10-05-2132-candidate).
 - **Search:** use supported account/date filters and preserve the post URLs returned. Confirm exact quotations against the original post.
 - **Acquisition:** original-post retrieval, screenshot capture, and media download are separate operations. X Search is not a downloader; Grok OAuth does not substitute for credentials of a separate X API integration.
 - **Access:** verify supported model/tool, login, expiry, and refresh/re-login independently. Preserve the chosen OAuth mode rather than silently switching to API billing or a different model. Provider subscription limits still apply.
@@ -201,7 +201,7 @@ The supplied note reports credential-free read-only calls: no API key, OAuth, or
 
 **Retained provider ID:** `un_webtv`. Keep this separate from the Audiovisual Library.
 
-Implemented with shared locale/query accounting, public timed-transcript inspection and separate player metadata checks. A dated sample passed transcript discovery and yt-dlp player inspection; media acquisition/decoding remains unverified without an explicit access decision. See [commands](GUIDE.md#providers--gdelt-tv-ec-audiovisual-and-un-web-tv).
+Implemented with shared locale/query accounting, public timed-transcript inspection and separate player metadata checks. The dated sample passed transcript discovery and yt-dlp player inspection; the separately authorized 1908–1911s working window was acquired and decoded at 1280×720. This does not establish acquisition of the full source or a cleared editing original. See [commands](GUIDE.md#providers--gdelt-tv-ec-audiovisual-and-un-web-tv) and [dated evidence](archive/quality-evidence-through-2026-10-07.md#remaining-catalog-reconciliation--2026-10-06-2133-candidate).
 
 - **Full-text route:** public UN Transcripts search; use `ft=1` to search transcript content rather than only meeting titles:
 
@@ -272,4 +272,4 @@ The accepted [fragment-specific search chain planning decision](adr/0001-fragmen
 
 The accepted [catalog integration specification](SPEC-CATALOG-INTEGRATION.md) defines implementation contracts and offline/live acceptance checks for this scope.
 
-YouTube, Wikimedia Commons, NASA, Pexels, and Pixabay share Archive's implemented bounded fragment commands and catalog chains: `search-plan`, `search --planned`, preview, `search-confirm`, and `search-assess`. Stills use the measured poster. Planned Pexels and Pixabay hits stay stock and illustrative. Planned photo search on YouTube and the stock banks is refused before a query is spent. One additional disjoint chain is supported. The retained browser/locator routes use the shared reservation/import contract rather than universal keyword APIs. Dated samples and remaining acquired-original/browser acceptance gaps are in [QUALITY.md](QUALITY.md) and the [acceptance checkpoint](CATALOG-ACCEPTANCE.md).
+YouTube, Wikimedia Commons, NASA, Pexels, and Pixabay share Archive's implemented bounded fragment commands and catalog chains: `search-plan`, `search --planned`, preview, `search-confirm`, and `search-assess`. Stills use the measured poster. Planned Pexels and Pixabay hits stay stock and illustrative. Planned photo search on YouTube and the stock banks is refused before a query is spent. One additional disjoint chain is supported. The retained browser/locator routes use the shared reservation/import contract rather than universal keyword APIs. Dated samples and current operational limits are summarized in [QUALITY.md](QUALITY.md), with full reports in its archive; completed engineering criteria are recorded in the [acceptance checkpoint](CATALOG-ACCEPTANCE.md).

@@ -413,7 +413,13 @@ class ReleaseNotesCoverTheWave(unittest.TestCase):
         self.assertIn("Onda pós-rodada", text[start : start + 4000])
 
     def test_quality_records_the_same_wave(self):
-        text = (ROOT / "docs/QUALITY.md").read_text(encoding="utf-8")
+        quality_path = ROOT / "docs/QUALITY.md"
+        current = quality_path.read_text(encoding="utf-8")
+        archive = "archive/quality-evidence-through-2026-10-07.md"
+        self.assertIn(f"]({archive}#qa-da-versão-240--17092026)", current)
+        text = (quality_path.parent / archive).read_text(encoding="utf-8")
+        self.assertIn("status: archived", text)
+        self.assertIn("[current status](../QUALITY.md)", text)
         self.assertIn("16 casos", text)
         self.assertIn("Rodada cega completa e onda pós-rodada", text)
         # As três guardas continuam declaradas como intocadas.
