@@ -2137,7 +2137,7 @@
           ],
           "default": "any",
           "dest": "media",
-          "help": "Source media type: image, video, or any (default); public catalog adapters support both",
+          "help": "Source media type: image, video, or any (default); supported kinds depend on the provider",
           "nargs": null,
           "option_strings": [
             "--media"
