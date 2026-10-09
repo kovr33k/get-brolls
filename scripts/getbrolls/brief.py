@@ -40,10 +40,14 @@ SOURCES = (
     "un_webtv",
     "un_avlibrary",
     "destockd",
+    "netfilm",
+    "suspilne",
     "local",
 )
 STOCK_SOURCES = ("pexels", "pixabay")
 SEARCHABLE = (
+    "netfilm",
+    "suspilne",
     "youtube",
     "pexels",
     "pixabay",

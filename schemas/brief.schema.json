@@ -63,6 +63,8 @@
               "gdelt_tv",
               "ec_audiovisual",
               "un_webtv",
+              "netfilm",
+              "suspilne",
               "local"
             ]
           }
@@ -109,6 +111,8 @@
                 "gdelt_tv",
                 "ec_audiovisual",
                 "un_webtv",
+                "netfilm",
+                "suspilne",
                 "local"
               ]
             }

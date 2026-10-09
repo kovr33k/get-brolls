@@ -173,6 +173,8 @@ def load_rules(project):  # noqa: C901, PLR0912 - existing size; validator with 
         "gdelt_tv",
         "ec_audiovisual",
         "un_webtv",
+        "netfilm",
+        "suspilne",
     }
     if not isinstance(r.get("preferred_providers"), dict):
         raise ValueError(
