@@ -1641,7 +1641,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                             if name in ("telegram", "x")
                             else {}
                         ),
-                        **({"language": args.language} if name in ("un_webtv", "x") else {}),
+                        **({"language": args.language} if name in ("un_webtv", "x", "suspilne") else {}),
                     )
                 except ValueError as e:
                     errors.append({"provider": name, "error": str(e)})

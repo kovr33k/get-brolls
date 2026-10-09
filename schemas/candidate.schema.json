@@ -46,7 +46,9 @@
         "x",
         "gdelt_tv",
         "ec_audiovisual",
-        "un_webtv"
+        "un_webtv",
+        "netfilm",
+        "suspilne"
       ]
     },
     "source_id": {

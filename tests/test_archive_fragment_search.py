@@ -1626,9 +1626,9 @@ class CatalogConfiguration(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_env(path)
 
-    def test_inventory_is_twenty_catalogs_plus_local_not_twenty_working_adapters(self):
+    def test_inventory_is_twenty_two_catalogs_plus_local_not_a_live_access_guarantee(self):
         capabilities = providers.capabilities()
-        self.assertEqual(21, len(capabilities))
+        self.assertEqual(23, len(capabilities))
         self.assertTrue(capabilities["archive"]["search"])
         self.assertEqual("supported", capabilities["telegram"]["implementation"])
         self.assertEqual("sample_verified", capabilities["telegram"]["live"])

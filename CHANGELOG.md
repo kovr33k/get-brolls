@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Search: add bounded public Net-film HTML and Suspilne JSON discovery as `netfilm` and `suspilne`, including brief/rules selection and existing fragment chains, saved query allowances and replay. Preserve canonical cards, matching text, reported dates and posters; distinguish empty results from access/schema failures. Suspilne supports Ukrainian/English catalog locales without rewriting queries. Media acquisition remains a separate manual step.
+
 ## 2.13.9 — 2026-10-09
 
 - Inspection: preserve Cyrillic tokens including `й`, `ї` and `ё` while retaining Latin accent folding. Score every subtitle track before deduplicating equal intervals and retain its language, author/automatic kind and original provenance.

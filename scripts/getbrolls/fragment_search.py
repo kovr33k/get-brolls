@@ -1597,7 +1597,7 @@ def _dispatch(ledger, plan, args, rules, query):  # noqa: C901 - persisted dispa
             args.limit,
             media=args.media,
             **({"catalog_filters": args.catalog_filter} if selected_filters else {}),
-            **({"language": args.language} if plan["catalog"] in ("un_webtv", "x") else {}),
+            **({"language": args.language} if plan["catalog"] in ("un_webtv", "x", "suspilne") else {}),
             **(
                 {
                     "ledger": ledger,

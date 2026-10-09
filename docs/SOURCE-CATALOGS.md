@@ -2,13 +2,13 @@
 type: reference
 status: current
 created: 2026-10-01
-updated: 2026-10-07
+updated: 2026-10-09
 tags: [get-brolls, catalogs, providers, search, access]
 ---
 
 # Source catalogs: search, access, and acquisition
 
-Use this reference when choosing a catalog or implementing a provider. It consolidates the supplied 18-source inventory, the researched EC/UN/Destockd routes, and Instagram/TikTok. Catalog descriptions guide the agent's selection; they are not fixed topic-to-provider rules.
+Use this reference when choosing a catalog or implementing a provider. It consolidates the supplied 18-source inventory, the researched EC/UN/Destockd routes, Instagram/TikTok, and the Net-film/Suspilne additions. Catalog descriptions guide the agent's selection; they are not fixed topic-to-provider rules.
 
 **Status scope:** `Search` and `URL/browser` below describe capabilities in version 2.13.8, reconciled on 2026-10-07, not a live availability guarantee. The [engineering acceptance](CATALOG-ACCEPTANCE.md) is complete for all twenty retained catalogs. Credentials and sessions from the previous project are not assumed to be available here. [QUALITY.md](QUALITY.md) summarizes current evidence and links to dated source reports. Configured access, acquired media, visual suitability and human acceptance remain separate facts.
 
@@ -22,6 +22,8 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 | Wikimedia Commons | Historical photos, documents, video | Public MediaWiki Action API | Search |
 | Internet Archive | Archival films, newsreels, FedFlix, images | Public search and item Metadata API | Search + explicit item/file URL; inspect/preview/common delivery |
 | NASA Image and Video Library | Space, science, NASA media | Public Images API; no general NASA API key | Search |
+| Net-film | Historical newsreels and documentary footage | Public HTML film/chapter search; no key | Bounded search + canonical film cards; manual media |
+| Suspilne Mediateka | Ukrainian historical television and films | Public JSON media search; Ukrainian/English locale; no key | Bounded search + canonical media cards; manual media |
 | Library of Congress | Historical films, photos, maps, documents | Public JSON API and item resources; authorized browser for verification challenges | Search + item/resource originals; bounded browser fallback + supplied-original import; API live access unverified |
 | DVIDS | Official military footage, exercises, briefings | Application API key; optional server secret | Search + selected asset/files; common inspect/preview/review gates |
 | Europeana | European cultural and historical collections | Confirmed personal/project key type according to use | Search + Record API and institution media; absent originals stay manual locators |
@@ -259,6 +261,15 @@ Implemented with shared locale/query accounting, public timed-transcript inspect
 - **Acquisition:** yt-dlp on the full post URL; resolve gathers title, handle, creator, and duration when the metadata request succeeds. Individual posts may require a session or be inaccessible.
 - **Keep:** post ID, canonical page, account, date/context, source language, and conditions. A discovered embed/post address is not reuse authorization.
 - **Reference:** [current TikTok procedure](GUIDE.md#provedor--tiktok).
+
+## Net-film and Suspilne
+
+**Provider IDs:** `netfilm`, `suspilne`. Both have bounded, credential-free native video discovery and reuse the common fragment search plans, saved allowances and replay. These two additions are outside the historical twenty-catalog engineering acceptance scope linked above.
+
+- **Net-film:** archival newsreels and documentary footage, with Russian catalog text and film/chapter descriptions. Search reads the public `/found-page-N/?q=...` pages and retains canonical `/film-ID/` cards, matching descriptions, reported dates and frame references. Several matched chapters can refer to the same parent film; no selected media part or interval is inferred.
+- **Suspilne Mediateka:** Ukrainian historical television recordings and films. Search uses the website's public `/api/content` media-items branch, preserving the original query, film ID, title, description, capture year, publication date, reported duration and poster. Catalog metadata supports `uk` and `en` locales.
+- **Current scope:** keyword search and canonical-card discovery. Inspect the returned card and obtain actual media separately; the CLI does not advertise automatic acquisition or URL resolution for these providers. The operational commands and locale/filter limits are in the [guide](GUIDE.md#providers--net-film-and-suspilne).
+- **References:** [Net-film](https://www.net-film.ru/), [Suspilne Mediateka](https://mediateka.suspilne.media/).
 
 ## Shared catalog result information
 

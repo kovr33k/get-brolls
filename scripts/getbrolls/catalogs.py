@@ -15,6 +15,7 @@ from .runtime import record_warning
 NAMES = ("loc", "dvids", "europeana", "nara")
 KEYS = {"dvids": "DVIDS_API_KEY", "europeana": "EUROPEANA_API_KEY", "nara": "NARA_API_KEY"}
 FILTERS = {
+    "suspilne": {"locale"},
     "x": {"allowed_x_handles", "excluded_x_handles", "from_date", "to_date"},
     "mapillary": {"bbox", "captured_after", "captured_before"},
     "telegram": {"channel", "from_date", "to_date"},
@@ -84,6 +85,11 @@ def filters(name, values=None, language=None):
         locale = language or result.get("locale", "en")
         if locale not in LOCALES or (language and result.get("locale", locale) != locale):
             raise ProviderError("UN query language must match a supported locale: en/fr/es/ar/zh/ru.")
+        result["locale"] = locale
+    if name == "suspilne":
+        locale = result.get("locale", "en" if (language or "").lower().split("-")[0] == "en" else "uk")
+        if locale not in ("en", "uk"):
+            raise ProviderError("Suspilne catalog locale must be uk or en; query wording is kept unchanged.")
         result["locale"] = locale
     return result
 

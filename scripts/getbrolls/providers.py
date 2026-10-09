@@ -23,6 +23,7 @@ def capabilities():
     from .broadcasts import NAMES as BROADCASTS
     from .catalogs import NAMES
     from .grok_oauth import VERIFIED_MODELS
+    from .historical_catalogs import NAMES as HISTORICAL
 
     result = {}
     for name in (
@@ -36,12 +37,23 @@ def capabilities():
         "archive",
         *NAMES,
         *BROADCASTS,
+        *HISTORICAL,
         "un_avlibrary",
         "destockd",
         "x",
         "local",
     ):
-        search_ok = name in ("youtube", "pexels", "pixabay", "commons", "nasa", "archive", *NAMES, *BROADCASTS)
+        search_ok = name in (
+            "youtube",
+            "pexels",
+            "pixabay",
+            "commons",
+            "nasa",
+            "archive",
+            *NAMES,
+            *BROADCASTS,
+            *HISTORICAL,
+        )
         key = KEYS.get(name)
         result[name] = {
             "search": search_ok,
@@ -110,6 +122,18 @@ def capabilities():
         coverage="Recent transcript search: last 365 days. Older assets: direct URL.",
         access_decision="required before media acquisition",
     )
+    for name in HISTORICAL:
+        result[name].update(
+            resolve_url=False,
+            preview=False,
+            download=False,
+            manual=True,
+            implementation="supported_discovery; manual_original",
+            transport="public HTML search / canonical film card"
+            if name == "netfilm"
+            else "public JSON search / canonical media card",
+            coverage="Bounded catalog text matches; visual suitability requires source inspection.",
+        )
     for name, keys in (
         ("mapillary", ("MAPILLARY_TOKEN",)),
         ("telegram", ("TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_SESSION", "BROLL_TELEGRAM_CHANNELS")),
@@ -527,7 +551,7 @@ def search(  # noqa: C901, PLR0913 - documented provider dispatch and recoverabl
     resume_history=False,
     search_context=None,
 ):
-    from . import account_catalogs, broadcasts, catalogs
+    from . import account_catalogs, broadcasts, catalogs, historical_catalogs
     from .archive import search as archive_search
 
     if not isinstance(limit, int) or not 1 <= limit <= 50:  # noqa: PLR2004 - matches the "entre 1 e 50" message below
@@ -549,16 +573,12 @@ def search(  # noqa: C901, PLR0913 - documented provider dispatch and recoverabl
         return x_search(
             query.strip(), limit, media, selected_filters, language=language, ledger=ledger, context=search_context
         )
-    if provider in broadcasts.NAMES:
-        items = broadcasts.search(provider, query.strip(), limit, media, selected_filters)
-        for item in items:
-            item["query"] = query.strip()
-        return items
-    if provider in catalogs.NAMES:
-        items = catalogs.search(provider, query.strip(), limit, media, selected_filters)
-        for item in items:
-            item["query"] = query.strip()
-        return items
+    for family in (historical_catalogs, broadcasts, catalogs):
+        if provider in family.NAMES:
+            items = family.search(provider, query.strip(), limit, media, selected_filters)
+            for item in items:
+                item["query"] = query.strip()
+            return items
     fn = {
         "pexels": _pexels,
         "pixabay": _pixabay,

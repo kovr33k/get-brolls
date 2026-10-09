@@ -460,6 +460,22 @@ python3 scripts/gb.py resolve --url https://catalog.archives.gov/id/<NAID> --cat
 
 **Known LoC card and supplied master.** When the canonical item is already known and its normal page/file controls were observed, use `resolve --url <canonical-item> --locator-metadata <observed.json>` without inventing another keyword search or dispatching the blocked API. The JSON contains that same `url`, an observed `media_kind` (`image` or `video`), and only the documented public title/creator/date/description/poster fields; unknown fields stay unknown. The result is a manual locator, not an API-resolved file. Native `--catalog-file`/`--archive-file` selectors cannot be combined with this import. Link the actually obtained master with `resolve --file <master> --original-for <locator-id> --original-conditions "<observed source and file limitations>"`. Both `.tif` and `.tiff` are still images: their actual dimensions are measured, while duration and frame rate remain unknown. Preserve the public item/resource identity and the local file hash; a successful browser page or thumbnail does not establish original quality, rights or approval.
 
+## Providers — Net-film and Suspilne
+
+`netfilm` searches the public Net-film HTML catalog; `suspilne` searches the public Mediateka JSON endpoint. Both support video discovery without API keys and can be selected in `BRIEF.md` `allowed_sources`, `RULES.md` `preferred_providers`, and `search-plan` chains. Planned searches use the existing three-query allowance and saved replay.
+
+```bash
+python3 scripts/gb.py search --provider netfilm --query "космос" --media video --limit 8 --project <project>
+python3 scripts/gb.py search --provider suspilne --query "Київ" --language uk --media video --limit 8 --project <project>
+python3 scripts/gb.py search --provider suspilne --query "Kyiv" --language en --catalog-filter locale=en --limit 8 --project <project>
+```
+
+Net-film reads at most three pages of twenty records for `--limit` 1–50; Suspilne requests one bounded page. Results keep a canonical film/media card, source text, poster references and reported dates. A Net-film match can belong to one of several chapters: search does not select a part or infer its video interval. Suspilne retains the reported film duration and capture year separately from publication date. Text matches and posters require inspection before visual confirmation.
+
+Suspilne's default catalog locale is `uk`; `--language en` (including regional English tags) selects `en`. Explicit `--catalog-filter locale=uk|en` takes precedence. The locale controls catalog metadata, not translation of the supplied query. Other language wording remains unchanged and defaults to the Ukrainian catalog. Net-film has no extra filters. Paging, credentials, duplicate fields and unknown filters are refused. Empty results and access/response failures remain distinct.
+
+These are search adapters: native URL resolution, remote video preview and automatic download are not exposed. Open the returned source card to inspect the material; an actually obtained file can use the existing `resolve --file --source-url` route. See [catalog references](SOURCE-CATALOGS.md#net-film-and-suspilne).
+
 ## Providers — GDELT TV, EC Audiovisual and UN Web TV
 
 These three providers reuse `search-plan`, `search --planned`, visual confirmation and the existing Storyboard. Every language or filter change shares the catalog's three-query allowance. Discovery is credential-free; an actual file, decoded preview, suitable option, access decision, usage rights and human approval are separate facts.
@@ -552,7 +568,7 @@ For a multi-file page, select a real asset with `resolve --url https://archive.o
 
 Prepared previews enter `review --ready-only` with their original narration. Human approval and rights evidence remain independent prerequisites for `fetch`, then `verify` and `deliver`. See [source contracts](SOURCE-CATALOGS.md#internet-archive--archiveorg) and [dated quality observations](QUALITY.md).
 
-`providers` lists twenty retained catalogs plus local import. `implementation`, operation flags, `configured`, and `live_observation` express separate facts. A configured key or session reference is not authenticated access. Unverified adapters never advertise working discovery. The private configuration allowlist accepts DVIDS, Europeana, NARA, Mapillary, Telegram, and optional AI settings shown in `.env.example`; process values still win and unknown names are rejected. Optional Gemini/xAI keys do not select API billing. The account routes below distinguish geographic discovery, local user authorization, public-channel scope and retained OAuth access.
+`providers` lists twenty-two catalogs plus local import. `implementation`, operation flags, `configured`, and `live_observation` express separate facts. A configured key or session reference is not authenticated access. Unverified adapters never advertise working discovery. The private configuration allowlist accepts DVIDS, Europeana, NARA, Mapillary, Telegram, and optional AI settings shown in `.env.example`; process values still win and unknown names are rejected. Optional Gemini/xAI keys do not select API billing. The account routes below distinguish geographic discovery, local user authorization, public-channel scope and retained OAuth access.
 
 `live_observation` records a dated, bounded source sample: the version used, operations actually exercised, selected media and remaining limits. A decoded working window or linked institution file does not establish current access, a complete recording or editing master, exact original cut boundaries, editorial suitability, human approval or reuse permission. Read its date and limitations alongside the implemented capabilities and current access result. Later media acquisition can update an earlier metadata-only observation without enabling another transport; see [dated source evidence](QUALITY.md).
 

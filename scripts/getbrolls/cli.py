@@ -582,7 +582,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 "--media",
                 choices=["image", "video", "any"],
                 default="any",
-                help="Source media type: image, video, or any (default); public catalog adapters support both",
+                help="Source media type: image, video, or any (default); supported kinds depend on the provider",
             )
             p.add_argument(
                 "--shot",
