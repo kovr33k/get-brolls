@@ -3,11 +3,11 @@ name: get-brolls
 description: 'Coleta, pré-visualiza e entrega B-rolls com revisão humana e origem registrada. Use quando alguém pedir b-roll, vídeos de apoio, imagens de apoio, cutaways, inserts, footage, "um corte do X falando Y", um print da tela de um site ou de uma notícia, ou material para ilustrar um vídeo, Reel ou aula — buscando em YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org ou bancos (Pexels, Pixabay), gerando prévias para revisão humana e entregando os trechos com origem e condições de uso. Also in English: collect B-roll, cutaways, inserts, supporting footage, stock video, screen grabs. Não serve para editar, montar ou renderizar o vídeo final. Not for editing or rendering the finished video.'
 license: MIT
 metadata:
-  version: "2.13.8"
+  version: "2.13.9"
   type: "skill"
   status: "current"
   created: "2026-09-15"
-  updated: "2026-10-07"
+  updated: "2026-10-09"
   tags: "b-roll, youtube, instagram, tiktok, storyboard"
 ---
 
@@ -82,7 +82,7 @@ Para uma **card LoC já conhecida**, importe somente os metadados públicos obse
 
 ## Passo 4 — Analise e pré-visualize
 
-`python3 "scripts/gb.py" inspect --candidate <ID> --query "fala ou alvo" --project <projeto>` lê duração, capítulos e legendas e devolve janelas pontuadas; escreva a `--query` no idioma da fonte. Escolha `--start/--end` a partir delas, nunca de palpite.
+`python3 "scripts/gb.py" inspect --candidate <ID> --query "fala ou alvo" --language <IDIOMA> --project <projeto>` lê duração, capítulos e legendas e devolve janelas pontuadas. Escolha o idioma para esse vídeo pela fala e pelas faixas disponíveis; escreva a `--query` no idioma da fonte ou da faixa escolhida e passe `--language` (por exemplo `es`, `ru`, `uk`, `pt-BR`). O idioma do roteiro e o da busca no catálogo podem diferir do vídeo; nomes curtos não são uma identificação confiável. Confira `obtained_subtitle_langs`, a língua/proveniência da janela e os avisos de texto ausente. Sem idioma explícito, o CLI prefere a original conhecida. Consulte os [limites de seleção e reserva](docs/GUIDE.md#inspeção-de-idioma-e-momento-dentro-do-vídeo). Escolha `--start/--end` a partir das janelas e confirme visualmente no próximo preview.
 
 Para uma imagem, `inspect` mede o arquivo adquirido: dimensões, sem duração, frame rate ou janela temporal inventados. Confirme a imagem real pelo poster. Prefira a representação adequada com qualidade real; confirme as dimensões e não faça upscale para simular resolução.
 

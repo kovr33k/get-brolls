@@ -2486,7 +2486,7 @@ def language_warning(probe, query):
 
 def inspect_warnings(probe, query=None):
     """Avisos sobre a fonte em si — o que costuma virar retrabalho depois da prévia."""
-    found = []
+    found = list(probe.get("subtitle_warnings") or [])
     language = language_warning(probe, query)
     if language:
         found.append(language)
@@ -2507,7 +2507,7 @@ def inspect_warnings(probe, query=None):
     return found
 
 
-def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source URL, original-access and timed-caption checks
+def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912, PLR0915 - source URL, language, original-access and timed-caption checks
     """O que a fonte já conta sobre si, antes de escolher intervalo.
 
     Na rota normal (página que o yt-dlp lê) nada de mídia é pedido: só metadados e
@@ -2522,7 +2522,11 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
     fixa o arquivo original; contexto alterado invalida aprovação já desatualizada.
     """
     from .acquisition import direct_media
-    from .inspecting import candidate_windows
+    from .inspecting import candidate_windows, normalize_language
+
+    language = getattr(args, "language", None)
+    if language is not None:
+        language = normalize_language(language)
 
     if args.max_windows is not None and not 1 <= args.max_windows <= 20:  # noqa: PLR2004 - matches the "--max-windows entre 1 e 20" message below
         raise ValueError("Use --max-windows entre 1 e 20.")
@@ -2568,7 +2572,10 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
             if source.get("catalog"):
                 probe["source_transcripts"] = catalogs.inspect_transcripts(source)
     else:
-        probe = broadcasts.inspect_remote(source, url, ledger.root.parent / ".getbrolls-sources")
+        probe = broadcasts.inspect_remote(
+            source, url, ledger.root.parent / ".getbrolls-sources", **({"language": language} if language else {})
+        )
+    probe["query_language"] = language
     cap = float((config or {}).get("max_seconds") or 0)
     still = (source.get("media") or {}).get("kind") == "image"
     windows = [] if still else clamp_windows(candidate_windows(probe, args.query, args.max_windows or 3), cap)
@@ -2612,6 +2619,12 @@ def inspect_source(ledger, args, config=None):  # noqa: C901, PLR0912 - source U
         "chapters": probe["chapters"],
         "subtitle_langs": probe["subtitle_langs"],
         "subtitle_langs_total": probe.get("subtitle_langs_total", len(probe["subtitle_langs"])),
+        "query_language": language,
+        "original_lang": probe.get("original_lang"),
+        "obtained_subtitle_langs": [
+            code for code, entry in (probe.get("subtitles") or {}).items() if entry.get("cues")
+        ],
+        "subtitle_tracks": list(probe.get("subtitle_tracks") or []),
         "limitations": list(probe.get("limitations") or []),
         "candidate_windows": windows,
         **({"representation_status": probe["representation_status"]} if "representation_status" in probe else {}),
@@ -2762,7 +2775,8 @@ def scan_candidate(ledger, c, config):  # noqa: C901 - existing size; contact-sh
         else:
             from .social import probe_remote
 
-            probe_data = probe_remote(c["source_url"], cache=ledger.root.parent / ".getbrolls-sources")
+            # A scan needs only duration; avoid obtaining unrelated subtitle text.
+            probe_data = probe_remote(c["source_url"], langs=(), cache=ledger.root.parent / ".getbrolls-sources")
         duration = probe_data["duration_s"]
         if duration:
             c["media"]["duration_s"] = duration

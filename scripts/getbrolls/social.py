@@ -278,16 +278,68 @@ def _write_private(path, text):
 
 
 def _original_language(data):
-    """Idioma falado de fato: o que o yt-dlp marca como "(Original)" ou `<code>-orig`."""
+    """Prefer declared audio language; multiple dubbed *-orig tracks are ambiguous."""
+    from .inspecting import base_language
+
     automatic = data.get("automatic_captions") or {}
-    for code in automatic:
-        if str(code).endswith("-orig"):
-            return code
-    for code, tracks in automatic.items():
-        for track in tracks or []:
-            if "original" in str((track or {}).get("name") or "").lower():
-                return code
-    return None
+    originals = [
+        code
+        for code, tracks in automatic.items()
+        if str(code).lower().endswith("-orig")
+        or any("original" in str((track or {}).get("name") or "").lower() for track in tracks or [])
+    ]
+    declared = data.get("language")
+    if base_language(declared):
+        return next((code for code in originals if base_language(code) == base_language(declared)), declared)
+    bases = {base_language(code) for code in originals}
+    return originals[0] if len(bases) == 1 and None not in bases else None
+
+
+MAX_SUBTITLE_DOWNLOADS = 3
+
+
+def select_subtitle_tracks(data, langs):
+    """One track per requested language plus the original; bounded unknown fallback."""
+    from .inspecting import base_language
+
+    manual = data.get("subtitles") or {}
+    automatic = data.get("automatic_captions") or {}
+    original = _original_language(data)
+    spoken = base_language(original)
+    selected = []
+
+    def pick(wanted):
+        base = base_language(wanted)
+        for kind, available in (("manual", manual), ("automatic", automatic)):
+            matches = [code for code, tracks in available.items() if tracks and base_language(code) == base]
+            matches.sort(
+                key=lambda code: (
+                    code != original,
+                    not code.lower().endswith("-orig") if kind == "automatic" else False,
+                    code.lower().replace("_", "-") != wanted.lower().replace("_", "-"),
+                    code != base,
+                    code,
+                )
+            )
+            if matches:
+                return {"language": matches[0], "kind": kind, "is_original": base == spoken if spoken else None}
+        return None
+
+    # Without an explicit query language, the original takes precedence over PT/EN.
+    wanted = [*langs, original] if langs else [original] if original else SUBTITLE_LANGS
+    for code in wanted:
+        if not code:
+            continue
+        track = pick(code)
+        if track and track not in selected:
+            selected.append(track)
+    if not selected and not spoken:
+        for kind, available in (("manual", manual), ("automatic", automatic)):
+            codes = sorted(code for code, tracks in available.items() if tracks and code != "live_chat")
+            if codes:
+                selected.append({"language": codes[0], "kind": kind, "is_original": None})
+                break
+    return selected[:MAX_SUBTITLE_DOWNLOADS]
 
 
 def relevant_langs(data, langs):
@@ -300,9 +352,13 @@ def relevant_langs(data, langs):
     manual = set(data.get("subtitles") or {})
     automatic = set(data.get("automatic_captions") or {})
     every = sorted(manual | automatic)
-    listed = [code for code in langs if code in manual or code in automatic]
+    from .inspecting import base_language
+
+    listed = []
+    for requested in langs:
+        listed.extend(code for code in every if base_language(code) == base_language(requested) and code not in listed)
     original = _original_language(data)
-    if original and original not in listed:
+    if original in (manual | automatic) and original not in listed:
         listed.append(original)
     if not listed:
         listed = every[:MAX_SUBTITLE_LANGS]
@@ -377,102 +433,133 @@ def _validate_transport(url, source_url=None):
             raise ProviderError("Transport must match the selected public EC media representation.")
 
 
-def probe_remote(url, langs=SUBTITLE_LANGS, cache=None, *, source_url=None):  # noqa: C901 - existing size; one branch per cache/retry/subtitle-language outcome
-    """O que a fonte conta sobre si: duração, capítulos, legendas e descrição.
+def _obtain_subtitles(raw, tracks, url, cache, *, manual=True):
+    """Download exact selected tracks from saved metadata and record actual text."""
+    from .inspecting import parse_vtt, parse_vtt_language
 
-    Um único pedido ao yt-dlp, sem baixar vídeo, com as mesmas pausas de
-    `GB_YTDLP_SLEEP` do resto da skill. O VTT das legendas fica na pasta privada
-    `.getbrolls-sources/` com 0600, nunca dentro de `brolls/`.
+    subtitles = {}
+    subtitle_warnings = []
+    with tempfile.TemporaryDirectory(dir=str(cache) if cache else None) as work:
+        info = Path(work) / "probe.info.json"
+        _write_private(info, raw)
+        try:
+            _, warnings = run(
+                [
+                    "--ignore-errors",
+                    "--no-simulate",
+                    "--skip-download",
+                    "--load-info-json",
+                    str(info),
+                    "--write-subs" if manual else "--no-write-subs",
+                    "--write-auto-subs",
+                    "--sub-langs",
+                    ",".join(re.escape(track["language"]) for track in tracks),
+                    "--sub-format",
+                    "vtt",
+                    "-o",
+                    str(Path(work) / "probe.%(ext)s"),
+                    "--quiet",
+                    "--no-warnings",
+                ],
+                timeout=60,
+            )
+        except (ProviderError, OSError) as error:
+            # Metadata and any tracks already written remain useful after a failed batch.
+            warnings = [f"Subtitle download failed: {redact(str(error))}"]
+            subtitle_warnings.extend(warnings)
+        for warning in warnings:
+            record_warning("YTDLP_WARNING", warning)
+        found = {_language_from(path.name): path for path in Path(work).glob("*.vtt")}
+        for track in tracks:
+            code = track["language"]
+            path = found.get(code)
+            cues = []
+            if path:
+                text = path.read_text(encoding="utf-8", errors="replace")
+                language = parse_vtt_language(text) if code == "und" else code
+                destination = None
+                if cache is not None:
+                    stem = hashlib.sha256(url.encode()).hexdigest()[:16]
+                    destination = cache / f"{stem}-{code}.vtt"
+                    logs.event(
+                        _log,
+                        logging.DEBUG,
+                        "cache_reuse",
+                        kind="subtitle",
+                        status="hit" if destination.exists() else "miss",
+                    )
+                    _write_private(destination, text)
+                cues = parse_vtt(text)
+                subtitles[code] = {
+                    **track,
+                    "language": language or code,
+                    "path": str(destination) if destination else None,
+                    "cues": cues,
+                }
+            track["status"] = "obtained" if cues else "empty" if path else "unavailable"
+            track["cue_count"] = len(cues)
+            if not cues:
+                subtitle_warnings.append(f"No subtitle text obtained for {code} ({track['kind']}).")
+    return subtitles, subtitle_warnings
+
+
+def probe_remote(url, langs=None, cache=None, *, source_url=None):  # noqa: C901 - metadata, bounded track fallback and source fields
+    """Metadata first, then at most three selected subtitle tracks, without video.
+
+    Reuse the private info JSON via --load-info-json: selection needs the available
+    tracks, but must not extract the same video again or request all translations.
+    Existing langs tuples remain supported; omission now prefers the original.
     """
-    # Só páginas reconhecidas, nunca uma URL qualquer vinda do chat.
+    from .inspecting import base_language, normalize_language
+
+    requested = tuple(normalize_language(code) for code in ((langs,) if isinstance(langs, str) else langs or ()))
     _validate_transport(url, source_url)
     cache = Path(cache) if cache is not None else None
     if cache is not None:
         cache.mkdir(parents=True, exist_ok=True)
         cache.chmod(0o700)
-    subtitles = {}
-    with tempfile.TemporaryDirectory(dir=str(cache) if cache else None) as work:
-        info = Path(work) / "probe.info.json"
-        # `--dump-single-json` implicaria `--simulate`, e em modo simulado o yt-dlp não
-        # escreve arquivo nenhum: os `.vtt` nunca chegavam ao disco e o `inspect` voltava
-        # sem uma única fala, por mais legendas que a fonte anunciasse. Com `--no-simulate`
-        # os arquivos aparecem e o stdout deixa de trazer JSON, então os metadados vêm do
-        # `.info.json` escrito ao lado das legendas.
-        _, warnings = run(
-            [
-                # Uma faixa que falha (429 num idioma só, tradução que sumiu) não pode
-                # derrubar a análise inteira: sem isto, o `pt` já baixado ia para o lixo
-                # junto com o erro do `en`. O que falta é tratado logo abaixo.
-                "--ignore-errors",
-                "--no-simulate",
-                "--skip-download",
-                "--write-info-json",
-                "--write-auto-subs",
-                "--sub-langs",
-                ",".join(langs),
-                "--sub-format",
-                "vtt",
-                "-o",
-                str(Path(work) / "probe.%(ext)s"),
-                "--quiet",
-                "--no-warnings",
-                "--",
-                url,
-            ],
-            timeout=60,
-            # No `op=` here: tests/test_inspect.py replaces `social.run` with a spy whose
-            # signature is `(arguments, timeout=180)` — passing any extra keyword would
-            # break that existing test. The `event=subprocess` line still fires for this
-            # call, just with `op=-`.
+    raw, warnings = run(["--dump-single-json", "--skip-download", "--", url], timeout=60)
+    for warning in warnings:
+        record_warning("YTDLP_WARNING", warning)
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        raise ProviderError("yt-dlp retornou metadados inválidos.") from None
+    if not isinstance(data, dict):
+        raise ProviderError("yt-dlp retornou metadados inválidos.")
+    tracks = [] if langs is not None and not requested else select_subtitle_tracks(data, requested)
+    subtitles, subtitle_warnings = _obtain_subtitles(raw, tracks, url, cache) if tracks else ({}, [])
+    # A failed author track may fall back once to the original automatic track.
+    # Keep failed acquisition provenance and cap total track attempts at three.
+    if len(tracks) < MAX_SUBTITLE_DOWNLOADS and any(
+        track["kind"] == "manual" and track["is_original"] is True and not track["cue_count"] for track in tracks
+    ):
+        automatic = select_subtitle_tracks({**data, "subtitles": {}}, (_original_language(data),))
+        fallback = [
+            track
+            for track in automatic
+            if track["is_original"] is True and not subtitles.get(track["language"], {}).get("cues")
+        ]
+        if fallback:
+            fallback = fallback[:1]
+            obtained, more = _obtain_subtitles(raw, fallback, url, cache, manual=False)
+            subtitles.update(obtained)
+            subtitle_warnings.extend(more)
+            tracks.extend(fallback)
+    subtitle_warnings.extend(
+        f"No subtitles advertised for requested language {code}; any fallback is a different or unknown language."
+        for code in requested
+        if not any(base_language(track["language"]) == base_language(code) for track in tracks)
+    )
+    original = _original_language(data)
+    if original and langs is None and not tracks:
+        subtitle_warnings.append(
+            f"No subtitles advertised for original language {original}; original text is unavailable."
         )
-        for w in warnings:
-            record_warning("YTDLP_WARNING", w)
-        if info.is_file():
-            raw = info.read_text(encoding="utf-8", errors="replace")
-        else:
-            # `--ignore-errors` engole o motivo junto com o erro. Um segundo pedido, só
-            # de metadados (simulado, sem escrever arquivo nenhum), devolve a
-            # classificação de sempre — vídeo privado, 429, sessão exigida — em vez de um
-            # "metadados inválidos" genérico, e ainda salva título, duração e capítulos.
-            raw, more = run(["--dump-single-json", "--skip-download", "--", url], timeout=60, op="metadata")
-            for w in more:
-                record_warning("YTDLP_WARNING", w)
-        try:
-            data = json.loads(raw)
-        except ValueError:
-            raise ProviderError("yt-dlp retornou metadados inválidos.") from None
-        if not isinstance(data, dict):
-            raise ProviderError("yt-dlp retornou metadados inválidos.")
-        found = {_language_from(v.name): v for v in sorted(Path(work).glob("*.vtt"))}
-        # Na ordem pedida em `langs`: o primeiro idioma é o preferido quando dois
-        # trazem os mesmos tempos, e é essa ordem que `candidate_windows` respeita.
-        ordered = [found.pop(code) for code in langs if code in found]
-        ordered += [found[code] for code in sorted(found)]
-        for vtt in ordered:
-            from .inspecting import parse_vtt, parse_vtt_language
-
-            text = vtt.read_text(encoding="utf-8", errors="replace")
-            # O cabeçalho `Language:` do próprio arquivo vale mais que o sufixo do
-            # nome quando o sufixo não diz nada.
-            language = _language_from(vtt.name)
-            if language == "und":
-                language = parse_vtt_language(text) or language
-            destination = None
-            if cache is not None:
-                stem = hashlib.sha256(url.encode()).hexdigest()[:16]
-                destination = cache / f"{stem}-{language}.vtt"
-                logs.event(
-                    _log,
-                    logging.DEBUG,
-                    "cache_reuse",
-                    kind="subtitle",
-                    status="hit" if destination.exists() else "miss",
-                )
-                _write_private(destination, text)
-            subtitles[language] = {
-                "path": str(destination) if destination else None,
-                "cues": parse_vtt(text),
-            }
+    if tracks and not original:
+        subtitle_warnings.append(
+            "Original language is unknown; a fallback subtitle track does not establish the spoken language."
+        )
     duration = data.get("duration")
     chapters = []
     for chapter in data.get("chapters") or []:
@@ -485,11 +572,14 @@ def probe_remote(url, langs=SUBTITLE_LANGS, cache=None, *, source_url=None):  # 
                 "title": chapter.get("title") or "",
             }
         )
-    listed, total = relevant_langs(data, langs)
+    listed, total = relevant_langs(data, requested or SUBTITLE_LANGS)
+    for track in tracks:
+        if track["language"] not in listed:
+            listed.append(track["language"])
+    listed = listed[:MAX_SUBTITLE_LANGS]
     # Qual faixa é a fala de verdade. As outras são tradução automática do YouTube, e
     # comparar a `--query` com uma delas invertia o aviso de idioma: uma fonte em
     # inglês com faixa `pt` traduzida respondia "legenda em PT" para uma query em EN.
-    original = _original_language(data) or data.get("language")
     return {
         "url": url,
         "title": data.get("title"),
@@ -503,6 +593,8 @@ def probe_remote(url, langs=SUBTITLE_LANGS, cache=None, *, source_url=None):  # 
         # Só o que a fonte declara: serve para avisar sobre 360°/VR antes da prévia.
         "tags": [str(tag) for tag in (data.get("tags") or []) if tag],
         "subtitles": subtitles,
+        "subtitle_tracks": tracks,
+        "subtitle_warnings": subtitle_warnings,
         "limitations": source_limitations(data),
     }
 

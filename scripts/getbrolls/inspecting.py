@@ -14,6 +14,7 @@ MAX_SUBTITLE_WINDOW_S = 12.0
 MAX_CUE_GAP_S = 1.5
 # Sem fim conhecido (capítulo aberto, tempo escrito na descrição), use isto.
 DEFAULT_WINDOW_S = 12.0
+MIN_LANGUAGE_MARKERS = 2
 
 _TIME_RE = re.compile(r"(?:(?P<h>\d{1,3}):)?(?P<m>\d{1,2}):(?P<s>\d{2})(?:[.,](?P<ms>\d{1,3}))?")
 _CUE_RE = re.compile(
@@ -175,11 +176,25 @@ def base_language(code):
 
 
 def guess_language(text):
-    """`pt`, `en` ou None — heurística de palavras funcionais, sem dependência nova."""
+    """Conservative function-word hint; explicit video/query language wins."""
     words = set(tokens(text))
     if not words:
         return None
     pt, en = len(words & _PT_MARKERS), len(words & _EN_MARKERS)
+    counts = {
+        "pt": pt,
+        "en": en,
+        "es": len(words & {"el", "la", "los", "las", "que", "donde", "cuando", "como", "del", "dice"}),
+        "ru": len(words & {"что", "это", "как", "где", "когда", "который", "его", "ему", "говорит"}),
+        "uk": len(words & {"що", "це", "як", "де", "коли", "який", "його", "йому", "каже", "він"}),
+    }
+    best = max(counts, key=lambda code: counts[code])
+    if (
+        best not in ("pt", "en")
+        and counts[best] >= MIN_LANGUAGE_MARKERS
+        and list(counts.values()).count(counts[best]) == 1
+    ):
+        return best
     if pt == en:
         return None
     return "pt" if pt > en else "en"
@@ -197,6 +212,9 @@ def source_language(probe):
     declared = base_language(probe.get("original_lang"))
     if declared:
         return declared
+    if "subtitle_tracks" in probe:
+        # The new acquisition report distinguishes an unknown original from fallback.
+        return None
     listed = [str(code) for code in (probe.get("subtitle_langs") or [])]
     for code in listed:
         if code.endswith("-orig"):
@@ -207,14 +225,19 @@ def source_language(probe):
     return bases[0] if len(set(bases)) == 1 and bases else None
 
 
-def language_mismatch(probe, query):
+def language_mismatch(probe, query, language=None):
     """(idioma da fonte, idioma da frase) quando os dois são conhecidos e diferentes.
 
     Buscar uma fala em português dentro de uma legenda em inglês pontua zero em toda
     janela, e o resultado parece "a fonte não fala disso" quando o problema é só o
     idioma da consulta.
     """
-    asked = guess_language(query)
+    if not query:
+        return None
+    asked = base_language(language or probe.get("query_language")) or guess_language(query)
+    obtained = [base_language(code) for code, entry in (probe.get("subtitles") or {}).items() if entry.get("cues")]
+    if asked in obtained:
+        return None
     spoken = source_language(probe)
     if not asked or not spoken or spoken == asked:
         return None
@@ -222,10 +245,23 @@ def language_mismatch(probe, query):
 
 
 def tokens(text):
-    """Palavras normalizadas: sem acento, sem caixa, sem pontuação."""
-    flat = unicodedata.normalize("NFKD", str(text or ""))
-    flat = "".join(ch for ch in flat if not unicodedata.combining(ch)).lower()
-    return [word for word in re.split(r"[^0-9a-z]+", flat) if word]
+    """Fold Latin accents; preserve meaningful letters such as Cyrillic й/ї/ё."""
+    normalized = unicodedata.normalize("NFKC", str(text or "")).lower()
+    flat = []
+    for ch in normalized:
+        if "LATIN" in unicodedata.name(ch, ""):
+            flat.extend(c for c in unicodedata.normalize("NFKD", ch) if not unicodedata.combining(c))
+        else:
+            flat.append(ch)
+    return [word for word in re.split(r"[\W_]+", "".join(flat)) if word]
+
+
+def normalize_language(code):
+    """A concrete language tag, never yt-dlp's regex/all selection syntax."""
+    value = str(code or "").strip().replace("_", "-")
+    if not re.fullmatch(r"[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*", value) or value.lower() in ("all", "und", "mul", "zxx"):
+        raise ValueError("Use a concrete subtitle language such as es, ru, uk, pt-BR or en-US.")
+    return value
 
 
 def score(query, text):
@@ -267,7 +303,7 @@ def _subtitle_windows(cues):
     return windows
 
 
-def candidate_windows(probe, query=None, max_windows=3):
+def candidate_windows(probe, query=None, max_windows=3, *, language=None):
     """Trechos que valem olhar, do mais parecido com a frase para o menos.
 
     `probe` é o retorno de `social.probe_remote`. Sem frase, ninguém pontua: a ordem
@@ -276,12 +312,18 @@ def candidate_windows(probe, query=None, max_windows=3):
     """
     duration = probe.get("duration_s")
     raw = []
-    # Ordem do dicionário = ordem dos idiomas pedidos. Quando dois idiomas repetem
-    # os mesmos tempos (legenda automática traduzida), quem chega primeiro fica: a
-    # deduplicação por (início, fim, fonte) descarta o segundo.
-    for entry in (probe.get("subtitles") or {}).values():
+    for code, entry in (probe.get("subtitles") or {}).items():
         cues = (entry or {}).get("cues") or []
-        raw.extend({**window, "source": "subtitle"} for window in _subtitle_windows(cues))
+        raw.extend(
+            {
+                **window,
+                "source": "subtitle",
+                "language": entry.get("language") or code,
+                "subtitle_kind": entry.get("kind"),
+                "is_original": entry.get("is_original"),
+            }
+            for window in _subtitle_windows(cues)
+        )
     for chapter in probe.get("chapters") or []:
         start = chapter.get("start_s")
         end = chapter.get("end_s")
@@ -308,7 +350,6 @@ def candidate_windows(probe, query=None, max_windows=3):
             }
         )
     windows = []
-    seen = set()
     for window in raw:
         start = max(0.0, float(window["start_s"]))
         end = float(window["end_s"])
@@ -317,12 +358,9 @@ def candidate_windows(probe, query=None, max_windows=3):
             end = min(end, float(duration))
         if end <= start or not (window.get("text") or "").strip():
             continue
-        key = (round(start, 3), round(end, 3), window["source"])
-        if key in seen:
-            continue
-        seen.add(key)
         windows.append(
             {
+                **window,
                 "start_s": round(start, 3),
                 "end_s": round(end, 3),
                 "text": window["text"].strip(),
@@ -330,7 +368,22 @@ def candidate_windows(probe, query=None, max_windows=3):
                 "score": score(query, window["text"]),
             }
         )
-    windows.sort(key=lambda w: (-w["score"], w["start_s"]))
+    asked = base_language(language or probe.get("query_language")) or guess_language(query)
+    windows.sort(
+        key=lambda w: (
+            -w["score"],
+            w["start_s"],
+            -int(bool(asked and base_language(w.get("language")) == asked)),
+            -int(w.get("is_original") is True),
+            -int(w.get("subtitle_kind") == "manual"),
+        )
+    )
+    # Compare all tracks before selecting one representation of a timed window.
+    unique = {}
+    for window in windows:
+        key = (window["start_s"], window["end_s"], window["source"])
+        unique.setdefault(key, window)
+    windows = list(unique.values())
     limit = max(1, int(max_windows or 1))
     if not windows:
         # Nenhuma janela nomeada: devolver `[]` deixa o agente sem nada para olhar e
@@ -364,7 +417,9 @@ def fallback_windows(probe, max_windows=3):
         )
     if not out:
         cues = []
-        for entry in (probe.get("subtitles") or {}).values():
+        _code = "und"
+        entry = {}
+        for _code, entry in (probe.get("subtitles") or {}).items():
             cues = (entry or {}).get("cues") or []
             if cues:
                 break
@@ -374,6 +429,9 @@ def fallback_windows(probe, max_windows=3):
                 "end_s": round(float(cue["end_s"]), 3),
                 "text": cue["text"],
                 "source": "subtitle",
+                "language": entry.get("language") or _code,
+                "subtitle_kind": entry.get("kind"),
+                "is_original": entry.get("is_original"),
                 "score": 0.0,
             }
             for cue in _evenly(cues, limit)

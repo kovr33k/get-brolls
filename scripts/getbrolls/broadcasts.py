@@ -369,11 +369,11 @@ def search(name, query, limit, media, filters):
     )
 
 
-def inspect_un(item, cache):
+def inspect_un(item, cache, *, language=None):
     from .social import probe_remote
 
     try:
-        result = probe_remote(item["source_url"], cache=cache)
+        result = probe_remote(item["source_url"], cache=cache, **({"langs": (language,)} if language else {}))
     except (ValueError, OSError):
         result = {
             "url": item["source_url"],
@@ -399,18 +399,22 @@ def inspect_un(item, cache):
         result["subtitles"] = transcript
         result["subtitle_langs"] = list(transcript)
         result["subtitle_langs_total"] = len(transcript)
+        # Native transcripts replace yt-dlp tracks, including their acquisition report.
+        result.pop("subtitle_tracks", None)
+        result.pop("subtitle_warnings", None)
     result.setdefault("limitations", []).append(UN_DISCLAIMER)
     return result
 
 
-def inspect_remote(item, url, cache):
+def inspect_remote(item, url, cache, *, language=None):
     from .social import probe_remote
 
     if item["provider"] == "un_webtv":
-        return inspect_un(item, cache)
+        return inspect_un(item, cache, **({"language": language} if language else {}))
+    options = {"langs": (language,)} if language else {}
     if item["provider"] == "ec_audiovisual":
-        return probe_remote(item["media_url"], cache=cache, source_url=url)
-    return probe_remote(url, cache=cache)
+        return probe_remote(item["media_url"], cache=cache, source_url=url, **options)
+    return probe_remote(url, cache=cache, **options)
 
 
 def recognizes(url):
