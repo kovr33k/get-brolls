@@ -120,11 +120,12 @@ if writing and template:
     if "--write-info-json" in argv and not os.environ.get("GB_TEST_YTDLP_NO_INFO"):
         with open(template.replace("%(ext)s", "info.json"), "w", encoding="utf-8") as handle:
             handle.write(json.dumps(data))
-    if subtitle and "--write-auto-subs" in argv:
-        for lang in ("pt",):
+    if subtitle and ("--write-subs" in argv or "--write-auto-subs" in argv):
+        texts = json.loads(subtitle) if subtitle.startswith("{{") else {{"pt": subtitle}}
+        for lang, text in texts.items():
             path = template.replace("%(ext)s", lang + ".vtt")
             with open(path, "w", encoding="utf-8") as handle:
-                handle.write(subtitle)
+                handle.write(text)
 if not writing:
     print(json.dumps(data))
 """
@@ -146,7 +147,7 @@ def stub_ytdlp(directory, payload, vtt=None, no_info=False):
         # Fonte que engasgou no meio: legenda no disco, mas nenhum `.info.json`.
         env["GB_TEST_YTDLP_NO_INFO"] = "1"
     if vtt is not None:
-        env["GB_TEST_YTDLP_VTT"] = vtt
+        env["GB_TEST_YTDLP_VTT"] = json.dumps(vtt) if isinstance(vtt, dict) else vtt
     return env
 
 
@@ -252,7 +253,7 @@ class WindowTests(unittest.TestCase):
         starts = [w["start_s"] for w in subtitles]
         self.assertEqual(len(starts), len(set(starts)))
         self.assertEqual(2, len(starts))
-        # O primeiro idioma do dicionário manda: o texto é o dele, não o do segundo.
+        # O texto que casa com a query manda; a ordem do dicionário não elimina uma faixa.
         self.assertTrue(all("orange sky" not in w["text"] for w in subtitles), subtitles)
         self.assertIn("laranja", subtitles[0]["text"])
 
@@ -375,8 +376,8 @@ class ProbeRemoteTests(unittest.TestCase):
         self.assertEqual({}, probe["subtitles"])
         self.assertEqual([], probe["limitations"])
 
-    def test_without_an_info_json_the_metadata_comes_from_a_second_simulated_call(self):
-        """Sem `.info.json`, o probe ainda responde — e o erro de verdade não some."""
+    def test_subtitle_download_does_not_depend_on_ytdlp_writing_an_info_json(self):
+        """Metadata is saved privately before subtitle IO; obtained text survives."""
         with tempfile.TemporaryDirectory() as tmp:
             env = stub_ytdlp(tmp, WITH_EVERYTHING, VTT, no_info=True)
             with patch.dict(os.environ, env):
@@ -388,7 +389,7 @@ class ProbeRemoteTests(unittest.TestCase):
 
     def test_the_probe_keeps_the_ytdlp_pacing_flags(self):
         with tempfile.TemporaryDirectory() as tmp:
-            env = stub_ytdlp(tmp, BARE)
+            env = stub_ytdlp(tmp, WITH_EVERYTHING, VTT)
             with patch.dict(os.environ, {**env, "GB_YTDLP_SLEEP": "2,4,9"}):
                 captured = {}
                 original = social.run
@@ -406,7 +407,8 @@ class ProbeRemoteTests(unittest.TestCase):
         self.assertIn("--no-simulate", captured["args"])
         self.assertIn("--ignore-errors", captured["args"])
         self.assertNotIn("--dump-single-json", captured["args"])
-        self.assertIn("--write-info-json", captured["args"])
+        self.assertIn("--load-info-json", captured["args"])
+        self.assertIn("--write-subs", captured["args"])
         self.assertIn("--write-auto-subs", captured["args"])
         self.assertIn("pt,en", captured["args"])
         self.assertIn("--sleep-requests", captured["command"])
@@ -495,7 +497,7 @@ class InspectCommandTests(unittest.TestCase):
             self.assertTrue(payload["summary"]["next"])
             self.assertTrue(payload["candidate_windows"])
             for window in payload["candidate_windows"]:
-                self.assertEqual({"start_s", "end_s", "text", "source", "score"}, set(window))
+                self.assertLessEqual({"start_s", "end_s", "text", "source", "score"}, set(window))
             self.assertFalse((Path(tmp) / "brolls/manifest.json").exists())
 
     def test_inspect_on_a_candidate_only_writes_the_duration(self):
@@ -623,7 +625,8 @@ class UnusualSourceWarningsTests(unittest.TestCase):
             done = run_cli(["inspect", "--project", tmp, "--url", URL], env=env)
             self.assertEqual(0, done.returncode, done.stdout + done.stderr)
             body = json.loads(done.stdout)
-            self.assertEqual(["fonte longa: 210 min", "vídeo 360°"], body["warnings"])
+            self.assertIn("fonte longa: 210 min", body["warnings"])
+            self.assertIn("vídeo 360°", body["warnings"])
             self.assertIn("fonte longa", body["summary"]["line"])
             self.assertIn("360", body["summary"]["line"])
 

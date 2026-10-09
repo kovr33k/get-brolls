@@ -26,7 +26,12 @@ class InspectOverTheNetworkTests(unittest.TestCase):
     def test_a_real_youtube_source_comes_back_with_cues_and_a_window_with_text(self):
         with tempfile.TemporaryDirectory() as tmp:
             probe = social.probe_remote(URL, cache=Path(tmp) / ".getbrolls-sources")
-        cues = (probe["subtitles"].get("pt") or {}).get("cues") or []
+        cues = [
+            cue
+            for code, track in probe["subtitles"].items()
+            if inspecting.base_language(code) == "pt"
+            for cue in track.get("cues") or []
+        ]
         self.assertGreaterEqual(len(cues), 1, f"nenhuma fala lida; idiomas: {probe['subtitle_langs']}")
         self.assertTrue(probe["duration_s"])
         windows = inspecting.candidate_windows(probe, QUERY, 3)

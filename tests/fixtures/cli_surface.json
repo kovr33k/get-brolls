@@ -774,6 +774,18 @@
         {
           "action": "_StoreAction",
           "choices": null,
+          "default": null,
+          "dest": "language",
+          "help": "Language of --query and preferred subtitles for this video (es, ru, uk, pt-BR); omission prefers the original",
+          "nargs": null,
+          "option_strings": [
+            "--language"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
           "default": 3,
           "dest": "max_windows",
           "help": "Quantas janelas candidatas devolver, 1–20 (padrão 3)",

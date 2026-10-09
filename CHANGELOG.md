@@ -2,13 +2,19 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-07
+updated: 2026-10-09
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+## 2.13.9 — 2026-10-09
+
+- Inspection: preserve Cyrillic tokens including `й`, `ї` and `ё` while retaining Latin accent folding. Score every subtitle track before deduplicating equal intervals and retain its language, author/automatic kind and original provenance.
+- Subtitle acquisition: add optional `inspect --language` for the agent-selected video/query language, including regional tags. Reuse metadata to obtain a bounded selection of author subtitles or original automatic captions, distinguish advertised tracks from obtained text and handle multiple dubbed `*-orig` tracks using the declared audio language. Keep absent/unknown language and failed acquisition explicit, retain native catalog/UN transcript routes, and use a metadata-only probe for preview scans.
+- Add offline ES/RU/UK/PT/EN regressions and document video-language selection in the operational guide and canonical skill. Record bounded live ES/RU/UK evidence separately from visual suitability, human approval and reuse rights.
 
 ## 2.13.8 — 2026-10-07
 

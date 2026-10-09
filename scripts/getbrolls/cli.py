@@ -257,6 +257,10 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 help="Fala ou alvo do trecho; pontua as janelas candidatas",
             )
             p.add_argument(
+                "--language",
+                help="Language of --query and preferred subtitles for this video (es, ru, uk, pt-BR); omission prefers the original",
+            )
+            p.add_argument(
                 "--max-windows",
                 type=int,
                 default=3,

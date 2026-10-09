@@ -2,11 +2,11 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-07
+updated: 2026-10-09
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.13.8
+# Qualidade e evidências — GET B-ROLLS 2.13.9
 
 Este documento resume a qualidade atual e os limites das evidências. Relatórios cronológicos, URLs públicas de amostras e resultados de versões anteriores ficam no [arquivo de evidências](archive/quality-evidence-through-2026-10-07.md). Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
@@ -15,6 +15,22 @@ Este documento resume a qualidade atual e os limites das evidências. Relatório
 The accepted catalog engineering scope is **complete**: parent [#2](https://github.com/kovr33k/get-brolls/issues/2) and child tickets #3–20 are closed. The current [acceptance checkpoint](CATALOG-ACCEPTANCE.md) maps all eight final criteria to their evidence and records the operational limits separately.
 
 The runtime integration baseline is [PR #42](https://github.com/kovr33k/get-brolls/pull/42), version **2.13.8**, merged at `9cc2d059949224c481939c455c2e79d9e93148e4`. Its [Windows/Python 3.14.4 CI](https://github.com/kovr33k/get-brolls/actions/runs/37544014877) passed **1,250 tests with 26 skips**, together with lint, formatting, types, version/mirror and syntax checks. The saved verification artifact matches the merged runtime tree. Local post-merge verification passed **116 tests with one skip** plus version/mirror, links and frontmatter checks. The skip concerns invalid synthetic video metadata, not the acquired source samples. PR #41 and older checkpoints are historical evidence, not outstanding integration gates.
+
+## Subtitle-language inspection — 2026-10-09 (2.13.9 candidate)
+
+A full local Windows/Python 3.14.4 suite passed **1,273 tests with 30 skips** before the final missing-original-track guard. The final focused rechecks and local tooling results are recorded separately below. Twenty-four new offline tests cover ES/RU/UK/PT/EN selection, original author/automatic captions, regional tags, partial acquisition failures, Unicode scoring and CLI language propagation. This candidate is separate from the integrated 2.13.8 baseline above; its required PR Windows CI remains an integration gate.
+
+After the final guard, **142 inspection/regression tests with one skip** passed. The logging restoration passed **112 logging tests with four skips**. Final lint, formatting, types, version/mirror and relative-link checks passed; Bash/PowerShell/JavaScript syntax, installer prerequisites and the PowerShell launcher also passed on the same local dependency/configuration state. Local Node was 24.18.1; the maintained CI pins Node 22. The complete earlier suite and affected final rechecks form the local evidence, without claiming a new full-suite run on the final revision.
+
+Three bounded YouTube observations with yt-dlp **2026.8.19** obtained original automatic captions and ranked windows using the explicit video/query language. Each selected three-second working clip was acquired, strictly decoded with FFmpeg and viewed as a contact sheet. All three measured **1920×1080**, without upscaling.
+
+| Public source and language | Obtained text | Acquired source interval / measured duration | Viewed contents |
+|---|---|---|---|
+| [RTVE Noticias eclipse report](https://www.youtube.com/watch?v=7NTeduS9T-o), ES | `es-orig`, 57 cues; query `eclipse solar` | 15.719–18.719 s / 3.00 s | Studio presenter beside Sun graphics; this window is not direct eclipse footage. |
+| [Physics sky explanation](https://www.youtube.com/watch?v=Zgo-eG-gZFg), RU | `ru-orig`, 91 cues; query `небо голубое` | 11.880–14.880 s / 3.00 s | Presenter outdoors holding plants under a blue sky. |
+| [Suspilne Dnipro planetarium report](https://www.youtube.com/watch?v=RitX7Kd5LsI), UK | `uk-orig`, 58 cues; query `планетарій` | 18.610–21.610 s / 3.04 s | Planetarium exhibit, then an interview at the end of the contact sheet. |
+
+The RU metadata advertised both dubbed English and Russian `*-orig` tracks; declared Russian audio selected `ru-orig`, independent of listing order. Original-author preference and its bounded automatic fallback have offline coverage; these three live samples all used automatic captions. The first contact-sheet attempt used an incorrect output folder in the verification harness; previews were regenerated from the already acquired clips, without another download. Raw failure observations and corrected media/reports are retained outside distribution. These samples establish subtitle acquisition, literal scoring and the recorded preview contents at that date, without operational approval, cleared reuse rights or validation of the narration's claims.
 
 ## What each evidence layer establishes
 

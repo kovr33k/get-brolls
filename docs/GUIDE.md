@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-07
+updated: 2026-10-09
 tags: [get-brolls, guide, installation, providers, storyboard]
 ---
 
@@ -301,6 +301,26 @@ Workflow commands (`search`, `resolve`, `preview`, `review`, `import-review`, `p
 Fluxo único: descobrir → obter mídia de trabalho/mostrar sequência → revisão humana → corte final → verify. Prévia não equivale a aprovação. `--reference-only` é opção explícita para não adquirir mídia. Consulte o guia da fonte; Instagram começa na seção [Instagram pelo navegador](#instagram--navegadorplaywright-dois-streams-e-mp4).
 
 `providers` declara transporte/capacidades implementadas e configuração, não garantia de acesso universal. `auto` segue a ordem de fontes das regras e o intent. Prefira entidades literais quando o roteiro citar pessoa/produto/fato.
+
+## Inspeção de idioma e momento dentro do vídeo
+
+Escolha o idioma para cada vídeo conforme a fala original e as faixas disponíveis. O idioma do roteiro ou da busca no catálogo pode ser diferente; `search --language` não define automaticamente o idioma de `inspect`. Escreva a consulta no idioma da faixa desejada e passe-o explicitamente:
+
+```sh
+python scripts/gb.py inspect --candidate ID --query "eclipse parcial" --language es --project PROJECT
+python scripts/gb.py inspect --candidate ID --query "оранжевое небо" --language ru --project PROJECT
+python scripts/gb.py inspect --candidate ID --query "північний Київ" --language uk --project PROJECT
+```
+
+`--url URL` pode substituir `--candidate ID`. Códigos regionais como `es-419`, `ru-RU`, `uk-UA`, `pt-BR` e `en-US` são aceitos. Um código seleciona uma faixa adequada daquela língua; códigos de região e o sufixo `-orig` são considerados. Nomes próprios curtos não determinam o idioma com segurança. A tokenização preserva letras cirílicas, inclusive `й`, `ї` e `ё`, mantendo a normalização de acentos latinos.
+
+Na rota yt-dlp, primeiro vêm os metadados; um JSON privado é reutilizado para obter somente as faixas selecionadas, sem outra extração da página nem download de vídeo. Prefira uma legenda autoral adequada, depois uma automática original. Sem `--language`, a língua original declarada tem prioridade; só quando ela é desconhecida entram as alternativas PT/EN existentes ou uma única faixa de amostra. Um pedido explícito pode obter a faixa desse idioma e a original, com no máximo três tentativas de faixa no total. Uma legenda autoral original sem texto permite uma única tentativa de reserva na automática original. As centenas de traduções anunciadas não são baixadas. Se houver várias faixas `*-orig`, use a língua de áudio declarada; sem essa informação, mantenha a original desconhecida.
+
+`subtitle_langs` lista faixas anunciadas; `obtained_subtitle_langs` lista as que realmente deram texto. `subtitle_tracks` registra `language`, `kind` (`manual`/`automatic`), `is_original` (ou `null`), `status` (`obtained`/`empty`/`unavailable`) e `cue_count`. Falhas e ausência do idioma pedido aparecem em `warnings`; o texto de outra língua não comprova ausência do assunto. `original_lang` e `query_language` preservam a distinção entre fonte e consulta. As rotas de captions de Archive.org/LoC e de transcritos UN continuam próprias; idioma desconhecido permanece `und`, sem tradução, modelo pago ou reconhecimento de áudio adicional.
+
+Cada janela de legenda traz `language`, `subtitle_kind` e `is_original`. A CLI pontua todas as faixas antes de escolher uma representação de intervalos iguais; em empate, prefere a língua da consulta e a proveniência original/autoral. Capítulos, timestamps e pontos igualmente espaçados continuam disponíveis quando não há texto útil. `preview --scan` pede apenas os metadados de duração nessa rota, sem obter legendas. Uma correspondência textual orienta o próximo `preview`: abra o contact sheet ou a mídia real para confirmar o que aparece antes da revisão humana e dos direitos.
+
+Os flags de legendas seguem a [documentação oficial do yt-dlp](https://github.com/yt-dlp/yt-dlp#subtitle-options): legendas autorais e automáticas são opções distintas; a seleção de idiomas é restrita aos códigos escolhidos.
 
 ## Provedor — YouTube
 
