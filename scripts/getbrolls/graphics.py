@@ -6596,9 +6596,13 @@ def _storyboard_timeline(shown):
         + _esc(item["label"])
         + " · fact "
         + _esc(item["fact_id"])
-        + " · narration "
-        + _esc(str(item["at_s"]))
-        + "s</li>"
+        + " · "
+        + (
+            "context only (no narrated emphasis)"
+            if item["at_s"] is None
+            else "narration " + _esc(str(item["at_s"])) + "s"
+        )
+        + "</li>"
         for item in timeline["milestones"]
     )
     return "<section><h4>" + _esc(timeline["title"]) + "</h4><ol>" + rows + "</ol></section>"
