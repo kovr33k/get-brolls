@@ -2,13 +2,17 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-13
+updated: 2026-10-14
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+## 2.13.12 — 2026-10-14
+
+- Graphics Storyboard: number saved previews separately for each continuous piece in Version / Compare with and related captions. Keep original version identities, media, approvals and revision targets intact; order retained versions numerically and distinguish failed render attempts from saved versions.
 
 ## 2.13.11 — 2026-10-13
 

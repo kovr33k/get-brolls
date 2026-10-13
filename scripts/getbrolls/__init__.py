@@ -1,3 +1,3 @@
 """Get B-rolls: coleta multiorigem com revisão humana."""
 
-__version__ = "2.13.11"
+__version__ = "2.13.12"

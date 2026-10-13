@@ -229,11 +229,12 @@ function graphicsCard(rows) {
   const compare = el("select", { "data-graphics-compare": "" });
   compare.dataset.graphicsCompare = "";
   compare.append(el("option", { value: "", text: "None" }));
-  rows.forEach((row) => {
-    const option = el("option", { value: row.version, text: row.version });
+  rows.forEach((row, index) => {
+    const label = `v${index + 1}`;
+    const option = el("option", { value: row.version, text: label });
     if (row.current) option.attrs.selected = "selected";
     display.append(option);
-    compare.append(el("option", { value: row.version, text: row.version }));
+    compare.append(el("option", { value: row.version, text: label }));
   });
   display.value = current.version;
   compare.value = "";
@@ -734,6 +735,43 @@ assert.equal(voiceBadge.hidden, true);
 voiceDisplay.value = "v2";
 voiceDisplay.dispatchEvent(new voiceSwitch.Event("change"));
 assert.equal(voiceBadge.hidden, false);
+
+const pieceVersions = [
+  {id: "v4", status: "complete"},
+  {id: "v7", status: "failed"},
+  {id: "v10", status: "complete"},
+];
+const pieceOld = graphicsRow({
+  id: "graphics:later-piece:v4", occurrence_id: "later-piece", version: "v4", current: false,
+  versions: pieceVersions,
+});
+const pieceNew = graphicsRow({
+  id: "graphics:later-piece:v10", occurrence_id: "later-piece", version: "v10", parent: "v4",
+  versions: pieceVersions, signature: "cc".repeat(32), reviewEpoch: "epoch-v10",
+  requests: [{id: "fixture-local-request", reviewed_version: "v4", state: "pending", scope: "scene"}],
+});
+const separatePiece = graphicsRow({
+  id: "graphics:separate-piece:v2", occurrence_id: "separate-piece", version: "v2",
+  versions: [{id: "v2", status: "complete"}],
+});
+const localLabels = run({graphics: [separatePiece, pieceOld, pieceNew]});
+const laterCard = localLabels.board.querySelectorAll(".graphics-card").find(card => card.dataset.occurrence === "later-piece");
+const laterCompare = laterCard.querySelector("[data-graphics-compare]");
+laterCompare.value = "v4";
+laterCompare.dispatchEvent(new localLabels.Event("change"));
+const laterContext = laterCard.querySelector("[data-graphics-compare-context]").textContent;
+assert.match(laterContext, /Displayed v2 narration/);
+assert.match(laterContext, /Compare v1 narration/);
+assert.doesNotMatch(laterContext, /v10|v4/);
+assert.match(laterCard.querySelector("[data-graphics-requests]").textContent, /target v1/);
+laterCard.querySelector('[data-graphics-decision="approved"]').click();
+const localExport = exported(localLabels);
+const exportedPiece = localExport.graphics.find(row => row.id === "graphics:later-piece:v10");
+assert.equal(exportedPiece.version, "v10");
+assert.equal(exportedPiece.signature, pieceNew.signature);
+assert.equal(exportedPiece.reviewEpoch, "epoch-v10");
+assert.equal(exportedPiece.state, "approved");
+assert.equal(localExport.graphics.find(row => row.id === "graphics:separate-piece:v2").state, "pending");
 
 (async () => {
   const saved = run({

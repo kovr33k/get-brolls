@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-13
+updated: 2026-10-14
 tags: [get-brolls, guide, installation, providers, storyboard, graphics]
 ---
 
@@ -1143,6 +1143,8 @@ The Storyboard lists every retained complete graphics version on mixed and graph
 The default graphics card shows a readable scene title, the preview, paired VO when available, the full original scene passage and Approve / Needs changes actions. Every card keeps Version / Compare with controls; a comparison with no alternative version is disabled, while pending previews keep a disabled Version placeholder. A `Без озвучки` (no VO) badge beside the title follows the displayed version's actual paired audio preview, independently of its timing basis or sound effects. Estimated timing remains available in Details. Open the single `Details` panel for the selected/compared versions' context, sources, sound declarations, technical metadata, readiness and saved requests, or the current assignment's context-bound timing correction form. An optional comment can also be opened there; Needs changes opens a full-width comment field below its label and requires confirmation. Pending-decision boilerplate, repeated workflow instructions and internal scene/template identifiers are absent from the main card. Complete transcription records remain in their own closed section. These disclosures change presentation only: full text, exact-version decisions and retained media remain intact. Printing temporarily expands the details, includes every retained version and restores their previous open/closed state afterwards.
 
 Passages longer than 240 characters show a short preview with `Читать целиком` (read in full); opening it reveals the complete unchanged passage. `Свернуть` (collapse) returns to the preview. This is a display choice and does not alter the saved assignment or its duration. Printing includes the full passage and restores the prior expanded/collapsed state afterwards.
+
+Version numbers shown in a graphics card are local to that continuous occurrence: its first complete saved preview is `v1`, its next is `v2`, independently of other pieces or recurring uses of the same scene. Version / Compare with, preview captions, parent labels and comparison/request descriptions use this same numbering. Failed render attempts do not consume a displayed saved-version number; retained complete previews follow numeric creation order even after the project reaches ten renders. `Saved ID` in Details and the CLI/exported decisions keep the original project-wide identity. Renumbering the display does not rename files, change frozen inputs, reset approvals or retarget saved requests.
 
 ### Continue saved graphics
 

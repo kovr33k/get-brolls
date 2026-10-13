@@ -447,6 +447,11 @@
   function graphicsRowByVersion(occurrence, versionId) {
     return graphicsRows.find((row) => row.occurrence_id === occurrence && row.version === versionId);
   }
+  function graphicsVersionLabel(row, versionId) {
+    const saved = Array.isArray(row.versions) ? row.versions.filter(version => version.status === "complete") : [];
+    const index = saved.findIndex(version => version.id === versionId);
+    return index >= 0 ? `v${index + 1}` : (versionId || "unknown");
+  }
   function canApprove(row) {
     return !!(row && row.readiness && row.readiness.reviewable);
   }
@@ -479,7 +484,7 @@
           "Request " +
           (req.id || "") +
           " target " +
-          (req.reviewed_version || "unknown") +
+          graphicsVersionLabel(row, req.reviewed_version) +
           " · " +
           (req.state || "") +
           " · scope " +
@@ -828,8 +833,8 @@
       const other = compareRow ? frozenContextText(compareRow) : null;
       box.hidden = !other;
       box.textContent = other
-        ? `Displayed ${row.version} narration: ${shown.narration} · timing: ${shown.timing} · Compare ${compareRow.version} narration: ${other.narration} · timing: ${other.timing}`
-        : `Displayed ${row.version} narration: ${shown.narration} · timing: ${shown.timing}`;
+        ? `Displayed ${graphicsVersionLabel(row, row.version)} narration: ${shown.narration} · timing: ${shown.timing} · Compare ${graphicsVersionLabel(compareRow, compareRow.version)} narration: ${other.narration} · timing: ${other.timing}`
+        : `Displayed ${graphicsVersionLabel(row, row.version)} narration: ${shown.narration} · timing: ${shown.timing}`;
       if (!panel) return;
       const d = graphicsDecisions[boundId];
       const comment = panel.querySelector("[data-graphics-comment]");
