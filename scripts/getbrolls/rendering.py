@@ -513,13 +513,24 @@ def render(ledger, *, ready_only=False):
                 "narration": None,
             }
         )
+    from .graphics import storyboard_section as graphics_storyboard_section
     from .ledger import atomic_write
+    from .narration import storyboard_section as narration_storyboard_section
     from .review import enhance
     from .storyboard import render_page
 
     atomic_write(
         ledger.root / "review.html",
-        enhance(render_page(story_items, extra_html=_search_preface(ledger, compact=ready_only)), ledger, records),
+        enhance(
+            render_page(
+                story_items,
+                extra_html=_search_preface(ledger, compact=ready_only)
+                + graphics_storyboard_section(ledger)
+                + narration_storyboard_section(ledger),
+            ),
+            ledger,
+            records,
+        ),
     )
     atomic_write(ledger.root / "credits.md", "\n".join(credits_lines))
     return str(ledger.root / "review.html")

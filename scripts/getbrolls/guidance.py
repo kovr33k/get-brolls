@@ -115,6 +115,28 @@ def leftovers(state, counts):
     return max(0, int(value))
 
 
+def _graphics_delivery_action(state):
+    if state.get("graphics_undelivered"):
+        return _action(
+            "deliver",
+            "Approved graphics are ready to organize in entrega/ with timing and editable sources.",
+            "Há gráficos aprovados para organizar em `entrega/` com `deliver`: clipe Full HD, "
+            "timing e fontes editáveis. Aprovação estimada continua rascunho.",
+            state,
+        )
+    if state.get("graphics_pending"):
+        return _action(
+            "graphics-review",
+            "Graphics still need explicit timing, settled questions/material use, or human approval.",
+            "Há gráficos que ainda precisam de ação (timing explícito, perguntas, uso de material "
+            "ou aprovação humana) antes da entrega. Não trate o fluxo como completo.",
+            state,
+            command=None,
+            blocking_human=True,
+        )
+    return None
+
+
 def leftover_aside(count):
     """Frase do aparte: quem sobrou não vira tarefa, só nota de rodapé."""
     if not count:
@@ -304,6 +326,9 @@ def _approve_action(state, pending=0):
 
 def _done_action(state, counts):
     """Fim de fluxo: o que sobrou sem decisão entra como aparte, nunca como tarefa."""
+    graphics_step = _graphics_delivery_action(state)
+    if graphics_step:
+        return graphics_step
     aside = leftover_aside(leftovers(state, counts))
     return _action(
         "done",
@@ -387,6 +412,9 @@ def next_action(state):  # noqa: C901, PLR0911, PLR0912 - existing size; one bra
             command=first.get("search") or command_for("search", state["project"]),
         )
     if not counts["candidates"]:
+        graphics_step = _graphics_delivery_action(state)
+        if graphics_step:
+            return graphics_step
         warning = f" Antes disso, resolva: {conflicts[0]}" if conflicts else ""
         return _action(
             "search",

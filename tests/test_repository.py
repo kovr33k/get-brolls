@@ -241,7 +241,7 @@ class RepositoryDocumentationTests(unittest.TestCase):
         self.assertTrue(all(name.endswith(".md") for name in names), names)
         scripts = ROOT / "scripts"
         self.assertEqual(
-            ["getbrolls"],
+            ["getbrolls", "graphics"],
             sorted(
                 path.name
                 for path in scripts.iterdir()

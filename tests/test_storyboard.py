@@ -89,6 +89,20 @@ class StoryboardTest(unittest.TestCase):
         )
         self.assertEqual(0, result.returncode, result.stderr)
 
+    @unittest.skipUnless(shutil.which("node"), "Node.js required")
+    def test_graphics_review_decisions_export_and_separate_version_drafts(self):
+        node = shutil.which("node")
+        assert node is not None
+        result = subprocess.run(
+            [node, str(ROOT / "tests/fixtures/storyboard_graphics.cjs"), str(ROOT / "assets/review.js")],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+            timeout=10,
+        )
+        self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+
     def test_cli_rejection_survives_ready_storyboard_and_context_invalidation(self):
         import copy
         import json
@@ -204,6 +218,14 @@ class StoryboardTest(unittest.TestCase):
         self.assertIn("Teste &lt;script&gt;", page)
         self.assertNotIn("data:font/ttf;base64,", page)
         self.assertIn("system-ui", page)
+
+    def test_graphics_board_omits_candidate_empty_state(self):
+        page = render_page([], extra_html='<section class="graphics-board"><h2>Graphics</h2></section>')
+        self.assertFalse(
+            "Nothing here yet" in page,
+            "graphics-only board should not show the candidate empty-state",
+        )
+        self.assertIn('class="graphics-board"', page)
 
     def test_gallery_and_detail_share_items(self):
         page = render_page(

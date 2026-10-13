@@ -75,6 +75,7 @@ ignore = ["E501", "RUF001", "RUF002", "RUF003", "PLC0415"]
 # `sys.executable`, `shutil.which`). S603/S607 aqui são o ruído esperado de
 # "isso roda um binário externo", não um alerta de comando não confiável.
 "scripts/getbrolls/media.py" = ["S603"]
+"scripts/getbrolls/graphics.py" = ["S603"]
 "scripts/getbrolls/social.py" = ["S603"]
 "scripts/getbrolls/instagram_pairs.py" = ["S603", "S607", "T201"]
 "scripts/getbrolls/serve.py" = ["S603", "S607", "T201"]

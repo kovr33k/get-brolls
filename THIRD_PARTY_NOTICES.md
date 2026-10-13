@@ -19,3 +19,4 @@ A distribuição contém instruções, comandos, scripts customizados e interfac
 - curl-cffi, cffi and pycparser are external PyPI dependencies for yt-dlp's TikTok transport. Their own licenses and binary notices apply; no library or compiled binary is bundled in this repository.
 - Os utilitários Bash e o coletor Instagram são código próprio do projeto. Não são cópias das bibliotecas yt-dlp, Playwright ou FFmpeg.
 - Playwright/navegador, Node/Deno e curl são dependências externas, não incluídas como binários.
+- Optional graphics rendering uses Remotion 4.0.534, React 19.3.0 and IBM Plex Sans 5.3.0 (OFL-1.1 via `@fontsource/ibm-plex-sans`) installed under `scripts/graphics`; those packages and font files are not bundled in this repository. Selected local font bytes are copied into a private version input only after that optional install.

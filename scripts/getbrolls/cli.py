@@ -52,7 +52,28 @@ SUMMARIES = {
     "browser-plan": "Planejar a captura de uma página pelo navegador autorizado",
     "queue": "Enfileirar URLs sociais e ditar o ritmo do lote (add, next, mark, status)",
     "serve": "Servir brolls/review.html em 127.0.0.1 para abrir o Storyboard no navegador",
-    "deliver": "Organizar os trechos coletados em entrega/, uma pasta por beat",
+    "deliver": "Organize collected clips and approved graphics packages in entrega/",
+    "graphics-doctor": "Diagnose the optional local Remotion graphics runtime without changing a project",
+    "graphics-style": "Record a proposed documentary graphics style revision; does not approve a scene",
+    "graphics-assign": "Register an explicit graphics occurrence from original scenario fields",
+    "graphics-render": "Render one graphics occurrence into a new immutable version for review",
+    "graphics-continue": "Continue saved graphics sequentially, verifying dependencies and reusing intact results",
+    "graphics-checkpoint": "Save actual research, authoring or waiting work without declaring a finished render",
+    "graphics-timeline": "Save editable dated milestones and narration-clock emphasis for one timeline occurrence",
+    "graphics-content": "Save selected geographic data or editable authored custom scene content",
+    "graphics-handoff": "Save one specialist context packet for host delegation or recovery; never launch an agent",
+    "graphics-approve": "Record an explicit human approval of one complete graphics version; render is not approval",
+    "graphics-select": "Select an existing complete graphics version without rewriting frozen files",
+    "graphics-request-complete": "Record chat-authorized processing of a saved graphics revision request",
+    "graphics-facts": "Attach researched displayed-fact evidence to one graphics occurrence from bounded --file JSON",
+    "graphics-fact-resolve": "Record an already received editorial decision for one saved fact conflict; does not invent approval",
+    "graphics-audio": "Attach confined sound cues and optional VO source clocks to one graphics occurrence from bounded --file JSON",
+    "graphics-sound-import": "Materialize or reuse one named permitted CC0 effect into project sounds/; viewing does not download",
+    "narration-analyze": "Submit or reuse complete-recording Inworld asynchronous transcription; does not match scenes",
+    "narration-resume": "Resume a saved narration analysis identity without silently resubmitting",
+    "graphics-background": "Attach confined project video or photograph background to one graphics occurrence from bounded --file JSON",
+    "narration-match": "Match assigned graphics passages to a completed narration analysis without retranscribing",
+    "graphics-timing-resolve": "Record an explicit candidate confirmation or bounded time override for one occurrence; does not retranscribe",
 }
 
 # Subcomandos que `execute()` (commands.py) de fato leva até
@@ -90,10 +111,20 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         help="Mostrar a versão instalada da skill e sair",
     )
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("providers", "doctor", "telegram-login", "x-access"):
+    for name in ("providers", "doctor", "graphics-doctor", "telegram-login", "x-access"):
         p = sub.add_parser(name, help=SUMMARIES[name], description=SUMMARIES[name])
         if name == "x-access":
             p.add_argument("--model", help="Already selected retained model; does not choose or invoke another model")
+        if name == "graphics-doctor":
+            p.add_argument(
+                "--project",
+                help="Aceito por uniformidade e ignorado: o diagnóstico é da instalação, não do projeto",
+            )
+            p.add_argument(
+                "--prepare-browser",
+                action="store_true",
+                help="Download or verify the local Remotion browser once; render will not download it by itself",
+            )
         if name == "doctor":
             # O SKILL.md diz que `--project` vai em todo comando, e a primeira chamada
             # do fluxo é o `doctor`: recusá-lo ali é contradizer a instrução logo na
@@ -138,6 +169,26 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         "queue",
         "serve",
         "deliver",
+        "graphics-style",
+        "graphics-assign",
+        "graphics-render",
+        "graphics-continue",
+        "graphics-checkpoint",
+        "graphics-timeline",
+        "graphics-content",
+        "graphics-handoff",
+        "graphics-approve",
+        "graphics-select",
+        "graphics-request-complete",
+        "graphics-facts",
+        "graphics-fact-resolve",
+        "graphics-audio",
+        "graphics-sound-import",
+        "narration-analyze",
+        "narration-resume",
+        "graphics-background",
+        "narration-match",
+        "graphics-timing-resolve",
     ):
         p = sub.add_parser(name, help=SUMMARIES[name], description=SUMMARIES[name])
         p.add_argument(
@@ -145,7 +196,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             required=True,
             help="Pasta do projeto que guarda brolls/, fora da instalação da skill",
         )
-        if name != "status":
+        if name != "status" and not name.startswith("graphics-") and not name.startswith("narration-"):
             # Mudar o formato-alvo derruba aprovações humanas; qualquer comando que
             # sincronize formato precisa deste sim explícito antes de apagá-las. Mas
             # `execute()` só chega a `sync_formats` (commands.py) depois de passar
@@ -153,6 +204,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             # learn/library/rules e por cima de READ_ONLY_CONSULTS (references,
             # inspect) — nesses a flag continua aceita (scripts e agentes já a
             # passam para eles) mas some do `--help` porque nunca teve efeito ali.
+            # Graphics writes return before sync_formats and are not format-gate commands.
             reaches_sync_formats = name in FORMAT_GATE_SUBCOMMANDS
             p.add_argument(
                 "--confirm-format-change",
@@ -183,7 +235,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             p.add_argument(
                 "--dry-run",
                 action="store_true",
-                help="Mostrar o que iria para entrega/ sem criar, ligar ou apagar nada",
+                help="Show the entrega/ plan, including approved graphics, without creating, linking, or deleting anything",
             )
         if name == "queue":
             p.add_argument(
@@ -645,6 +697,244 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
             g.add_argument("--file", help="Arquivo local já autorizado para importação")
             g.add_argument("--un-asset-id", help="Observed UN Audiovisual Library Asset ID; imports a request locator")
+        if name == "graphics-style":
+            p.add_argument(
+                "--family",
+                default="documentary",
+                choices=["documentary"],
+                help="Proposed visual family; only documentary is available in this slice",
+            )
+            p.add_argument("--note", help="Original note recorded with this style revision; history is appended")
+            p.add_argument(
+                "--confirm-fps",
+                type=float,
+                help="Editing fps for this project; required when collection records already exist, never inferred from footage",
+            )
+        if name == "graphics-assign":
+            p.add_argument(
+                "--scene",
+                required=True,
+                help="Authored scene identity; distinct numeric concepts are distinct scenes and may recur across occurrences",
+            )
+            p.add_argument(
+                "--template",
+                default="numeric-stat",
+                choices=["numeric-stat", "timeline", "map", "custom"],
+                help="Composition independent of --scene: numeric-stat, timeline, map, or one editable custom JSX scene",
+            )
+            p.add_argument(
+                "--occurrence", required=True, help="Stable occurrence id, 1–80 letters, numbers, hyphen or underscore"
+            )
+            p.add_argument("--chapter", required=True, help="Chapter identifier retained with the assignment")
+            p.add_argument(
+                "--chapter-context",
+                required=True,
+                help="Surrounding chapter text from the scenario, not only a chapter identifier",
+            )
+            p.add_argument("--purpose", required=True, help="Visual purpose of this occurrence")
+            p.add_argument("--narration", required=True, help="Original scenario narration for this occurrence")
+            p.add_argument(
+                "--timing",
+                required=True,
+                choices=["estimated", "explicit"],
+                help="estimated records duration only; explicit requires narration-clock --start/--end",
+            )
+            p.add_argument("--duration", type=float, help="Estimated duration in seconds; omit --start/--end")
+            p.add_argument("--start", type=float, help="Explicit narration-clock start in seconds")
+            p.add_argument("--end", type=float, help="Explicit narration-clock end in seconds")
+            p.add_argument("--anchor", action="append", help="Original scenario anchor; repeat as needed")
+            p.add_argument("--question", action="append", help="Unresolved question retained with the assignment")
+            p.add_argument("--propose-scene", action="append", help="Additional scene proposal text")
+            p.add_argument("--asset-ref", action="append", help="Existing project-relative previews/ or clips/ asset")
+            p.add_argument(
+                "--evidence-ref", action="append", help="Existing project-relative previews/ or clips/ evidence"
+            )
+            p.add_argument(
+                "--material-use",
+                action="append",
+                help=(
+                    "JSON object binding one --asset-ref/--evidence-ref: rendered_use is finished-clip "
+                    "appearance (permitted|restricted|unknown); raw_redistribution is whether original "
+                    "bytes may be copied into the delivery package. Include evidence, conditions, optional "
+                    "sha256 (must match the confined bytes) and optional candidate_id. Path presence is "
+                    "not permission; stale candidate approval/signature or unavailable acquisition cannot "
+                    "be overridden. Repeat as needed."
+                ),
+            )
+            p.add_argument(
+                "--confirm-fps",
+                type=float,
+                help="Editing fps for this project; required when collection records already exist, never inferred from footage",
+            )
+            p.add_argument("--value", help="Displayed numeric value; synthetic placeholder if omitted")
+            p.add_argument("--unit", help="Displayed unit, kept on a separate row from the number")
+            p.add_argument("--label", help="Editorial label shown above the number")
+            p.add_argument(
+                "--claim-status",
+                choices=["synthetic", "unverified_scenario"],
+                help="synthetic draft or unverified scenario claim; not researched fact",
+            )
+        if name == "graphics-render":
+            p.add_argument(
+                "--occurrence", required=True, help="Occurrence id previously registered with graphics-assign"
+            )
+            p.add_argument(
+                "--repair",
+                action="store_true",
+                help="Consume one of at most two saved scene-code repair attempts after a failed render",
+            )
+        if name == "graphics-continue":
+            p.add_argument(
+                "--occurrence",
+                help="Continue only this occurrence; omit to inspect and continue all assignments sequentially",
+            )
+        if name == "graphics-checkpoint":
+            p.add_argument(
+                "--occurrence", required=True, help="Occurrence id whose actual work or pending question is saved"
+            )
+            p.add_argument(
+                "--stage",
+                required=True,
+                choices=["research", "authoring", "waiting", "error"],
+                help="Actual work stage; saving a checkpoint does not declare a finished render",
+            )
+            p.add_argument("--outcome", required=True, help="Actual saved work or pending question; not an approval")
+            p.add_argument("--ref", action="append", help="Existing confined graphics-data/, previews/ or clips/ file")
+        if name == "graphics-handoff":
+            p.add_argument("--occurrence", required=True, help="One occurrence delegated or restored by the agent host")
+            p.add_argument(
+                "--host-context", help="Actual observed scene-specific host context id; omit for reconstruction"
+            )
+            p.add_argument("--request", help="Exact unprocessed revision request id already authorized in chat")
+        if name == "graphics-content":
+            p.add_argument("--occurrence", required=True, help="Assigned map or custom occurrence id")
+            p.add_argument("--file", required=True, help="Project-local bounded JSON identifying editable scene inputs")
+        if name == "graphics-timeline":
+            p.add_argument(
+                "--occurrence", required=True, help="Assigned timeline occurrence id receiving these milestones"
+            )
+            p.add_argument(
+                "--file", required=True, help="Project-local bounded JSON with title and milestone evidence/times"
+            )
+        if name == "graphics-approve":
+            p.add_argument("--occurrence", required=True, help="Occurrence id of the version being approved")
+            p.add_argument("--version", required=True, help="Complete version id, for example v1")
+            p.add_argument("--by", required=True, help="Name of the person who already approved this version")
+            p.add_argument(
+                "--statement",
+                required=True,
+                help="Exact human approval statement; required, channel is always chat",
+            )
+        if name == "graphics-select":
+            p.add_argument("--occurrence", required=True, help="Occurrence id whose retained version is selected")
+            p.add_argument("--version", required=True, help="Existing complete version id to select")
+        if name == "graphics-request-complete":
+            p.add_argument("--request", required=True, help="Saved revision-request id from status.graphics or review")
+            p.add_argument("--version", required=True, help="Complete descendant version produced for that request")
+            p.add_argument(
+                "--outcome", required=True, help="Actual processing outcome recorded after chat authorization"
+            )
+        if name == "graphics-facts":
+            p.add_argument(
+                "--occurrence", required=True, help="Occurrence id previously registered with graphics-assign"
+            )
+            p.add_argument(
+                "--file",
+                required=True,
+                help="Bounded project JSON object with displayed values, sources and optional conflicts",
+            )
+        if name == "graphics-fact-resolve":
+            p.add_argument("--occurrence", required=True, help="Occurrence id that already has saved fact evidence")
+            p.add_argument("--conflict", required=True, help="Saved conflict id from that occurrence's facts record")
+            p.add_argument(
+                "--decision",
+                required=True,
+                choices=["accept_correction", "keep_scenario", "defer"],
+                help="Already received editorial choice; this command records it and does not invent a decision",
+            )
+            p.add_argument("--by", required=True, help="Name of the person who already made this decision")
+            p.add_argument(
+                "--statement",
+                required=True,
+                help="Exact editorial statement already received; original narration is not rewritten",
+            )
+        if name == "graphics-audio":
+            p.add_argument(
+                "--occurrence", required=True, help="Occurrence id previously registered with graphics-assign"
+            )
+            p.add_argument(
+                "--file",
+                required=True,
+                help="Bounded project JSON object with confined effect cues and optional VO source clocks",
+            )
+        if name == "graphics-sound-import":
+            p.add_argument(
+                "--sfx",
+                required=True,
+                choices=["whip", "whoosh", "uiSwitch"],
+                help="Named permitted CC0 effect to reuse or materialize locally",
+            )
+            p.add_argument("--asset", required=True, help="Safe local identity for the saved project sound")
+        if name == "narration-analyze":
+            p.add_argument(
+                "--recording",
+                required=True,
+                help="Local complete voice-over file; headered supported audio, validated before any provider call",
+            )
+            p.add_argument(
+                "--language",
+                help="Optional language hint for Inworld transcribeConfig; omitted uses the provider default",
+            )
+            p.add_argument(
+                "--analysis",
+                help="Saved or new analysis identity; omitted assigns na-N. Unchanged completed results are reused",
+            )
+        if name == "narration-resume":
+            p.add_argument(
+                "--analysis",
+                required=True,
+                help="Saved analysis identity from narration-analyze or status.narration",
+            )
+        if name == "graphics-background":
+            p.add_argument(
+                "--occurrence", required=True, help="Occurrence id previously registered with graphics-assign"
+            )
+            p.add_argument(
+                "--file",
+                required=True,
+                help="Bounded project JSON object with candidate_id or ref, optional source interval, fit, suitability and material_use",
+            )
+        if name == "narration-match":
+            p.add_argument(
+                "--analysis",
+                required=True,
+                help="Completed analysis identity from narration-analyze; matching does not call the provider",
+            )
+            p.add_argument(
+                "--occurrence",
+                action="append",
+                help="Occurrence id to match; repeat in explicit narrative order. Omitted matches every assigned occurrence in stored order",
+            )
+        if name == "graphics-timing-resolve":
+            p.add_argument(
+                "--occurrence", required=True, help="Occurrence id that already has a saved alignment record"
+            )
+            p.add_argument(
+                "--candidate",
+                help="Saved alignment candidate id to confirm; mutually exclusive with --start/--end",
+            )
+            p.add_argument("--start", type=float, help="Explicit narration-clock start in seconds")
+            p.add_argument("--end", type=float, help="Explicit narration-clock end in seconds")
+            p.add_argument(
+                "--by",
+                required=True,
+                help="Name of the person who already confirmed or corrected this interval",
+            )
+            p.add_argument(
+                "--statement",
+                required=True,
+                help="Exact human correction statement already received; does not invent timing approval",
+            )
     return parser
 
 

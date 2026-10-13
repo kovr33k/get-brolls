@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Get B-rolls Narration analysis records v1",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "narration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "recordings", "analyses", "current_analysis"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "current_analysis": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+        "recordings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "id",
+              "sha256",
+              "bytes",
+              "duration_s",
+              "format",
+              "codec",
+              "channels",
+              "sample_rate",
+              "snapshot"
+            ],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "bytes": {"type": "integer", "minimum": 1, "maximum": 536870912},
+              "duration_s": {"type": "number", "exclusiveMinimum": 0},
+              "format": {"enum": ["wav", "wave", "flac", "mp3", "m4a", "mp4", "ogg", "oga"]},
+              "codec": {"type": "string", "minLength": 1},
+              "channels": {"type": "integer", "minimum": 1},
+              "sample_rate": {"type": "integer", "minimum": 1},
+              "snapshot": {"type": "string", "pattern": "^narration/private/audio/"}
+            }
+          }
+        },
+        "analyses": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "id",
+              "recording_id",
+              "state",
+              "submit_outcome",
+              "config",
+              "config_fingerprint",
+              "audio_fingerprint",
+              "input_fingerprint"
+            ],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "recording_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "state": {"enum": ["intent", "pending", "completed", "failed", "unknown"]},
+              "submit_outcome": {"enum": ["not_sent", "accepted", "rejected", "unknown"]},
+              "operation_name": {"type": ["string", "null"]},
+              "created_at": {"type": "string"},
+              "submitted_at": {"type": "string"},
+              "config": {
+                "type": "object",
+                "required": [
+                  "provider",
+                  "model_id",
+                  "audio_encoding",
+                  "include_word_timestamps"
+                ],
+                "properties": {
+                  "provider": {"const": "inworld"},
+                  "model_id": {"const": "inworld/inworld-stt-1"},
+                  "audio_encoding": {"const": "AUTO_DETECT"},
+                  "include_word_timestamps": {"const": true},
+                  "language": {"type": ["string", "null"]}
+                }
+              },
+              "config_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "audio_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "input_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "error": {
+                "type": ["object", "null"],
+                "properties": {
+                  "code": {"type": "string"},
+                  "message": {"type": "string"}
+                }
+              },
+              "result": {
+                "type": ["object", "null"],
+                "properties": {
+                  "transcript": {"type": "string"},
+                  "words": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["word", "start_ms", "end_ms", "segment"],
+                      "properties": {
+                        "word": {"type": "string"},
+                        "start_ms": {"type": "number", "minimum": 0},
+                        "end_ms": {"type": "number", "minimum": 0},
+                        "segment": {"type": "integer", "minimum": 0}
+                      }
+                    }
+                  },
+                  "segments": {"type": "integer", "minimum": 0},
+                  "timing_resolved": {"type": "boolean"},
+                  "language": {"type": ["string", "null"], "maxLength": 32},
+                  "usage": {
+                    "type": ["object", "null"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "audioDurationMs": {"type": "number", "minimum": 0},
+                      "modelId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80,
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+                      },
+                      "characters": {"type": "integer", "minimum": 0}
+                    }
+                  },
+                  "artifact": {"type": "string", "pattern": "^narration/results/"},
+                  "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

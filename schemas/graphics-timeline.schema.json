@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One graphics timeline occurrence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "title", "milestones"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "title": {"type": "string", "minLength": 1, "maxLength": 90},
+    "milestones": {
+      "type": "array", "minItems": 1, "maxItems": 6,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "date", "label", "fact_id", "at_s"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1, "maxLength": 80},
+          "date": {"type": "string", "minLength": 1, "maxLength": 60},
+          "label": {"type": "string", "minLength": 1, "maxLength": 120},
+          "fact_id": {"type": "string", "minLength": 1, "maxLength": 80},
+          "at_s": {"type": ["number", "null"], "minimum": 0}
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"milestones": {"minItems": 3}}},
+      "then": {"properties": {"milestones": {"items": {"properties": {"date": {"maxLength": 30}, "label": {"maxLength": 80}}}}}}
+    },
+    {
+      "if": {"properties": {"milestones": {"minItems": 4}}},
+      "then": {"properties": {"milestones": {"items": {"properties": {"date": {"maxLength": 20}}}}}}
+    },
+    {
+      "if": {"properties": {"milestones": {"minItems": 5}}},
+      "then": {"properties": {"milestones": {"items": {"properties": {"label": {"maxLength": 50}}}}}}
+    }
+  ]
+}

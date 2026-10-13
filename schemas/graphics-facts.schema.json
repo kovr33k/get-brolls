@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Get B-rolls graphics displayed facts v1",
+  "description": "Optional occurrence facts record. Drafts may use empty strings and empty arrays. Stored scalar and list fields are strings or arrays, never null; only conflict.decision may be null. Structural and file checks live in scripts/getbrolls/graphics_facts.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "required", "values", "sources", "conflicts"],
+  "properties": {
+    "schema_version": {"const": 1, "type": "integer"},
+    "required": {"type": "boolean"},
+    "values": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/value"}
+    },
+    "sources": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/source"}
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/conflict"}
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9_-]{1,80}$"
+    },
+    "prose": {
+      "type": "string",
+      "maxLength": 8000
+    },
+    "conditions": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "sha256OrEmpty": {
+      "type": "string",
+      "pattern": "^(?:|[0-9a-f]{64})$"
+    },
+    "dataRef": {
+      "type": "string",
+      "pattern": "^(?:|(?:graphics-data|previews|clips)/.+)$"
+    },
+    "sourceIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/id"}
+    },
+    "permission": {
+      "enum": ["permitted", "restricted", "unknown"]
+    },
+    "value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "value", "unit", "definition", "geography", "reference_date", "source_ids"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "value": {"$ref": "#/$defs/prose"},
+        "unit": {"$ref": "#/$defs/prose"},
+        "definition": {"$ref": "#/$defs/prose"},
+        "geography": {"$ref": "#/$defs/prose"},
+        "reference_date": {"$ref": "#/$defs/prose"},
+        "source_ids": {"$ref": "#/$defs/sourceIds"}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "url",
+        "title",
+        "reference_date",
+        "terms_url",
+        "conditions",
+        "rendered_use",
+        "raw_redistribution",
+        "kind",
+        "data_ref",
+        "sha256"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "url": {"$ref": "#/$defs/prose"},
+        "title": {"$ref": "#/$defs/prose"},
+        "reference_date": {"$ref": "#/$defs/prose"},
+        "terms_url": {"$ref": "#/$defs/prose"},
+        "conditions": {"$ref": "#/$defs/conditions"},
+        "rendered_use": {"$ref": "#/$defs/permission"},
+        "raw_redistribution": {"$ref": "#/$defs/permission"},
+        "kind": {"enum": ["data", "chart_image"]},
+        "data_ref": {"$ref": "#/$defs/dataRef"},
+        "sha256": {"$ref": "#/$defs/sha256OrEmpty"}
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["choice", "by", "statement", "at", "evidence_sha256"],
+      "properties": {
+        "choice": {"enum": ["accept_correction", "keep_scenario", "defer"]},
+        "by": {"type": "string", "minLength": 1, "maxLength": 500},
+        "statement": {"type": "string", "minLength": 1, "maxLength": 8000},
+        "at": {"type": "string", "minLength": 1, "maxLength": 8000},
+        "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "original_narration",
+        "explanation",
+        "source_ids",
+        "proposed_correction",
+        "decision"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "original_narration": {"type": "string", "minLength": 1, "maxLength": 8000},
+        "explanation": {"type": "string", "minLength": 1, "maxLength": 8000},
+        "source_ids": {"$ref": "#/$defs/sourceIds"},
+        "proposed_correction": {"type": "string", "minLength": 1, "maxLength": 8000},
+        "decision": {
+          "anyOf": [{"type": "null"}, {"$ref": "#/$defs/decision"}]
+        }
+      }
+    }
+  }
+}

@@ -26,10 +26,10 @@ class SocialRecoveryTests(unittest.TestCase):
                 self.assertEqual(c["approval"]["status"], "pending")
                 self.assertNotEqual(c["state"], "reference_only")
 
-    def test_public_tree_is_consolidated_under_getbrolls(self):
+    def test_public_social_source_is_consolidated_under_getbrolls(self):
         scripts = ROOT / "scripts"
         self.assertEqual(
-            ["getbrolls"],
+            ["getbrolls", "graphics"],
             sorted(
                 path.name
                 for path in scripts.iterdir()

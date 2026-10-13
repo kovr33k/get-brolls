@@ -1,9 +1,17 @@
 (() => {
   "use strict";
   const data = window.GETBROLLS_REVIEW;
-  if (!data.items.length) return;
+  if (!data) return;
+  const items = Array.isArray(data.items) ? data.items : [];
+  const graphicsRows = Array.isArray(data.graphics) ? data.graphics : [];
+  const alignmentRows = Array.isArray(data.alignment) ? data.alignment : [];
+  if (!items.length && !graphicsRows.length && !alignmentRows.length) return;
   const key = "getbrolls-v2:" + data.project;
+  const graphicsKey = "getbrolls-v2-graphics:" + data.project;
+  const alignmentKey = "getbrolls-v2-alignment:" + data.project;
   const STATES = ["pending", "approved", "changes", "rejected", "alternative"];
+  const GRAPHICS_STATES = ["pending", "approved", "changes"];
+  const GRAPHICS_MAX_COMMENT = 8000;
   const LABELS = {
     pending: "Awaiting decision",
     approved: "Approved",
@@ -12,6 +20,8 @@
     alternative: "Different video requested",
   };
   let saved = {};
+  let savedGraphics = {};
+  let savedAlignment = {};
   let available = true;
   try {
     saved = JSON.parse(localStorage.getItem(key) || "{}");
@@ -19,8 +29,20 @@
   } catch {
     available = false;
   }
+  try {
+    savedGraphics = JSON.parse(localStorage.getItem(graphicsKey) || "{}");
+    if (!savedGraphics || typeof savedGraphics !== "object") savedGraphics = {};
+  } catch {
+    available = false;
+  }
+  try {
+    savedAlignment = JSON.parse(localStorage.getItem(alignmentKey) || "{}");
+    if (!savedAlignment || typeof savedAlignment !== "object") savedAlignment = {};
+  } catch {
+    available = false;
+  }
   const decisions = {};
-  for (const item of data.items) {
+  for (const item of items) {
     const old = saved[item.id];
     const prior =
       old &&
@@ -38,11 +60,63 @@
       updatedAt: typeof prior?.updatedAt === "string" ? prior.updatedAt : undefined,
     };
   }
-  const select = document.querySelector("#select"),
+  function graphicsScope(value, fallback) {
+    if (value === "shared") return "shared";
+    if (value === "scene") return "scene";
+    return fallback === "shared" ? "shared" : "scene";
+  }
+  function matchingRequest(row) {
+    return (Array.isArray(row.requests) ? row.requests : []).find(
+      (req) => req && req.reviewed_version === row.version,
+    );
+  }
+  const graphicsDecisions = {};
+  for (const row of graphicsRows) {
+    const old = savedGraphics[row.id];
+    const prior =
+      old &&
+      old.signature === row.signature &&
+      old.reviewEpoch === row.reviewEpoch &&
+      !(old.state === "pending" && !old.updatedAt && row.state !== "pending")
+        ? old
+        : row;
+    const req = matchingRequest(row);
+    graphicsDecisions[row.id] = {
+      signature: row.signature,
+      reviewEpoch: row.reviewEpoch,
+      state: GRAPHICS_STATES.includes(prior?.state) ? prior.state : "pending",
+      comment: typeof prior?.comment === "string" ? prior.comment : "",
+      scope: graphicsScope(prior?.scope, req?.scope || row.scope),
+      updatedAt: typeof prior?.updatedAt === "string" ? prior.updatedAt : undefined,
+    };
+  }
+  const alignmentDecisions = {};
+  for (const row of alignmentRows) {
+    const old = savedAlignment[row.id];
+    const prior =
+      old && old.signature === row.signature && old.reviewEpoch === row.reviewEpoch ? old : null;
+    alignmentDecisions[row.id] = {
+      signature: row.signature,
+      reviewEpoch: row.reviewEpoch,
+      occurrence_id: row.occurrence_id,
+      analysis_id: row.analysis_id,
+      recording_id: row.recording_id,
+      recording_sha256: row.recording_sha256,
+      transcript_sha256: row.transcript_sha256,
+      scenario_sha256: row.scenario_sha256,
+      input_fingerprint: row.input_fingerprint,
+      candidate_id: typeof prior?.candidate_id === "string" ? prior.candidate_id : "",
+      start_s: prior && prior.start_s != null ? prior.start_s : "",
+      end_s: prior && prior.end_s != null ? prior.end_s : "",
+      statement: typeof prior?.statement === "string" ? prior.statement : "",
+      updatedAt: typeof prior?.updatedAt === "string" ? prior.updatedAt : undefined,
+    };
+  }
+  const select = items.length ? document.querySelector("#select") : null,
     viewer = document.querySelector("#viewer"),
     tools = document.querySelector("#tools"),
     cards = [...document.querySelectorAll(".shot")];
-  const current = () => data.items[Number(select.value)];
+  const current = () => (select ? items[Number(select.value)] : items[0]);
 
   // Summary bar: counters, export, print, storage status.
   const summary = document.createElement("div");
@@ -105,14 +179,15 @@
   });
 
   function counts() {
-    const all = Object.values(decisions);
+    const all = [...Object.values(decisions), ...Object.values(graphicsDecisions)];
     const n = (s) => all.filter((d) => d.state === s).length;
     return { approved: n("approved"), pending: n("pending"), other: all.length - n("approved") - n("pending") };
   }
   function paintGallery() {
     cards.forEach((card, i) => {
-      const d = decisions[data.items[i].id];
+      const d = decisions[items[i].id];
       const tag = card.querySelector(".status-tag");
+      if (!tag || !d) return;
       tag.textContent = LABELS[d.state];
       tag.dataset.state = d.state;
       card.hidden = !!pendingOnly?.checked && d.state !== "pending";
@@ -125,7 +200,9 @@
   }
   function persist() {
     try {
-      localStorage.setItem(key, JSON.stringify(decisions));
+      if (items.length) localStorage.setItem(key, JSON.stringify(decisions));
+      if (graphicsRows.length) localStorage.setItem(graphicsKey, JSON.stringify(graphicsDecisions));
+      if (alignmentRows.length) localStorage.setItem(alignmentKey, JSON.stringify(alignmentDecisions));
     } catch {
       available = false;
     }
@@ -137,8 +214,10 @@
     );
     paintGallery();
     paintPlayer();
+    paintGraphics();
   }
   function paintPlayer() {
+    if (!items.length || !viewer) return;
     const box = viewer.querySelector(".presenter .image-box");
     if (!box) return;
     let badge = box.querySelector(".player-status");
@@ -147,11 +226,14 @@
       badge.className = "player-status";
       box.append(badge);
     }
-    const d = decisions[current().id];
+    const item = current();
+    if (!item) return;
+    const d = decisions[item.id];
     badge.textContent = LABELS[d.state];
     badge.dataset.state = d.state;
   }
   function mountPlayer() {
+    if (!items.length || !viewer) return;
     const presenter = viewer.querySelector(".presenter");
     if (!presenter) return;
     if (tools && !presenter.contains(tools)) presenter.append(tools);
@@ -180,6 +262,7 @@
     paintPlayer();
   }
   function mountPanel() {
+    if (!items.length || !viewer) return;
     const panel = viewer.querySelector(".review-panel");
     if (!panel || panel.dataset.mounted) return;
     panel.dataset.mounted = "1";
@@ -301,20 +384,44 @@
     paint();
     wireSummary();
   }
+  function placeSummary() {
+    const material = viewer && viewer.querySelector(".material");
+    if (material && !material.contains(summary)) material.prepend(summary);
+    if (material || items.length) return;
+    const host = document.querySelector(".graphics-board") || document.querySelector("main");
+    if (host && !host.contains(summary)) host.prepend(summary);
+  }
+  function goToPendingGraphics() {
+    const pendingRow = graphicsRows.find((row) => graphicsDecisions[row.id]?.state === "pending");
+    if (!pendingRow) return false;
+    const card = [...document.querySelectorAll(".graphics-card")].find(
+      (el) => el.dataset.occurrence === pendingRow.occurrence_id,
+    );
+    const display = card?.querySelector("[data-graphics-display]");
+    if (display && display.value !== pendingRow.version) {
+      display.value = pendingRow.version;
+      display.dispatchEvent(new Event("change"));
+    }
+    card?.scrollIntoView?.({ block: "start" });
+    return true;
+  }
   function wireSummary() {
     const next = document.querySelector("#next-pending");
     if (next && !next.dataset.wired) {
       next.dataset.wired = "1";
       next.onclick = () => {
-        const start = Number(select.value);
-        const n = data.items.length;
-        for (let step = 1; step <= n; step++) {
-          const i = (start + step) % n;
-          if (decisions[data.items[i].id].state === "pending") {
-            window.getbrollsGo?.(i);
-            return;
+        const n = items.length;
+        if (n && select) {
+          const start = Number(select.value);
+          for (let step = 1; step <= n; step++) {
+            const i = (start + step) % n;
+            if (decisions[items[i].id].state === "pending") {
+              window.getbrollsGo?.(i);
+              return;
+            }
           }
         }
+        goToPendingGraphics();
       };
     }
     const exportButton = document.querySelector("#export-review");
@@ -337,15 +444,616 @@
       };
     }
   }
+  function graphicsRowByVersion(occurrence, versionId) {
+    return graphicsRows.find((row) => row.occurrence_id === occurrence && row.version === versionId);
+  }
+  function canApprove(row) {
+    return !!(row && row.readiness && row.readiness.reviewable);
+  }
+  function readinessText(row) {
+    const r = row.readiness || {};
+    const parts = [
+      r.reviewable ? "reviewable" : "not reviewable",
+      r.approved ? "currently approved for this version" : "not currently approved",
+      r.deliverable ? "deliverable" : "not deliverable",
+    ];
+    const reasons = Array.isArray(r.reasons) && r.reasons.length ? " (" + r.reasons.join(", ") + ")" : "";
+    const hist =
+      row.approval === "approved"
+        ? " Historical approval is recorded for this version and is not current delivery readiness."
+        : "";
+    return "Readiness: " + parts.join(" · ") + reasons + hist;
+  }
+  function requestText(row) {
+    const reqs = Array.isArray(row.requests) ? row.requests : [];
+    if (!reqs.length) return "No saved revision request for this occurrence.";
+    return reqs
+      .map((req) => {
+        const stale =
+          req.state === "stale" || req.reason
+            ? " · " + (req.reason || "stale or ambiguous older target")
+            : "";
+        const outcome =
+          req.processing && req.processing.outcome ? " · outcome " + req.processing.outcome : "";
+        return (
+          "Request " +
+          (req.id || "") +
+          " target " +
+          (req.reviewed_version || "unknown") +
+          " · " +
+          (req.state || "") +
+          " · scope " +
+          (req.scope || "scene") +
+          stale +
+          outcome
+        );
+      })
+      .join("\n");
+  }
+  function frozenContextText(row) {
+    const ctx = row.context || {};
+    const timing = ctx.timing || {};
+    const anchors = Array.isArray(ctx.anchors) ? ctx.anchors : [];
+    const timingLine =
+      timing.basis === "explicit"
+        ? `Explicit ${timing.start_s}–${timing.end_s} s (frames ${timing.start_frame}–${timing.end_frame}) · Duration ${timing.duration_s} s · ${timing.duration_in_frames} frames`
+        : timing.basis === "estimated"
+          ? `Estimated duration ${timing.duration_s} s · ${timing.duration_in_frames} frames`
+          : "";
+    return {
+      chapter: ctx.chapter_context || "",
+      narration: ctx.narration || "",
+      purpose: ctx.purpose || "",
+      timing: timingLine,
+      anchors: anchors
+        .map((item) => (item && typeof item === "object" ? (item.t_s == null ? item.text : item.t_s + " s " + item.text) : item))
+        .filter(Boolean)
+        .join("\n"),
+    };
+  }
+  function mediaFps(el) {
+    const raw = el && (el.dataset?.fps || (typeof el.getAttribute === "function" && el.getAttribute("data-fps")));
+    const fps = Number(raw || 30);
+    return fps > 0 ? fps : 30;
+  }
+  function syncAudioToVideo(video, audio) {
+    if (!video || !audio) return;
+    const slop = 1 / mediaFps(audio) || 1 / mediaFps(video);
+    const videoTime = Number(video.currentTime || 0);
+    const audioTime = Number(audio.currentTime || 0);
+    if (Math.abs(audioTime - videoTime) > slop) audio.currentTime = videoTime;
+  }
+  function pauseMedia(el) {
+    if (!el) return;
+    if (typeof el.pause === "function") el.pause();
+  }
+  function playMedia(el) {
+    if (!el || typeof el.play !== "function") return;
+    const result = el.play();
+    if (result && typeof result.catch === "function") result.catch(() => {});
+  }
+  function pauseAlignmentPreviews(except) {
+    document.querySelectorAll(".graphics-alignment-preview").forEach((el) => {
+      if (el !== except) pauseMedia(el);
+    });
+  }
+  function pauseGraphicsAndAlignment(except) {
+    document.querySelectorAll(".graphics-preview, .graphics-vo-preview, .graphics-alignment-preview").forEach((el) => {
+      if (el !== except) pauseMedia(el);
+    });
+  }
+  function bindAlignmentPreviews(root) {
+    root.querySelectorAll(".graphics-alignment-preview").forEach((audio) => {
+      if (audio.dataset.alignmentWired) return;
+      audio.dataset.alignmentWired = "1";
+      audio.addEventListener("play", () => pauseGraphicsAndAlignment(audio));
+    });
+  }
+  function alignmentRowFor(occurrence) {
+    return alignmentRows.find((row) => row.occurrence_id === occurrence) || null;
+  }
+  function disableAlignmentForm(box, message) {
+    box.querySelectorAll("input, textarea, button").forEach((el) => {
+      el.disabled = true;
+    });
+    const status = box.querySelector("[data-alignment-status]");
+    if (status) status.textContent = message;
+  }
+  function bindAlignmentForm(box) {
+    if (!box || box.dataset.alignmentMounted) return;
+    box.dataset.alignmentMounted = "1";
+    const rowId = box.dataset.alignmentId;
+    const signature = box.dataset.alignmentSignature;
+    const epoch = box.dataset.alignmentEpoch;
+    const editable = box.dataset.alignmentEditable !== "0";
+    const row = alignmentRows.find((item) => item.id === rowId) || null;
+    const live = !!(row && row.signature === signature && row.reviewEpoch === epoch);
+    if (!editable || !row || !live) {
+      disableAlignmentForm(
+        box,
+        live
+          ? "This saved version keeps its original alignment context. Record a correction on the current assignment."
+          : "Stale alignment context; this form will not retarget the current occurrence.",
+      );
+      return;
+    }
+    const decision = alignmentDecisions[row.id];
+    const candidate = box.querySelector("[data-alignment-candidate]");
+    const start = box.querySelector("[data-alignment-start]");
+    const end = box.querySelector("[data-alignment-end]");
+    const statement = box.querySelector("[data-alignment-statement]");
+    const status = box.querySelector("[data-alignment-status]");
+    const recordBtn = box.querySelector("[data-alignment-record]");
+    if (candidate) candidate.value = decision.candidate_id || "";
+    if (start) start.value = decision.start_s === "" || decision.start_s == null ? "" : String(decision.start_s);
+    if (end) end.value = decision.end_s === "" || decision.end_s == null ? "" : String(decision.end_s);
+    if (statement) statement.value = decision.statement || "";
+    function note(text) {
+      if (status) status.textContent = text;
+    }
+    recordBtn &&
+      (recordBtn.onclick = () => {
+        if (box.dataset.alignmentSignature !== row.signature || box.dataset.alignmentEpoch !== row.reviewEpoch) {
+          note("Stale alignment context; this form will not retarget the current occurrence.");
+          return;
+        }
+        const cand = (candidate?.value || "").trim();
+        const startRaw = (start?.value || "").trim();
+        const endRaw = (end?.value || "").trim();
+        const text = statement?.value || "";
+        if (text.length > GRAPHICS_MAX_COMMENT) {
+          note("Keep the correction statement within 8000 characters.");
+          return;
+        }
+        if (!text.trim()) {
+          note("A correction needs the exact human statement already received.");
+          return;
+        }
+        if (cand && (startRaw || endRaw)) {
+          note("Use a candidate id or start/end seconds, not both.");
+          return;
+        }
+        if (!cand && (!startRaw || !endRaw)) {
+          note("Choose a candidate id or both start and end seconds.");
+          return;
+        }
+        if (!cand) {
+          const startN = Number(startRaw);
+          const endN = Number(endRaw);
+          if (!Number.isFinite(startN) || !Number.isFinite(endN) || endN <= startN || startN < 0) {
+            note("Start and end must be finite seconds with end after start.");
+            return;
+          }
+          decision.start_s = startN;
+          decision.end_s = endN;
+          decision.candidate_id = "";
+        } else {
+          decision.candidate_id = cand;
+          decision.start_s = "";
+          decision.end_s = "";
+        }
+        decision.statement = text;
+        decision.signature = row.signature;
+        decision.reviewEpoch = row.reviewEpoch;
+        decision.updatedAt = new Date().toISOString();
+        note("Correction stored for Save decisions. It does not transcribe or rewrite a frozen version.");
+        persist();
+      });
+  }
+  function bindAlignmentCard(card) {
+    bindAlignmentPreviews(card);
+    card.querySelectorAll(".graphics-alignment-correct").forEach((box) => bindAlignmentForm(box));
+  }
+  function bindGraphicsMedia(pane) {
+    const video = pane.querySelector(".graphics-preview");
+    const audio = pane.querySelector(".graphics-vo-preview");
+    if (!video || video.dataset.graphicsMediaWired) return;
+    video.dataset.graphicsMediaWired = "1";
+    let syncing = false;
+    function pair() {
+      return pane.querySelector(".graphics-vo-preview");
+    }
+    function withSync(fn) {
+      if (syncing) return;
+      syncing = true;
+      try {
+        fn();
+      } finally {
+        syncing = false;
+      }
+    }
+    function onPlay() {
+      withSync(() => {
+        pauseAlignmentPreviews();
+        const other = pair();
+        syncAudioToVideo(video, other);
+        playMedia(other);
+      });
+    }
+    function onPause() {
+      withSync(() => {
+        const other = pair();
+        syncAudioToVideo(video, other);
+        pauseMedia(other);
+      });
+    }
+    function onSeek() {
+      withSync(() => syncAudioToVideo(video, pair()));
+    }
+    function onEnded() {
+      withSync(() => {
+        const other = pair();
+        pauseMedia(other);
+        syncAudioToVideo(video, other);
+      });
+    }
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("seeking", onSeek);
+    video.addEventListener("seeked", onSeek);
+    video.addEventListener("ended", onEnded);
+    if (audio) {
+      audio.addEventListener("play", () =>
+        withSync(() => {
+          pauseAlignmentPreviews();
+          syncAudioToVideo(video, audio);
+          playMedia(video);
+        }),
+      );
+      audio.addEventListener("pause", () =>
+        withSync(() => {
+          syncAudioToVideo(video, audio);
+          pauseMedia(video);
+        }),
+      );
+      audio.addEventListener("seeking", () => withSync(() => syncAudioToVideo(video, audio)));
+      audio.addEventListener("seeked", () => withSync(() => syncAudioToVideo(video, audio)));
+      audio.addEventListener("ended", () =>
+        withSync(() => {
+          pauseMedia(video);
+          syncAudioToVideo(video, audio);
+        }),
+      );
+    }
+    if (audio && !pane.querySelector("[data-graphics-media-toggles]")) {
+      const box = document.createElement("p");
+      box.className = "graphics-media-toggles";
+      box.setAttribute("data-graphics-media-toggles", "");
+      const label = document.createElement("label");
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.setAttribute("data-graphics-mute-vo", "");
+      label.append(check, document.createTextNode(" Mute VO preview"));
+      box.append(label);
+      check.onchange = () => {
+        audio.muted = check.checked;
+      };
+      video.insertAdjacentElement?.("afterend", box) || pane.append(box);
+    }
+  }
+  function syncShownGraphicsMedia(card, displayId) {
+    card.querySelectorAll(".graphics-version").forEach((pane) => {
+      bindGraphicsMedia(pane);
+      const video = pane.querySelector(".graphics-preview");
+      const audio = pane.querySelector(".graphics-vo-preview");
+      const shown = pane.dataset.version === displayId;
+      if (!shown) {
+        pauseMedia(video);
+        pauseMedia(audio);
+        pane.querySelectorAll(".graphics-alignment-preview").forEach((el) => pauseMedia(el));
+        return;
+      }
+      syncAudioToVideo(video, audio);
+    });
+  }
+  function paintVersionPanes(card, displayId, compareId) {
+    card.querySelectorAll(".graphics-version").forEach((pane) => {
+      const id = pane.dataset.version;
+      pane.classList.toggle("is-shown", id === displayId);
+      pane.classList.toggle("is-compare", Boolean(compareId) && id === compareId && id !== displayId);
+      const decision = graphicsDecisions[pane.dataset.rowId];
+      const record = pane.querySelector("[data-graphics-decision-record]");
+      if (record && decision) {
+        record.textContent =
+          LABELS[decision.state] +
+          (decision.state === "changes" && decision.scope === "shared" ? " · scope shared" : "") +
+          (decision.comment ? " · " + decision.comment : "");
+        record.hidden = decision.state === "pending";
+      }
+    });
+    card.querySelectorAll(".graphics-version-details").forEach((pane) => {
+      const id = pane.dataset.version;
+      pane.classList.toggle("is-shown", id === displayId);
+      pane.classList.toggle("is-compare", Boolean(compareId) && id === compareId && id !== displayId);
+      if (id !== displayId && id !== compareId) {
+        pane.querySelectorAll(".graphics-alignment-preview").forEach((el) => pauseMedia(el));
+      }
+    });
+    syncShownGraphicsMedia(card, displayId);
+  }
+  function bindGraphicsCard(card) {
+    card.classList.add("is-wired");
+    const display = card.querySelector("[data-graphics-display]");
+    const compare = card.querySelector("[data-graphics-compare]");
+    const panel = card.querySelector(".graphics-review-panel");
+    const occurrence = card.dataset.occurrence;
+    const rows = graphicsRows.filter((row) => row.occurrence_id === occurrence);
+    if (!rows.length) return;
+    let boundId = (rows.find((row) => row.version === display?.value) || rows.find((row) => row.current) || rows[0]).id;
+    let pending = null;
+    function selectedRow() {
+      return graphicsRows.find((row) => row.id === boundId) || rows[0];
+    }
+    function resetTransientAction() {
+      pending = null;
+      if (!panel) return;
+      panel.dataset.asking = "";
+      const confirmBtn = panel.querySelector(".confirm-review");
+      if (confirmBtn) {
+        confirmBtn.hidden = true;
+        confirmBtn.disabled = true;
+      }
+      const fields = panel.querySelector(".review-fields");
+      const toggle = panel.querySelector(".comment-toggle");
+      const comment = panel.querySelector("[data-graphics-comment]");
+      if (fields) fields.hidden = true;
+      toggle?.setAttribute("aria-expanded", "false");
+      if (toggle) toggle.textContent = comment?.value ? "View comment" : "Comment";
+    }
+    function showSelected() {
+      const row = selectedRow();
+      paintVersionPanes(card, row.version, compare?.value);
+      const voiceStatus = card.querySelector(".graphics-vo-status");
+      if (voiceStatus) {
+        const shownPane = [...card.querySelectorAll(".graphics-version")].find(pane => pane.dataset.version === row.version);
+        voiceStatus.hidden = !!shownPane?.querySelector(".graphics-vo-preview");
+      }
+      const badge = card.querySelector(".timing-basis");
+      if (badge) {
+        const basis =
+          (row.context && row.context.timing && row.context.timing.basis) || row.timing_basis || "";
+        badge.className = "timing-basis" + (basis ? " " + basis : "");
+        badge.hidden = basis !== "estimated";
+        badge.textContent = basis === "estimated" ? "Draft · VO timing pending" : "";
+      }
+      const compareRow = graphicsRowByVersion(occurrence, compare?.value);
+      let box = card.querySelector("[data-graphics-compare-context]");
+      if (!box) {
+        box = document.createElement("p");
+        box.className = "graphics-compare-context";
+        box.setAttribute("data-graphics-compare-context", "");
+        (card.querySelector(".graphics-details") || card).append(box);
+      }
+      const shown = frozenContextText(row);
+      const other = compareRow ? frozenContextText(compareRow) : null;
+      box.hidden = !other;
+      box.textContent = other
+        ? `Displayed ${row.version} narration: ${shown.narration} · timing: ${shown.timing} · Compare ${compareRow.version} narration: ${other.narration} · timing: ${other.timing}`
+        : `Displayed ${row.version} narration: ${shown.narration} · timing: ${shown.timing}`;
+      if (!panel) return;
+      const d = graphicsDecisions[boundId];
+      const comment = panel.querySelector("[data-graphics-comment]");
+      const shared = panel.querySelector("[data-graphics-shared]");
+      const status = panel.querySelector("[data-graphics-status]");
+      const readiness = panel.querySelector("[data-graphics-readiness]");
+      const requests = panel.querySelector("[data-graphics-requests]");
+      if (comment) comment.value = d.comment;
+      if (shared) shared.checked = d.scope === "shared";
+      if (readiness) readiness.textContent = readinessText(row);
+      if (requests) requests.textContent = requestText(row);
+      panel.querySelectorAll("[data-graphics-decision]").forEach((b) =>
+        b.setAttribute("aria-pressed", String(b.dataset.graphicsDecision === d.state)),
+      );
+      const approve = panel.querySelector('[data-graphics-decision="approved"]');
+      if (approve) approve.disabled = !canApprove(row);
+      if (status && !panel.dataset.asking) status.textContent = "";
+    }
+    function rebind() {
+      const next = graphicsRowByVersion(occurrence, display?.value) || rows.find((row) => row.current) || rows[0];
+      boundId = next.id;
+      if (compare && compare.value === display?.value) compare.value = "";
+      resetTransientAction();
+      showSelected();
+      resetTransientAction();
+    }
+    if (display && !display.dataset.wired) {
+      display.dataset.wired = "1";
+      display.onchange = rebind;
+    }
+    if (compare && !compare.dataset.wired) {
+      compare.dataset.wired = "1";
+      compare.onchange = () => showSelected();
+    }
+    if (!panel || panel.dataset.mounted) {
+      showSelected();
+      return;
+    }
+    panel.dataset.mounted = "1";
+    const comment = panel.querySelector("[data-graphics-comment]");
+    const shared = panel.querySelector("[data-graphics-shared]");
+    const status = panel.querySelector("[data-graphics-status]");
+    const fields = panel.querySelector(".review-fields");
+    const toggle = panel.querySelector(".comment-toggle");
+    const confirm = panel.querySelector(".confirm-review");
+    function reveal(open) {
+      if (fields) fields.hidden = !open;
+      toggle?.setAttribute("aria-expanded", String(open));
+      if (toggle) toggle.textContent = open ? "Close comment" : comment?.value ? "View comment" : "Comment";
+    }
+    function checkComment() {
+      const d = graphicsDecisions[boundId];
+      if (!pending && d.state !== "changes") return;
+      const text = (comment?.value || "").trim();
+      const tooLong = (comment?.value || "").length > GRAPHICS_MAX_COMMENT;
+      if (confirm) {
+        confirm.disabled = !text || tooLong;
+        confirm.textContent = "Confirm change request";
+      }
+      if (!text) status.textContent = "Describe what you want in one line.";
+      else if (tooLong) status.textContent = "Keep the comment within 8000 characters.";
+      else if (pending) status.textContent = "";
+    }
+    toggle &&
+      (toggle.onclick = () => {
+        pending = null;
+        panel.dataset.asking = "";
+        if (confirm) confirm.hidden = true;
+        reveal(fields?.hidden);
+        if (!fields?.hidden) comment?.focus();
+      });
+    panel.querySelectorAll("[data-graphics-decision]").forEach((b) => {
+      b.onclick = () => {
+        const d = graphicsDecisions[boundId];
+        const row = selectedRow();
+        const state = b.dataset.graphicsDecision;
+        if (state === d.state) {
+          d.state = "pending";
+          d.updatedAt = new Date().toISOString();
+          pending = null;
+          panel.dataset.asking = "";
+          if (confirm) confirm.hidden = true;
+          reveal(false);
+          persist();
+          showSelected();
+          return;
+        }
+        if (state === "changes") {
+          pending = state;
+          panel.dataset.asking = "1";
+          reveal(true);
+          if (confirm) confirm.hidden = false;
+          checkComment();
+          comment?.focus();
+          return;
+        }
+        if (state === "approved" && !canApprove(row)) {
+          status.textContent =
+            "This version cannot be approved. Pending or failed assignments and incomplete results stay unapproved.";
+          return;
+        }
+        pending = null;
+        panel.dataset.asking = "";
+        if (confirm) confirm.hidden = true;
+        reveal(false);
+        d.state = state;
+        d.updatedAt = new Date().toISOString();
+        persist();
+        showSelected();
+      };
+    });
+    confirm &&
+      (confirm.onclick = () => {
+        if (!pending) return;
+        const d = graphicsDecisions[boundId];
+        const text = (comment?.value || "").trim();
+        if (!text) {
+          status.textContent = "Describe what you want in one line.";
+          comment?.focus();
+          return;
+        }
+        if ((comment?.value || "").length > GRAPHICS_MAX_COMMENT) {
+          status.textContent = "Keep the comment within 8000 characters.";
+          comment?.focus();
+          return;
+        }
+        d.comment = comment.value;
+        d.scope = shared?.checked ? "shared" : "scene";
+        d.state = "changes";
+        d.updatedAt = new Date().toISOString();
+        pending = null;
+        panel.dataset.asking = "";
+        confirm.hidden = true;
+        reveal(false);
+        persist();
+        showSelected();
+      });
+    comment &&
+      (comment.oninput = () => {
+        graphicsDecisions[boundId].comment = comment.value;
+        checkComment();
+        persist();
+      });
+    shared &&
+      (shared.onchange = () => {
+        graphicsDecisions[boundId].scope = shared.checked ? "shared" : "scene";
+        persist();
+      });
+    reveal(false);
+    showSelected();
+  }
+  function paintGraphics() {
+    document.querySelectorAll(".graphics-card").forEach((card) => {
+      const display = card.querySelector("[data-graphics-display]");
+      const compare = card.querySelector("[data-graphics-compare]");
+      if (display) paintVersionPanes(card, display.value, compare?.value);
+    });
+  }
+  function mountGraphics() {
+    document.querySelectorAll(".graphics-card").forEach((card) => {
+      bindGraphicsCard(card);
+      bindAlignmentCard(card);
+    });
+  }
   function mount() {
+    placeSummary();
     mountPlayer();
     mountPanel();
+    mountGraphics();
+    wireSummary();
   }
-  new MutationObserver(mount).observe(viewer, { childList: true });
+  if (viewer) new MutationObserver(mount).observe(viewer, { childList: true });
   if (pendingOnly) pendingOnly.onchange = paintGallery;
   mount();
   persist();
 
+  function exportRequestId(row, decision) {
+    if (decision.state !== "changes" || !(decision.comment || "").trim()) return null;
+    const scope = decision.scope === "shared" ? "shared" : "scene";
+    const same =
+      (row.comment || "") === decision.comment &&
+      graphicsScope(row.scope, "scene") === scope &&
+      row.state === "changes" &&
+      typeof row.requestId === "string" &&
+      row.requestId;
+    return same ? row.requestId : null;
+  }
+  function exportAlignmentRow(row) {
+    const decision = alignmentDecisions[row.id];
+    const payload = {
+      ...row,
+      signature: row.signature,
+      reviewEpoch: row.reviewEpoch,
+      occurrence_id: row.occurrence_id,
+      analysis_id: row.analysis_id,
+      recording_id: row.recording_id,
+      recording_sha256: row.recording_sha256,
+      recording_duration_s: row.recording_duration_s,
+      transcript_sha256: row.transcript_sha256,
+      scenario_sha256: row.scenario_sha256,
+      input_fingerprint: row.input_fingerprint,
+      order: row.order,
+      fps: row.fps,
+      statement: decision?.statement || row.statement || "",
+      by: decision?.by || row.by || "",
+    };
+    if (decision?.candidate_id) payload.candidate_id = decision.candidate_id;
+    if (decision && decision.start_s !== "" && decision.start_s != null) payload.start_s = decision.start_s;
+    if (decision && decision.end_s !== "" && decision.end_s != null) payload.end_s = decision.end_s;
+    return payload;
+  }
+  function exportGraphicsRow(row) {
+    const decision = graphicsDecisions[row.id];
+    const scope = decision.scope === "shared" ? "shared" : "scene";
+    return {
+      ...row,
+      signature: row.signature,
+      reviewEpoch: row.reviewEpoch,
+      state: decision.state,
+      comment: decision.comment,
+      scope: decision.state === "changes" && scope === "shared" ? "shared" : "scene",
+      requestId: exportRequestId(row, decision),
+    };
+  }
   function exportReview() {
     const note = (text) =>
       document.querySelectorAll("[data-storage-status]").forEach((el) => (el.textContent = text));
@@ -376,11 +1084,39 @@
         }
       }
     }
+    for (const row of graphicsRows) {
+      const d = graphicsDecisions[row.id];
+      if (d.state === "changes" && !(d.comment || "").trim()) {
+        note("A graphics change request needs a comment. Open that version and describe the changes.");
+        return;
+      }
+      if ((d.comment || "").length > GRAPHICS_MAX_COMMENT) {
+        note("A graphics comment must stay within 8000 characters.");
+        return;
+      }
+    }
     const result = {
       ...data,
       exportedAt: new Date().toISOString(),
-      items: data.items.map((i) => ({ ...i, ...decisions[i.id] })),
+      items: items.map((i) => ({ ...i, ...decisions[i.id] })),
     };
+    if (Array.isArray(data.graphics) || graphicsRows.length) {
+      result.graphics = graphicsRows.map(exportGraphicsRow);
+    }
+    if (Array.isArray(data.alignment) || alignmentRows.length) {
+      for (const row of alignmentRows) {
+        const d = alignmentDecisions[row.id];
+        if (d && (d.candidate_id || (d.start_s !== "" && d.end_s !== "")) && !(d.statement || "").trim()) {
+          note("An alignment correction needs the exact human statement already received.");
+          return;
+        }
+        if ((d?.statement || "").length > GRAPHICS_MAX_COMMENT) {
+          note("An alignment statement must stay within 8000 characters.");
+          return;
+        }
+      }
+      result.alignment = alignmentRows.map(exportAlignmentRow);
+    }
     const save = window.GETBROLLS_SAVE;
     if (save && save.url && save.token) {
       // Servido por `gb.py serve`: as decisões vão direto para dentro do projeto,
@@ -414,8 +1150,6 @@
     download(result);
   }
   function download(result) {
-    const note = (text) =>
-      document.querySelectorAll("[data-storage-status]").forEach((el) => (el.textContent = text));
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(result, null, 2)], { type: "application/json" }),
     );
@@ -430,7 +1164,6 @@
         "Return to the chat and say where you saved the file.",
       "getbrolls-review.json",
     );
-    note("");
   }
   function announce(text, path) {
     // A região viva já nasce montada e vazia junto da barra de resumo, no load: um
@@ -456,7 +1189,7 @@
   function buildPrintNotes() {
     const section = document.querySelector(".print-notes") || document.createElement("section");
     section.className = "print-notes";
-    data.items.forEach((item, index) => {
+    items.forEach((item, index) => {
       let article = section.children[index];
       if (!article) {
         article = document.createElement("article");
@@ -499,5 +1232,16 @@
   }
   // Load print images while reviewing; beforeprint must preserve the decoded nodes.
   buildPrintNotes();
-  window.addEventListener("beforeprint", buildPrintNotes);
+  const printDisclosureState = new Map();
+  window.addEventListener("beforeprint", () => {
+    buildPrintNotes();
+    document.querySelectorAll("details.graphics-details, details.narration-details, details.graphics-passage").forEach((detail) => {
+      if (!printDisclosureState.has(detail)) printDisclosureState.set(detail, detail.open);
+      detail.open = true;
+    });
+  });
+  window.addEventListener("afterprint", () => {
+    printDisclosureState.forEach((open, detail) => { detail.open = open; });
+    printDisclosureState.clear();
+  });
 })();

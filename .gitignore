@@ -18,6 +18,7 @@ node_modules/
 .playwright-cli/
 
 .tools/
+scripts/graphics/.browser-prepared
 
 # Internal working material (planning, discovery, agent state, editor config).
 # Never part of the public skill.

@@ -329,7 +329,7 @@
       ]
     },
     "deliver": {
-      "help": "Organizar os trechos coletados em entrega/, uma pasta por beat",
+      "help": "Organize collected clips and approved graphics packages in entrega/",
       "options": [
         {
           "action": "_HelpAction",
@@ -373,7 +373,7 @@
           "choices": null,
           "default": false,
           "dest": "dry_run",
-          "help": "Mostrar o que iria para entrega/ sem criar, ligar ou apagar nada",
+          "help": "Show the entrega/ plan, including approved graphics, without creating, linking, or deleting anything",
           "nargs": 0,
           "option_strings": [
             "--dry-run"
@@ -473,6 +473,1388 @@
           "nargs": null,
           "option_strings": [
             "--candidate"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-approve": {
+      "help": "Record an explicit human approval of one complete graphics version; render is not approval",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Occurrence id of the version being approved",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "version",
+          "help": "Complete version id, for example v1",
+          "nargs": null,
+          "option_strings": [
+            "--version"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "by",
+          "help": "Name of the person who already approved this version",
+          "nargs": null,
+          "option_strings": [
+            "--by"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "statement",
+          "help": "Exact human approval statement; required, channel is always chat",
+          "nargs": null,
+          "option_strings": [
+            "--statement"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-assign": {
+      "help": "Register an explicit graphics occurrence from original scenario fields",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "scene",
+          "help": "Authored scene identity; distinct numeric concepts are distinct scenes and may recur across occurrences",
+          "nargs": null,
+          "option_strings": [
+            "--scene"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "custom",
+            "map",
+            "numeric-stat",
+            "timeline"
+          ],
+          "default": "numeric-stat",
+          "dest": "template",
+          "help": "Composition independent of --scene: numeric-stat, timeline, map, or one editable custom JSX scene",
+          "nargs": null,
+          "option_strings": [
+            "--template"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Stable occurrence id, 1–80 letters, numbers, hyphen or underscore",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "chapter",
+          "help": "Chapter identifier retained with the assignment",
+          "nargs": null,
+          "option_strings": [
+            "--chapter"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "chapter_context",
+          "help": "Surrounding chapter text from the scenario, not only a chapter identifier",
+          "nargs": null,
+          "option_strings": [
+            "--chapter-context"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "purpose",
+          "help": "Visual purpose of this occurrence",
+          "nargs": null,
+          "option_strings": [
+            "--purpose"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "narration",
+          "help": "Original scenario narration for this occurrence",
+          "nargs": null,
+          "option_strings": [
+            "--narration"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "estimated",
+            "explicit"
+          ],
+          "default": null,
+          "dest": "timing",
+          "help": "estimated records duration only; explicit requires narration-clock --start/--end",
+          "nargs": null,
+          "option_strings": [
+            "--timing"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "duration",
+          "help": "Estimated duration in seconds; omit --start/--end",
+          "nargs": null,
+          "option_strings": [
+            "--duration"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "start",
+          "help": "Explicit narration-clock start in seconds",
+          "nargs": null,
+          "option_strings": [
+            "--start"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "end",
+          "help": "Explicit narration-clock end in seconds",
+          "nargs": null,
+          "option_strings": [
+            "--end"
+          ],
+          "required": false
+        },
+        {
+          "action": "_AppendAction",
+          "choices": null,
+          "default": null,
+          "dest": "anchor",
+          "help": "Original scenario anchor; repeat as needed",
+          "nargs": null,
+          "option_strings": [
+            "--anchor"
+          ],
+          "required": false
+        },
+        {
+          "action": "_AppendAction",
+          "choices": null,
+          "default": null,
+          "dest": "question",
+          "help": "Unresolved question retained with the assignment",
+          "nargs": null,
+          "option_strings": [
+            "--question"
+          ],
+          "required": false
+        },
+        {
+          "action": "_AppendAction",
+          "choices": null,
+          "default": null,
+          "dest": "propose_scene",
+          "help": "Additional scene proposal text",
+          "nargs": null,
+          "option_strings": [
+            "--propose-scene"
+          ],
+          "required": false
+        },
+        {
+          "action": "_AppendAction",
+          "choices": null,
+          "default": null,
+          "dest": "asset_ref",
+          "help": "Existing project-relative previews/ or clips/ asset",
+          "nargs": null,
+          "option_strings": [
+            "--asset-ref"
+          ],
+          "required": false
+        },
+        {
+          "action": "_AppendAction",
+          "choices": null,
+          "default": null,
+          "dest": "evidence_ref",
+          "help": "Existing project-relative previews/ or clips/ evidence",
+          "nargs": null,
+          "option_strings": [
+            "--evidence-ref"
+          ],
+          "required": false
+        },
+        {
+          "action": "_AppendAction",
+          "choices": null,
+          "default": null,
+          "dest": "material_use",
+          "help": "JSON object binding one --asset-ref/--evidence-ref: rendered_use is finished-clip appearance (permitted|restricted|unknown); raw_redistribution is whether original bytes may be copied into the delivery package. Include evidence, conditions, optional sha256 (must match the confined bytes) and optional candidate_id. Path presence is not permission; stale candidate approval/signature or unavailable acquisition cannot be overridden. Repeat as needed.",
+          "nargs": null,
+          "option_strings": [
+            "--material-use"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "confirm_fps",
+          "help": "Editing fps for this project; required when collection records already exist, never inferred from footage",
+          "nargs": null,
+          "option_strings": [
+            "--confirm-fps"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "value",
+          "help": "Displayed numeric value; synthetic placeholder if omitted",
+          "nargs": null,
+          "option_strings": [
+            "--value"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "unit",
+          "help": "Displayed unit, kept on a separate row from the number",
+          "nargs": null,
+          "option_strings": [
+            "--unit"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "label",
+          "help": "Editorial label shown above the number",
+          "nargs": null,
+          "option_strings": [
+            "--label"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "synthetic",
+            "unverified_scenario"
+          ],
+          "default": null,
+          "dest": "claim_status",
+          "help": "synthetic draft or unverified scenario claim; not researched fact",
+          "nargs": null,
+          "option_strings": [
+            "--claim-status"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "graphics-audio": {
+      "help": "Attach confined sound cues and optional VO source clocks to one graphics occurrence from bounded --file JSON",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Occurrence id previously registered with graphics-assign",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "file",
+          "help": "Bounded project JSON object with confined effect cues and optional VO source clocks",
+          "nargs": null,
+          "option_strings": [
+            "--file"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-background": {
+      "help": "Attach confined project video or photograph background to one graphics occurrence from bounded --file JSON",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Occurrence id previously registered with graphics-assign",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "file",
+          "help": "Bounded project JSON object with candidate_id or ref, optional source interval, fit, suitability and material_use",
+          "nargs": null,
+          "option_strings": [
+            "--file"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-checkpoint": {
+      "help": "Save actual research, authoring or waiting work without declaring a finished render",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Occurrence id whose actual work or pending question is saved",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "authoring",
+            "error",
+            "research",
+            "waiting"
+          ],
+          "default": null,
+          "dest": "stage",
+          "help": "Actual work stage; saving a checkpoint does not declare a finished render",
+          "nargs": null,
+          "option_strings": [
+            "--stage"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "outcome",
+          "help": "Actual saved work or pending question; not an approval",
+          "nargs": null,
+          "option_strings": [
+            "--outcome"
+          ],
+          "required": true
+        },
+        {
+          "action": "_AppendAction",
+          "choices": null,
+          "default": null,
+          "dest": "ref",
+          "help": "Existing confined graphics-data/, previews/ or clips/ file",
+          "nargs": null,
+          "option_strings": [
+            "--ref"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "graphics-content": {
+      "help": "Save selected geographic data or editable authored custom scene content",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Assigned map or custom occurrence id",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "file",
+          "help": "Project-local bounded JSON identifying editable scene inputs",
+          "nargs": null,
+          "option_strings": [
+            "--file"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-continue": {
+      "help": "Continue saved graphics sequentially, verifying dependencies and reusing intact results",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Continue only this occurrence; omit to inspect and continue all assignments sequentially",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "graphics-doctor": {
+      "help": "Diagnose the optional local Remotion graphics runtime without changing a project",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Aceito por uniformidade e ignorado: o diagnóstico é da instalação, não do projeto",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "prepare_browser",
+          "help": "Download or verify the local Remotion browser once; render will not download it by itself",
+          "nargs": 0,
+          "option_strings": [
+            "--prepare-browser"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "graphics-fact-resolve": {
+      "help": "Record an already received editorial decision for one saved fact conflict; does not invent approval",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Occurrence id that already has saved fact evidence",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "conflict",
+          "help": "Saved conflict id from that occurrence's facts record",
+          "nargs": null,
+          "option_strings": [
+            "--conflict"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "accept_correction",
+            "defer",
+            "keep_scenario"
+          ],
+          "default": null,
+          "dest": "decision",
+          "help": "Already received editorial choice; this command records it and does not invent a decision",
+          "nargs": null,
+          "option_strings": [
+            "--decision"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "by",
+          "help": "Name of the person who already made this decision",
+          "nargs": null,
+          "option_strings": [
+            "--by"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "statement",
+          "help": "Exact editorial statement already received; original narration is not rewritten",
+          "nargs": null,
+          "option_strings": [
+            "--statement"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-facts": {
+      "help": "Attach researched displayed-fact evidence to one graphics occurrence from bounded --file JSON",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Occurrence id previously registered with graphics-assign",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "file",
+          "help": "Bounded project JSON object with displayed values, sources and optional conflicts",
+          "nargs": null,
+          "option_strings": [
+            "--file"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-handoff": {
+      "help": "Save one specialist context packet for host delegation or recovery; never launch an agent",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "One occurrence delegated or restored by the agent host",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "host_context",
+          "help": "Actual observed scene-specific host context id; omit for reconstruction",
+          "nargs": null,
+          "option_strings": [
+            "--host-context"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "request",
+          "help": "Exact unprocessed revision request id already authorized in chat",
+          "nargs": null,
+          "option_strings": [
+            "--request"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "graphics-render": {
+      "help": "Render one graphics occurrence into a new immutable version for review",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Occurrence id previously registered with graphics-assign",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "repair",
+          "help": "Consume one of at most two saved scene-code repair attempts after a failed render",
+          "nargs": 0,
+          "option_strings": [
+            "--repair"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "graphics-request-complete": {
+      "help": "Record chat-authorized processing of a saved graphics revision request",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "request",
+          "help": "Saved revision-request id from status.graphics or review",
+          "nargs": null,
+          "option_strings": [
+            "--request"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "version",
+          "help": "Complete descendant version produced for that request",
+          "nargs": null,
+          "option_strings": [
+            "--version"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "outcome",
+          "help": "Actual processing outcome recorded after chat authorization",
+          "nargs": null,
+          "option_strings": [
+            "--outcome"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-select": {
+      "help": "Select an existing complete graphics version without rewriting frozen files",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Occurrence id whose retained version is selected",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "version",
+          "help": "Existing complete version id to select",
+          "nargs": null,
+          "option_strings": [
+            "--version"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-sound-import": {
+      "help": "Materialize or reuse one named permitted CC0 effect into project sounds/; viewing does not download",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "uiSwitch",
+            "whip",
+            "whoosh"
+          ],
+          "default": null,
+          "dest": "sfx",
+          "help": "Named permitted CC0 effect to reuse or materialize locally",
+          "nargs": null,
+          "option_strings": [
+            "--sfx"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "asset",
+          "help": "Safe local identity for the saved project sound",
+          "nargs": null,
+          "option_strings": [
+            "--asset"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-style": {
+      "help": "Record a proposed documentary graphics style revision; does not approve a scene",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "documentary"
+          ],
+          "default": "documentary",
+          "dest": "family",
+          "help": "Proposed visual family; only documentary is available in this slice",
+          "nargs": null,
+          "option_strings": [
+            "--family"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "note",
+          "help": "Original note recorded with this style revision; history is appended",
+          "nargs": null,
+          "option_strings": [
+            "--note"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "confirm_fps",
+          "help": "Editing fps for this project; required when collection records already exist, never inferred from footage",
+          "nargs": null,
+          "option_strings": [
+            "--confirm-fps"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "graphics-timeline": {
+      "help": "Save editable dated milestones and narration-clock emphasis for one timeline occurrence",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Assigned timeline occurrence id receiving these milestones",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "file",
+          "help": "Project-local bounded JSON with title and milestone evidence/times",
+          "nargs": null,
+          "option_strings": [
+            "--file"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "graphics-timing-resolve": {
+      "help": "Record an explicit candidate confirmation or bounded time override for one occurrence; does not retranscribe",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Occurrence id that already has a saved alignment record",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "candidate",
+          "help": "Saved alignment candidate id to confirm; mutually exclusive with --start/--end",
+          "nargs": null,
+          "option_strings": [
+            "--candidate"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "start",
+          "help": "Explicit narration-clock start in seconds",
+          "nargs": null,
+          "option_strings": [
+            "--start"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "end",
+          "help": "Explicit narration-clock end in seconds",
+          "nargs": null,
+          "option_strings": [
+            "--end"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "by",
+          "help": "Name of the person who already confirmed or corrected this interval",
+          "nargs": null,
+          "option_strings": [
+            "--by"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "statement",
+          "help": "Exact human correction statement already received; does not invent timing approval",
+          "nargs": null,
+          "option_strings": [
+            "--statement"
           ],
           "required": true
         }
@@ -1001,6 +2383,168 @@
             "--limit"
           ],
           "required": false
+        }
+      ]
+    },
+    "narration-analyze": {
+      "help": "Submit or reuse complete-recording Inworld asynchronous transcription; does not match scenes",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "recording",
+          "help": "Local complete voice-over file; headered supported audio, validated before any provider call",
+          "nargs": null,
+          "option_strings": [
+            "--recording"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "language",
+          "help": "Optional language hint for Inworld transcribeConfig; omitted uses the provider default",
+          "nargs": null,
+          "option_strings": [
+            "--language"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "analysis",
+          "help": "Saved or new analysis identity; omitted assigns na-N. Unchanged completed results are reused",
+          "nargs": null,
+          "option_strings": [
+            "--analysis"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "narration-match": {
+      "help": "Match assigned graphics passages to a completed narration analysis without retranscribing",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "analysis",
+          "help": "Completed analysis identity from narration-analyze; matching does not call the provider",
+          "nargs": null,
+          "option_strings": [
+            "--analysis"
+          ],
+          "required": true
+        },
+        {
+          "action": "_AppendAction",
+          "choices": null,
+          "default": null,
+          "dest": "occurrence",
+          "help": "Occurrence id to match; repeat in explicit narrative order. Omitted matches every assigned occurrence in stored order",
+          "nargs": null,
+          "option_strings": [
+            "--occurrence"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "narration-resume": {
+      "help": "Resume a saved narration analysis identity without silently resubmitting",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "analysis",
+          "help": "Saved analysis identity from narration-analyze or status.narration",
+          "nargs": null,
+          "option_strings": [
+            "--analysis"
+          ],
+          "required": true
         }
       ]
     },

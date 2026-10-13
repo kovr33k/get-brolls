@@ -96,6 +96,7 @@ _HEADER_PATTERN = re.compile(
 # A bearer token with no header name in front of it (e.g. copied into an error
 # message or a shell command). 8+ chars of the base64url/JWT-safe alphabet.
 _BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}")
+_BASIC_PATTERN = re.compile(r"(?i)\bBasic\s+[A-Za-z0-9._~+/=-]{8,}")
 # Any identifier ENDING in one of these keywords (so `access_token`, `api_key`,
 # `apikey`, `client_secret`, `X-Amz-Signature` and `X-Amz-Credential` all match, not
 # just the bare word), plus a short list of known credential-shaped query names that
@@ -160,6 +161,7 @@ def redact(text, limit: int | None = 1200):
         "TELEGRAM_SESSION",
         "GEMINI_API_KEY",
         "XAI_API_KEY",
+        "INWORLD_API_KEY",
     ):
         secret = os.getenv(key)
         if secret:
@@ -168,6 +170,7 @@ def redact(text, limit: int | None = 1200):
     value = re.sub(r'https?://[^\s"<>]+', "[URL omitida]", value)
     value = _QUERY_SECRET_PATTERN.sub(lambda m: f"{m.group(1)}=[REDACTED]", value)
     value = _BEARER_PATTERN.sub("Bearer [REDACTED]", value)
+    value = _BASIC_PATTERN.sub("Basic [REDACTED]", value)
     return value[:limit] if limit is not None else value
 
 
@@ -207,7 +210,7 @@ def project_lock(project):
 # `brief` entra aqui porque só lê BRIEF.md, RULES.md e o manifesto já existente.
 # `doctor` aceita `--project` por uniformidade com o resto da CLI, mas diagnostica a
 # instalação: não pode criar `brolls/` numa pasta que talvez nem seja um projeto.
-READ_ONLY_COMMANDS = ("status", "serve", "brief", "doctor")
+READ_ONLY_COMMANDS = ("status", "serve", "brief", "doctor", "graphics-doctor")
 # (comando, ação) somente leitura, além dos comandos inteiros acima: `queue --action status`
 # só consulta queue.json (mesmo contrato de `status`), nunca deve tomar a trava exclusiva.
 READ_ONLY_ACTIONS = {("queue", "status")}

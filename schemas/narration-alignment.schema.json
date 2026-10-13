@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Get B-rolls narration alignment records v1",
+  "description": "Pure matching/correction record for one occurrence. transcript_sha256 is the SHA-256 of the complete recognized result (original transcript text, each word's original text/start_ms/end_ms/segment, artifact_sha256, and the exact boolean timing_resolved), kept separate from scenario_sha256, matching and overrides. It is not a hash of transcript text alone; scenario edits keep this identity. Matching score is local evidence, never a provider confidence field. Structural checks live in scripts/getbrolls/narration_alignment.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "occurrence_id",
+    "original_text",
+    "context",
+    "analysis_id",
+    "recording_id",
+    "recording_sha256",
+    "recording_duration_s",
+    "transcript_sha256",
+    "scenario_sha256",
+    "order",
+    "input_fingerprint",
+    "fps",
+    "frame_rounding",
+    "search_truncated",
+    "state",
+    "candidates",
+    "selected_candidate_id",
+    "timing",
+    "decision"
+  ],
+  "properties": {
+    "schema_version": {"const": 1, "type": "integer"},
+    "occurrence_id": {"$ref": "#/$defs/id"},
+    "original_text": {"$ref": "#/$defs/prose"},
+    "context": {"$ref": "#/$defs/context"},
+    "analysis_id": {"$ref": "#/$defs/id"},
+    "recording_id": {"$ref": "#/$defs/id"},
+    "recording_sha256": {"$ref": "#/$defs/sha256"},
+    "recording_duration_s": {"$ref": "#/$defs/positiveNumber"},
+    "transcript_sha256": {
+      "$ref": "#/$defs/sha256",
+      "description": "SHA-256 of the complete recognized result: transcript text, every word's original text/start_ms/end_ms/segment, artifact_sha256, and the exact boolean timing_resolved. Not a hash of transcript text alone. Scenario edits keep this identity and do not require paid retranscription."
+    },
+    "scenario_sha256": {"$ref": "#/$defs/sha256"},
+    "order": {"type": "integer", "minimum": 0},
+    "input_fingerprint": {"$ref": "#/$defs/sha256"},
+    "fps": {"$ref": "#/$defs/positiveNumber"},
+    "frame_rounding": {"const": "half_up_nonnegative"},
+    "search_truncated": {"type": "boolean"},
+    "state": {"enum": ["resolved", "uncertain", "missing", "stale"]},
+    "candidates": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/candidate"}
+    },
+    "selected_candidate_id": {
+      "anyOf": [{"type": "null"}, {"$ref": "#/$defs/id"}]
+    },
+    "timing": {
+      "anyOf": [{"type": "null"}, {"$ref": "#/$defs/explicitTiming"}]
+    },
+    "decision": {
+      "anyOf": [{"type": "null"}, {"$ref": "#/$defs/decision"}]
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9_-]{1,80}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "prose": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000
+    },
+    "context": {
+      "type": "string",
+      "maxLength": 8000
+    },
+    "positiveNumber": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "nonNegativeNumber": {
+      "type": "number",
+      "minimum": 0
+    },
+    "explicitTiming": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis",
+        "start_s",
+        "end_s",
+        "start_frame",
+        "end_frame",
+        "duration_in_frames",
+        "duration_s"
+      ],
+      "properties": {
+        "basis": {"const": "explicit"},
+        "start_s": {"$ref": "#/$defs/nonNegativeNumber"},
+        "end_s": {"$ref": "#/$defs/positiveNumber"},
+        "start_frame": {"type": "integer", "minimum": 0},
+        "end_frame": {"type": "integer", "minimum": 0},
+        "duration_in_frames": {"type": "integer", "minimum": 1},
+        "duration_s": {"$ref": "#/$defs/positiveNumber"}
+      }
+    },
+    "textualEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["matched_tokens", "passage_tokens", "span_tokens", "coverage"],
+      "properties": {
+        "matched_tokens": {"type": "integer", "minimum": 0},
+        "passage_tokens": {"type": "integer", "minimum": 0},
+        "span_tokens": {"type": "integer", "minimum": 0},
+        "coverage": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "anchorEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before_hits", "after_hits", "anchor_tokens", "disambiguates"],
+      "properties": {
+        "before_hits": {"type": "integer", "minimum": 0},
+        "after_hits": {"type": "integer", "minimum": 0},
+        "anchor_tokens": {"type": "integer", "minimum": 0},
+        "disambiguates": {"type": "boolean"}
+      }
+    },
+    "orderEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["narrative_order", "consistent", "inverted"],
+      "properties": {
+        "narrative_order": {"type": "integer", "minimum": 0},
+        "consistent": {"type": "boolean"},
+        "inverted": {"type": "boolean"}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "start_s",
+        "end_s",
+        "recognized_text",
+        "word_start",
+        "word_end",
+        "textual_evidence",
+        "anchor_evidence",
+        "order_evidence",
+        "score"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "start_s": {"$ref": "#/$defs/nonNegativeNumber"},
+        "end_s": {"$ref": "#/$defs/positiveNumber"},
+        "recognized_text": {"$ref": "#/$defs/prose"},
+        "word_start": {"type": "integer", "minimum": 0},
+        "word_end": {"type": "integer", "minimum": 0},
+        "textual_evidence": {"$ref": "#/$defs/textualEvidence"},
+        "anchor_evidence": {"$ref": "#/$defs/anchorEvidence"},
+        "order_evidence": {"$ref": "#/$defs/orderEvidence"},
+        "score": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["by", "statement", "at", "input_fingerprint"],
+      "properties": {
+        "by": {"type": "string", "minLength": 1, "maxLength": 500},
+        "statement": {"$ref": "#/$defs/prose"},
+        "at": {"$ref": "#/$defs/prose"},
+        "input_fingerprint": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

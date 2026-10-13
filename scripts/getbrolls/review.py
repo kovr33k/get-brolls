@@ -59,13 +59,20 @@ def project_id(ledger):
 
 
 def enhance(page, ledger, records):
+    from .graphics import alignment_review_records, graphics_review_records
+    from .narration import narration_review_records
+
+    ident = project_id(ledger)
     payload = (
         json.dumps(
             {
                 "type": "getbrolls-review",
                 "templateVersion": REVIEW_TEMPLATE_VERSION,
-                "project": project_id(ledger),
+                "project": ident,
                 "items": records,
+                "graphics": graphics_review_records(ledger, ident),
+                "alignment": alignment_review_records(ledger, ident),
+                "narration": narration_review_records(ledger),
             },
             ensure_ascii=False,
         )
@@ -154,18 +161,43 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
             "com `review`, decida ali e salve de novo."
         )
     items = data.get("items")
-    if not isinstance(items, list) or not items:
+    if "items" not in data or not isinstance(items, list):
         raise ValueError(
             "O arquivo de escolhas está vazio. Volte à página, decida os trechos e clique em “Salvar decisões”."
         )
-    logs.event(_log, logging.INFO, "review_file_selected", name=path.name, candidates=len(items))
+    if "graphics" in data and not isinstance(data.get("graphics"), list):
+        raise ValueError(
+            "O arquivo de escolhas está vazio. Volte à página, decida os trechos e clique em “Salvar decisões”."
+        )
+    if "alignment" in data and not isinstance(data.get("alignment"), list):
+        raise ValueError(
+            "O arquivo de escolhas está vazio. Volte à página, decida os trechos e clique em “Salvar decisões”."
+        )
+    graphics_rows = data.get("graphics", [])
+    alignment_rows = data.get("alignment", [])
+    if not items and not graphics_rows and not alignment_rows:
+        raise ValueError(
+            "O arquivo de escolhas está vazio. Volte à página, decida os trechos e clique em “Salvar decisões”."
+        )
+    logs.event(
+        _log,
+        logging.INFO,
+        "review_file_selected",
+        name=path.name,
+        candidates=len(items),
+        graphics=len(graphics_rows),
+        alignment=len(alignment_rows),
+    )
     changes = []
     skipped = []
     seen = set()
     item_log = []
+    ident = project_id(ledger)
 
     def skip(item_id, reason, detail):
         skipped.append({"id": item_id, "reason": reason, "detail": detail})
+
+    working_index = {c["id"]: c for c in ledger.data["items"]}
 
     for item in items:
         if not isinstance(item, dict) or not isinstance(item.get("id"), str):
@@ -187,7 +219,10 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
                 "não saiu desta página. Rode `review` de novo e salve as decisões da "
                 "página nova."
             )
-        c = copy.deepcopy(ledger.get(item["id"]))
+        current = working_index.get(item["id"])
+        if current is None:
+            raise ValueError("Candidato não encontrado neste projeto.")
+        c = copy.deepcopy(current)
         if item.get("signature") != signature(c):
             skip(
                 c["id"],
@@ -288,13 +323,55 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
             c["state"] = "awaiting_approval"
         item_log.append((c["id"], state))
         changes.append(c)
-    if not changes:
+    from .graphics import apply_alignment_review_import, apply_graphics_review_import
+
+    graphics_working, graphics_applied, graphics_skipped, graphics_unchanged = apply_graphics_review_import(
+        ledger.data.get("graphics"),
+        graphics_rows,
+        project_id=ident,
+        root=ledger.root,
+        by=by,
+    )
+    skipped.extend(graphics_skipped)
+    alignment_source = graphics_working if graphics_working is not None else ledger.data.get("graphics")
+    alignment_working, alignment_applied, alignment_skipped, alignment_unchanged = apply_alignment_review_import(
+        alignment_source,
+        alignment_rows,
+        project_id=ident,
+        root=ledger.root,
+        by=by,
+        data=ledger.data,
+    )
+    skipped.extend(alignment_skipped)
+    if alignment_working is not None:
+        graphics_working = alignment_working
+    if (
+        not changes
+        and not graphics_applied
+        and not graphics_unchanged
+        and not alignment_applied
+        and not alignment_unchanged
+    ):
         # Nada aplicado: o comando falha e diz, item a item, o que impediu cada um.
         raise ValueError("Nenhuma decisão pôde ser importada. " + " ".join(entry["detail"] for entry in skipped))
     # Só o que passou em toda a validação chega ao disco, num único registro.
+    previous_items = ledger.data["items"]
+    had_graphics = "graphics" in ledger.data
+    previous_graphics = ledger.data.get("graphics")
     updates = {c["id"]: c for c in changes}
-    ledger.data["items"] = [updates.get(c["id"], c) for c in ledger.data["items"]]
-    ledger.save_many("import-review", changes)
+    ledger.data["items"] = [updates.get(c["id"], c) for c in previous_items]
+    if graphics_working is not None:
+        ledger.data["graphics"] = graphics_working
+    try:
+        ledger.save_many("import-review", changes)
+    except (ValueError, OSError):
+        if not ledger.pending.exists():
+            ledger.data["items"] = previous_items
+            if had_graphics:
+                ledger.data["graphics"] = previous_graphics
+            else:
+                ledger.data.pop("graphics", None)
+        raise
     try:
         for cid, review_state in item_log:
             logs.event(
@@ -319,15 +396,20 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
             logging.INFO,
             "import_review",
             file_source=file_source,
-            applied=len(changes),
+            applied=len(changes) + len(graphics_applied) + len(alignment_applied),
             skipped=len(skipped),
+            graphics_applied=len(graphics_applied),
+            alignment_applied=len(alignment_applied),
             rejected_file=any(review_state == "rejected" for _, review_state in item_log),
         )
     except Exception:  # noqa: BLE001, S110 - logging must never break a command
         pass
     return {
-        "imported": len(changes),
+        "imported": len(changes) + len(graphics_applied) + len(alignment_applied),
         "skipped": skipped,
+        "unchanged": graphics_unchanged + alignment_unchanged,
+        "graphics_imported": len(graphics_applied),
+        "alignment_imported": len(alignment_applied),
         "by": by,
         "file": str(path),
         "review": str(ledger.root / "review.html"),

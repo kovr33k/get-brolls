@@ -4,7 +4,9 @@ Serve apenas `<project>/brolls/`, vinculado a 127.0.0.1 (nunca 0.0.0.0): nada aq
 exposto fora desta máquina. Sem cache — o Storyboard e suas prévias podem mudar a
 qualquer revisão local. Não cria a árvore do projeto nem toma a trava exclusiva
 (comando somente leitura, como `status`); se `brolls/review.html` não existir, falha
-cedo com uma mensagem clara em vez de servir um diretório vazio.
+cedo com uma mensagem clara em vez de servir um diretório vazio. GET com um único
+`Range: bytes` em arquivo já admitido em `previews/` ou `clips/` responde 206 para o
+seek do navegador; o original privado de VO continua fora da allowlist.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import cast
+from typing import Literal, TypeAlias, cast
 
 DEFAULT_PORT = 8767
 
@@ -63,6 +65,77 @@ ALLOWED_GET_FOLDERS = ("previews", "clips")
 # refused by name, not by waiting for `Path.resolve()` or `open()` to raise: whether
 # those raise for an embedded NUL depends on the platform and the Python version.
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
+# RFC 9110 §14.1.2: one int-range or suffix-range. Longer digit runs and multipart
+# lists are treated as unusable Range (ordinary 200), never converted or 500.
+_RANGE_HEADER_MAX = 80
+_SINGLE_BYTE_RANGE = re.compile(r"\Abytes=(?:(\d{1,16})-(\d{1,16})?|-(\d{1,16}))\Z", re.IGNORECASE)
+# Fixed-length tagged tuples so parser/satisfier indexing never mixes the tag into a bound.
+_ParsedByteRange: TypeAlias = tuple[Literal["int", "suffix"], int, int | None]
+_SatisfiedByteRange: TypeAlias = tuple[int, int]
+
+
+class _BoundedReader:
+    """Readable wrapper that stops at a selected inclusive end, then closes the file."""
+
+    def __init__(self, stream, remaining):
+        self._stream = stream
+        self._remaining = remaining
+
+    def read(self, size=-1):
+        leftover = self._remaining
+        if leftover <= 0:
+            return b""
+        size = leftover if size is None or size < 0 else min(size, leftover)
+        data = self._stream.read(size)
+        self._remaining = leftover - len(data)
+        return data
+
+    def close(self):
+        self._stream.close()
+
+
+def _parse_single_byte_range(header: object) -> _ParsedByteRange | None:
+    """Return `('int', start, end|None)` or `('suffix', n, None)` for one usable range.
+
+    `None` means the header is absent, multipart, unknown-unit, or malformed and
+    must be ignored (full 200) rather than answered as 416 or 500.
+    """
+    if not isinstance(header, str):
+        return None
+    text = header.strip()
+    if not text or len(text) > _RANGE_HEADER_MAX or "," in text:
+        return None
+    match = _SINGLE_BYTE_RANGE.fullmatch(text)
+    if not match:
+        return None
+    start_s, end_s, suffix_s = match.groups()
+    if suffix_s is not None:
+        return ("suffix", int(suffix_s), None)
+    start = int(start_s)
+    end = int(end_s) if end_s is not None else None
+    if end is not None and end < start:
+        return None
+    return ("int", start, end)
+
+
+def _satisfy_byte_range(parsed: _ParsedByteRange, size: int) -> _SatisfiedByteRange | None:
+    """Inclusive start/end for a parsed single range, or `None` if unsatisfiable.
+
+    Byte positions are zero-based and inclusive (RFC 9110 §14.1.2). A zero-byte
+    representation cannot yield a 206.
+    """
+    if size <= 0:
+        return None
+    kind, first, last = parsed
+    if kind == "suffix":
+        if first == 0:
+            return None
+        return max(0, size - first), size - 1
+    if first >= size:
+        return None
+    if last is None or last >= size:
+        last = size - 1
+    return first, last
 
 
 class _ExclusiveServer(ThreadingHTTPServer):
@@ -226,6 +299,7 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
     def send_head(self):
         import io
 
+        self._accept_byte_ranges = False
         if not self._local_request():
             body = json.dumps(
                 {"error": "Pedido de outra origem; este servidor só atende esta máquina."},
@@ -268,12 +342,107 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         if not self._served_file_allowed(path_only):
             return self._head_error(404, "Não encontrado.")
         try:
-            return super().send_head()
+            return self._send_admitted_file()
         except ValueError:
             # The stdlib opens the file before sending any header, so a name it cannot
             # open (embedded NUL on platforms where the check above did not see it)
             # still gets a clean 404 instead of a dropped connection.
             return self._head_error(404, "Não encontrado.")
+
+    def _if_range_allows_partial(self, mtime):
+        """RFC 9110 §13.1.5: a false or unestablished If-Range ignores Range (full 200).
+
+        This server does not generate ETags, so an entity-tag validator cannot match.
+        A Last-Modified echo that equals `date_time_string` may still apply Range.
+        """
+        raw = self.headers.get("If-Range")
+        if raw is None:
+            return True
+        validator = raw.strip()
+        if not validator:
+            return False
+        if validator.startswith('"') or validator[:2].upper() == "W/":
+            return False
+        return validator == self.date_time_string(mtime)
+
+    def _apply_byte_range(self, path):
+        """True when GET carries one usable byte range on an existing regular file."""
+        if self.command != "GET":
+            return False
+        if _parse_single_byte_range(self.headers.get("Range")) is None:
+            return False
+        target = Path(path)
+        try:
+            if not target.is_file():
+                return False
+            mtime = target.stat().st_mtime
+        except OSError:
+            return False
+        return self._if_range_allows_partial(mtime)
+
+    def _send_unsatisfiable_range(self, size):
+        self.send_response(416)
+        self.send_header("Content-Range", f"bytes */{size}")
+        self.send_header("Content-Length", "0")
+        self._accept_byte_ranges = True
+        self.end_headers()
+
+    def _send_full_admitted_file(self):
+        self._accept_byte_ranges = True
+        return super().send_head()
+
+    def _send_byte_range_response(self, path):
+        parsed = _parse_single_byte_range(self.headers.get("Range"))
+        if parsed is None:
+            return self._send_full_admitted_file()
+        target = Path(path)
+        try:
+            size = target.stat().st_size
+        except OSError:
+            return self._send_full_admitted_file()
+        selected = _satisfy_byte_range(parsed, size)
+        if selected is None:
+            return self._send_unsatisfiable_range(size)
+        stream = None
+        try:
+            stream = target.open("rb")
+            info = os.fstat(stream.fileno())
+            selected = _satisfy_byte_range(parsed, info.st_size)
+            if selected is None:
+                stream.close()
+                return self._send_unsatisfiable_range(info.st_size)
+            start, end = selected
+            stream.seek(start)
+        except (OSError, ValueError) as exc:
+            if stream is not None:
+                stream.close()
+            return (
+                self._head_error(404, "Não encontrado.")
+                if isinstance(exc, ValueError)
+                else self._send_full_admitted_file()
+            )
+        length = end - start + 1
+        try:
+            self.send_response(206)
+            self.send_header("Content-Type", self.guess_type(path))
+            self.send_header("Content-Length", str(length))
+            self.send_header("Content-Range", f"bytes {start}-{end}/{info.st_size}")
+            self.send_header("Last-Modified", self.date_time_string(info.st_mtime))
+            self._accept_byte_ranges = True
+            self.end_headers()
+        except BaseException:
+            stream.close()
+            raise
+        return _BoundedReader(stream, length)
+
+    def _send_admitted_file(self):
+        """Serve one allowlisted file. Range is applied only after admission."""
+        path = self.translate_path(self.path)
+        if self._apply_byte_range(path):
+            return self._send_byte_range_response(path)
+        if Path(path).is_file():
+            return self._send_full_admitted_file()
+        return super().send_head()
 
     def end_headers(self):
         # Em toda resposta (página, prévia, JSON de erro ou de __save): o Storyboard
@@ -284,6 +453,8 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
+        if getattr(self, "_accept_byte_ranges", False):
+            self.send_header("Accept-Ranges", "bytes")
         super().end_headers()
 
     def log_message(self, format, *args):  # noqa: A002 - signature required by the stdlib

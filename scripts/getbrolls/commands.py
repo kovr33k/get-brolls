@@ -53,6 +53,9 @@ OPTIONAL_EXECUTABLES = {
 OPTIONAL_KEYS = {
     "PEXELS_API_KEY": "Busca no Pexels desativada; defina a chave no ambiente ou no .env",
     "PIXABAY_API_KEY": "Busca no Pixabay desativada; defina a chave no ambiente ou no .env",
+    "INWORLD_API_KEY": (
+        "Narration analysis disabled; set the already formatted Inworld STT Basic value to use narration-analyze"
+    ),
 }
 
 
@@ -307,6 +310,101 @@ FLOW_SUMMARIES = {
     ),
     "status": _status_line,
     "queue": queue_summary_line,
+    "graphics-style": lambda r: (
+        f"Recorded documentary style revision {r.get('current_style_revision')} as a proposed draft, not approved."
+    ),
+    "graphics-assign": lambda r: (
+        "Registered graphics occurrence "
+        + str((r.get("occurrence") or {}).get("occurrence_id"))
+        + " ("
+        + str((r.get("occurrence") or {}).get("scene_id"))
+        + "); a completed render is not human approval."
+    ),
+    "graphics-render": lambda r: (
+        "Rendered graphics version "
+        + str((r.get("version") or {}).get("id"))
+        + " for review at "
+        + str(r.get("review"))
+        + ". Not approved."
+    ),
+    "graphics-approve": lambda r: (
+        "Recorded human approval of graphics "
+        + str(r.get("occurrence"))
+        + " "
+        + str(r.get("version"))
+        + ". Render is not delivery."
+    ),
+    "graphics-select": lambda r: (
+        "Selected graphics "
+        + str(r.get("occurrence"))
+        + " version "
+        + str(r.get("version"))
+        + " without rewriting frozen files."
+    ),
+    "graphics-request-complete": lambda r: (
+        "Recorded processing of graphics request "
+        + str((r.get("request") or {}).get("id"))
+        + " with version "
+        + str(r.get("version"))
+        + "."
+    ),
+    "graphics-facts": lambda r: (
+        "Saved displayed-fact evidence for graphics "
+        + str((r.get("occurrence") or {}).get("occurrence_id") or r.get("occurrence"))
+        + ". Original narration is unchanged."
+    ),
+    "graphics-fact-resolve": lambda r: (
+        "Recorded editorial fact decision "
+        + str(r.get("decision"))
+        + " for conflict "
+        + str(r.get("conflict"))
+        + " on "
+        + str(r.get("occurrence"))
+        + ". Original narration is unchanged."
+    ),
+    "graphics-audio": lambda r: (
+        "Saved sound cues for graphics "
+        + str((r.get("occurrence") or {}).get("occurrence_id") or r.get("occurrence"))
+        + ". Voice-over stays out of the delivered clip."
+    ),
+    "graphics-sound-import": lambda r: (
+        "Registered project sound "
+        + str(r.get("asset") or (r.get("sound") or {}).get("id"))
+        + " ("
+        + str(r.get("sfx") or (r.get("sound") or {}).get("sfx"))
+        + ") without treating viewing as a download."
+    ),
+    "narration-analyze": lambda r: (
+        "Reused intact narration analysis " + str(r.get("analysis_id")) + " without a provider call."
+        if r.get("reused")
+        else "Narration analysis "
+        + str(r.get("analysis_id"))
+        + " is "
+        + str(r.get("state"))
+        + " (submit "
+        + str(r.get("submit_outcome"))
+        + ")."
+    ),
+    "narration-resume": lambda r: (
+        "Reused intact narration analysis " + str(r.get("analysis_id")) + " without a provider call."
+        if r.get("reused")
+        else "Narration analysis " + str(r.get("analysis_id")) + " is " + str(r.get("state")) + "."
+    ),
+    "graphics-background": lambda r: (
+        "Saved background for graphics "
+        + str((r.get("occurrence") or {}).get("occurrence_id") or r.get("occurrence"))
+        + ". Preview access is not final use."
+    ),
+    "narration-match": lambda r: (
+        "Matched graphics passages to narration analysis "
+        + str(r.get("analysis_id"))
+        + " without retranscribing. Unresolved matches are not scene timing."
+    ),
+    "graphics-timing-resolve": lambda r: (
+        "Recorded explicit timing correction for graphics "
+        + str(r.get("occurrence"))
+        + ". Earlier versions were not rewritten."
+    ),
 }
 
 
@@ -359,11 +457,24 @@ STATUS_LADDER = (
 )
 
 
+def _status_graphics_next(counts):
+    if counts.get("graphics_undelivered"):
+        return "Há gráficos aprovados para organizar em entrega/ com deliver: clipe Full HD, timing e fontes editáveis."
+    if counts.get("graphics_pending"):
+        return (
+            "Há gráficos que ainda precisam de ação (timing explícito, perguntas, uso de "
+            "material ou aprovação humana) antes da entrega."
+        )
+    return None
+
+
 def status_next(counts, format_pending=0, pending_preview=None, undelivered=0):
     """Próximo passo real do fluxo, derivado das contagens por etapa.
 
     `pending_preview` e `undelivered` completam a mesma escada que `guidance.STEPS`
     percorre: sem eles, `summary.next` e `summary.do` nomeariam etapas diferentes.
+    Graphics remaining work rides on the same `counts` mapping; candidate-only callers
+    omit those keys and keep the existing ladder.
     """
     counts = {
         **counts,
@@ -390,6 +501,9 @@ def status_next(counts, format_pending=0, pending_preview=None, undelivered=0):
             "(review + import-review) ou pela fala no chat (approve --candidate ID --by "
             'NOME --channel chat --statement "frase").'
         )
+    graphics_phrase = _status_graphics_next(counts)
+    if graphics_phrase:
+        return graphics_phrase
     if flow_complete(state, counts):
         return complete + leftover_aside(leftovers(state, counts))
     for matches, step in STATUS_LADDER:
@@ -1082,12 +1196,58 @@ def deliver_report(ledger, rules, dry_run=False):
         + _count(beats, "pasta", "pastas")
         + f" dentro de {report['delivery']}."
     )
+    graphics_items = report.get("graphics") or []
+    graphics_skipped = report.get("graphics_skipped") or []
+    if graphics_items:
+        line += (
+            " "
+            + _count(len(graphics_items), "gráfico aprovado", "gráficos aprovados")
+            + " com timing e fontes editáveis."
+        )
+    if graphics_skipped:
+        line += (
+            " Gráficos não entregues: "
+            + ", ".join(
+                f"{item.get('occurrence_id')}/{item.get('version')} ({item.get('reason')})" for item in graphics_skipped
+            )
+            + "."
+        )
     if report["removed"]:
         line += " " + _count(len(report["removed"]), "link órfão removido", "links órfãos removidos") + "."
     if report["kept"]:
         line += " Deixei intocado o que você criou lá: " + ", ".join(report["kept"]) + "."
     # Mesma escada de `status` e `brief`: a pessoa ouve a mesma frase em qualquer comando.
     return {"summary": {"line": line, "next": _flow_next(ledger, rules)}, **report}
+
+
+def _graphics_flow_counts(ledger):
+    from .graphics import graphics_delivery_progress
+
+    progress = graphics_delivery_progress(ledger.data, ledger.root)
+    if not progress.get("present"):
+        return {"graphics_undelivered": 0, "graphics_pending": 0}
+    return {
+        "graphics_undelivered": progress.get("undelivered") or 0,
+        "graphics_pending": progress.get("pending_action") or 0,
+    }
+
+
+def _graphics_next_phrase(ledger):
+    from .graphics import graphics_delivery_progress
+
+    progress = graphics_delivery_progress(ledger.data, ledger.root)
+    if not progress.get("present"):
+        return None
+    if progress.get("undelivered"):
+        return "Approved graphics still need `deliver` for the Full HD clip, timing metadata and editable sources."
+    if progress.get("pending_action"):
+        reasons = ", ".join(progress.get("reasons") or ["review"])
+        return (
+            "Graphics still need action before delivery ("
+            + reasons
+            + "); estimated approval remains a draft and unresolved timing, questions or material use block the scene."
+        )
+    return None
 
 
 def _delivery_next(ledger, rules):
@@ -1101,13 +1261,22 @@ def _delivery_next(ledger, rules):
     items = ledger.data["items"]
     delivered = sum(1 for c in items if (c.get("delivery") or {}).get("path"))
     pending = sum(1 for c in items if STAGE_TESTS["pending"](c))
+    graphics_next = _graphics_next_phrase(ledger)
     if delivered and pending:
-        return (
+        phrase = (
             f"Entrega pronta ({_count(delivered, 'trecho', 'trechos')}). "
             f"Há {_count(pending, 'prévia', 'prévias')} sem decisão no projeto — "
             "decida ou rejeite."
         )
-    return _flow_next(ledger, rules)
+        if graphics_next:
+            return phrase + " " + graphics_next
+        return phrase
+    phrase = _flow_next(ledger, rules)
+    if graphics_next:
+        if phrase and "Fluxo completo" in phrase:
+            return graphics_next
+        return (phrase + " " + graphics_next) if phrase else graphics_next
+    return phrase
 
 
 def _needs_preview(items):
@@ -1171,6 +1340,7 @@ def _flow_state(ledger, rules, counts=None, format_pending=0, brief=_UNSET):
         "inspect_candidate": next((c["id"] for c in _uninspected(items)), None),
         "undelivered": len(_undelivered(items)),
         "pending_preview": len(_needs_preview(items)),
+        **_graphics_flow_counts(ledger),
     }
 
 
@@ -1185,6 +1355,8 @@ def _flow_next(ledger, rules):
 def status_report(ledger, rules=None, rules_error=None, queue=None):
     """Onde o projeto está, por etapa. Somente leitura: não grava nada."""
     from .fragment_search import progress
+    from .graphics import graphics_status
+    from .narration import narration_status
 
     items = ledger.data["items"]
     listing = {key: [c["id"] for c in items if STAGE_TESTS[key](c)] for key, _, _ in STATUS_STAGES}
@@ -1208,7 +1380,7 @@ def status_report(ledger, rules=None, rules_error=None, queue=None):
         "line": line,
         "stages": [{"stage": plural, "count": counts[key], "items": listing[key]} for key, _, plural in STATUS_STAGES],
         "next": status_next(
-            counts,
+            {**counts, **_graphics_flow_counts(ledger)},
             format_pending,
             pending_preview=len(_needs_preview(items)),
             undelivered=len(_undelivered(items)),
@@ -1273,6 +1445,8 @@ def status_report(ledger, rules=None, rules_error=None, queue=None):
         "references_error": references_error,
         "search_progress": progress(ledger.data, recovery_pending=ledger.pending.exists(), project=ledger.root.parent),
         "queue": queue,
+        "graphics": graphics_status(ledger.data, ledger.root),
+        "narration": narration_status(ledger.data, ledger.root),
         "review_page": str(review_page) if review_page.is_file() else None,
         "journal": {
             **status_journal(ledger.root),
@@ -1336,7 +1510,12 @@ def _brief_present(args):
 
 def _provider_keys_set():
     """Comma list of which provider API keys are SET in the environment, never their values."""
-    names = (("pexels", "PEXELS_API_KEY"), ("pixabay", "PIXABAY_API_KEY"), ("youtube", "YOUTUBE_API_KEY"))
+    names = (
+        ("pexels", "PEXELS_API_KEY"),
+        ("pixabay", "PIXABAY_API_KEY"),
+        ("youtube", "YOUTUBE_API_KEY"),
+        ("inworld", "INWORLD_API_KEY"),
+    )
     return ",".join(name for name, key in names if os.environ.get(key))
 
 
@@ -1375,6 +1554,11 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         from .account_catalogs import telegram_login, x_access
 
         return telegram_login() if args.command == "telegram-login" else x_access(model=args.model)
+
+    if args.command == "graphics-doctor":
+        from .graphics import doctor_command
+
+        return doctor_command(args)
 
     if args.command in ("providers", "doctor"):
         result = providers.capabilities()
@@ -1416,6 +1600,9 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                 from getbrolls.health import live_checks
 
                 result["live"] = live_checks()
+            from .graphics import attach_doctor
+
+            attach_doctor(result)
         return result
     cmd = args.command
     if cmd == "serve":
@@ -1508,6 +1695,70 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         cmd in ("search-plan", "search-browser", "search-import") or getattr(args, "planned", False)
     )
     ledger = Ledger(args.project, recover=not plan_dry_run)
+    if cmd in (
+        "graphics-style",
+        "graphics-assign",
+        "graphics-render",
+        "graphics-continue",
+        "graphics-checkpoint",
+        "graphics-timeline",
+        "graphics-content",
+        "graphics-handoff",
+        "graphics-approve",
+        "graphics-select",
+        "graphics-request-complete",
+        "graphics-facts",
+        "graphics-fact-resolve",
+        "graphics-audio",
+        "graphics-sound-import",
+        "narration-analyze",
+        "narration-resume",
+        "graphics-background",
+        "narration-match",
+        "graphics-timing-resolve",
+    ):
+        from .graphics import (
+            approve_command,
+            assign_command,
+            audio_command,
+            background_command,
+            fact_resolve_command,
+            facts_command,
+            match_command,
+            render_command,
+            request_complete_command,
+            select_command,
+            sound_import_command,
+            style_command,
+            timeline_command,
+            timing_resolve_command,
+        )
+        from .graphics_continuation import checkpoint_command, continue_command, handoff_command
+        from .graphics_scenes import content_command
+        from .narration import analyze_command, resume_command
+
+        return {
+            "graphics-style": style_command,
+            "graphics-assign": assign_command,
+            "graphics-render": render_command,
+            "graphics-continue": continue_command,
+            "graphics-checkpoint": checkpoint_command,
+            "graphics-timeline": timeline_command,
+            "graphics-content": content_command,
+            "graphics-handoff": handoff_command,
+            "graphics-approve": approve_command,
+            "graphics-select": select_command,
+            "graphics-request-complete": request_complete_command,
+            "graphics-facts": facts_command,
+            "graphics-fact-resolve": fact_resolve_command,
+            "graphics-audio": audio_command,
+            "graphics-sound-import": sound_import_command,
+            "narration-analyze": analyze_command,
+            "narration-resume": resume_command,
+            "graphics-background": background_command,
+            "narration-match": match_command,
+            "graphics-timing-resolve": timing_resolve_command,
+        }[cmd](ledger, args)
     if cmd in ("search-browser", "search-import"):
         from .browser_results import import_command, reserve_command
 

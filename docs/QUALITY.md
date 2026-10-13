@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-09
+updated: 2026-10-13
 tags: [get-brolls, quality, qa, evidence]
 ---
 
@@ -31,6 +31,10 @@ Three bounded YouTube observations with yt-dlp **2026.8.19** obtained original a
 | [Suspilne Dnipro planetarium report](https://www.youtube.com/watch?v=RitX7Kd5LsI), UK | `uk-orig`, 58 cues; query `планетарій` | 18.610–21.610 s / 3.04 s | Planetarium exhibit, then an interview at the end of the contact sheet. |
 
 The RU metadata advertised both dubbed English and Russian `*-orig` tracks; declared Russian audio selected `ru-orig`, independent of listing order. Original-author preference and its bounded automatic fallback have offline coverage; these three live samples all used automatic captions. The first contact-sheet attempt used an incorrect output folder in the verification harness; previews were regenerated from the already acquired clips, without another download. Raw failure observations and corrected media/reports are retained outside distribution. These samples establish subtitle acquisition, literal scoring and the recorded preview contents at that date, without operational approval, cleared reuse rights or validation of the narration's claims.
+
+## Numeric motion graphics — 2026-10-13
+
+The [numeric graphics checkpoint](MOTION-GRAPHICS-ACCEPTANCE.md) maps all sixteen criteria of [#53](https://github.com/kovr33k/get-brolls/issues/53) to the public CLI, compatible project records, optional Remotion runtime, immutable renders and shared Storyboard. It records 89 focused checks, actual Full HD H.264/30 fps Windows output and browser observations separately from subsequent approval, delivery and Resolve acceptance. Final integration requires the submitted PR's complete Windows checks. Private project inputs and media remain outside distribution.
 
 ## What each evidence layer establishes
 

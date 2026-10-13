@@ -116,6 +116,10 @@ Registre as condições com `permit` (`--evidence`, `--preset` ou `--declared-by
 
 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gb.py" status --project <projeto>` diz onde a coleta está sem alterar nada. Ao responder, repasse `summary.do.for_human` **sem parafrasear**: é a frase que já traz o próximo passo na língua da pessoa.
 
+Gráficos numéricos opcionais são registros explícitos do projeto, nunca candidatos inventados. `search`, `help` e `status` funcionam sem o runtime Remotion. Diagnóstico: `graphics-doctor` (e `--prepare-browser` só quando for preparar o Chromium local). `--scene` é a identidade da cena; `--template numeric-stat` é a composição. Estilo proposto e render local: [Graphics](${CLAUDE_PLUGIN_ROOT}/docs/GUIDE.md#graphics). Um render completo não é aprovação humana nem entrega.
+
+Para produzir ou continuar motion graphics, ou processar revisões salvas no Storyboard, leia primeiro [Sequential graphics production](${CLAUDE_PLUGIN_ROOT}/references/graphics-workflow.md). O agente anfitrião delega uma ocorrência por vez; o CLI preserva contexto, fontes, versões e contadores. A política de agentes e as instruções explícitas da pessoa continuam valendo.
+
 ## Quando não há fonte
 
 Diga o que tentou e o motivo real. Pergunte se a pessoa tem material próprio ou um link. Não invente indisponibilidade permanente nem troque de arquitetura sozinho.

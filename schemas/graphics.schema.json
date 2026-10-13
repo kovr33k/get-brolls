@@ -1,0 +1,539 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Get B-rolls Graphics records v1",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "graphics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "profile",
+        "style_revisions",
+        "current_style_revision",
+        "occurrences",
+        "versions"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "current_style_revision": {"type": ["integer", "null"], "minimum": 1},
+        "profile": {
+          "type": "object",
+          "required": ["width", "height", "fps", "fps_source", "frame_rounding"],
+          "properties": {
+            "width": {"const": 1920},
+            "height": {"const": 1080},
+            "fps": {"type": "number", "exclusiveMinimum": 0},
+            "fps_source": {"enum": ["default", "confirmed"]},
+            "frame_rounding": {"const": "half_up_nonnegative"},
+            "frame_rounding_note": {"type": "string"}
+          }
+        },
+        "style_revisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["revision", "family", "approved", "proposal"],
+            "properties": {
+              "revision": {"type": "integer", "minimum": 1},
+              "family": {"const": "documentary"},
+              "approved": {"const": false},
+              "at": {"type": "string"},
+              "user_note": {"type": "string"},
+              "proposal": {"type": "object"}
+            }
+          }
+        },
+        "sounds": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "requests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "project_id",
+              "scene_id",
+              "occurrence_id",
+              "reviewed_version",
+              "content_sha256",
+              "text",
+              "scope",
+              "state"
+            ],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "project_id": {"type": "string", "minLength": 1},
+              "scene_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "occurrence_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "reviewed_version": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+              "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "text": {"type": "string", "minLength": 1, "maxLength": 8000},
+              "scope": {"enum": ["scene", "shared"]},
+              "state": {"enum": ["saved", "processed", "stale"]},
+              "processing": {
+                "type": ["object", "null"],
+                "properties": {
+                  "at": {"type": "string", "minLength": 1},
+                  "outcome": {"type": "string", "minLength": 1, "maxLength": 8000},
+                  "resulting_version": {"type": "string", "pattern": "^v[1-9][0-9]*$"}
+                }
+              },
+              "processing_history": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["at", "outcome", "resulting_version"],
+                  "properties": {
+                    "at": {"type": "string", "minLength": 1},
+                    "outcome": {"type": "string", "minLength": 1, "maxLength": 8000},
+                    "resulting_version": {"type": "string", "pattern": "^v[1-9][0-9]*$"}
+                  }
+                }
+              }
+            },
+            "allOf": [
+              {
+                "if": {"properties": {"state": {"const": "processed"}}, "required": ["state"]},
+                "then": {
+                  "required": ["processing"],
+                  "properties": {
+                    "processing": {
+                      "type": "object",
+                      "required": ["at", "outcome", "resulting_version"]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {"properties": {"state": {"enum": ["saved", "stale"]}}, "required": ["state"]},
+                "then": {"properties": {"processing": {"type": "null"}}}
+              }
+            ]
+          }
+        },
+        "occurrences": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "occurrence_id",
+              "scene_id",
+              "template",
+              "composition",
+              "chapter_id",
+              "chapter_context",
+              "purpose",
+              "narration",
+              "style_revision",
+              "timing",
+              "props"
+            ],
+            "properties": {
+              "occurrence_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "scene_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "template": {"enum": ["numeric-stat", "timeline", "map", "custom"]},
+              "composition": {"enum": ["NumericStat", "Timeline", "MapScene", "CustomScene"]},
+              "chapter_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "chapter_context": {"type": "string"},
+              "purpose": {"type": "string"},
+              "narration": {"type": "string"},
+              "style_revision": {"type": "integer", "minimum": 1},
+              "timing": {
+                "type": "object",
+                "required": ["basis", "duration_in_frames"],
+                "properties": {
+                  "basis": {"enum": ["estimated", "explicit"]},
+                  "duration_in_frames": {"type": "integer", "minimum": 1},
+                  "duration_s": {"type": ["number", "null"]},
+                  "start_s": {"type": ["number", "null"]},
+                  "end_s": {"type": ["number", "null"]},
+                  "start_frame": {"type": ["integer", "null"]},
+                  "end_frame": {"type": ["integer", "null"]}
+                }
+              },
+              "props": {
+                "type": "object",
+                "required": ["claim_status"],
+                "properties": {
+                  "claim_status": {"enum": ["synthetic", "unverified_scenario", "sourced"]}
+                }
+              },
+              "asset_refs": {"type": "array", "items": {"type": "string"}},
+              "evidence_refs": {"type": "array", "items": {"type": "string"}},
+              "material_use": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/materialUseEntry"}
+              },
+              "facts": {"type": "object"},
+              "audio": {"type": "object"},
+              "background": {"type": "object"},
+              "alignment": {"type": "object"},
+              "alignment_previews": {"type": "object"},
+              "alignment_group": {
+                "type": "object",
+                "required": ["occurrence_ids"],
+                "properties": {
+                  "occurrence_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}
+                  }
+                }
+              },
+              "props_before_facts": {"type": "object"},
+              "timeline": {"$ref": "graphics-timeline.schema.json"},
+              "scene_content": {"$ref": "graphics-content.schema.json"},
+              "work": {"$ref": "#/$defs/savedWork"}
+            }
+          }
+        },
+        "versions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "id",
+              "occurrence_id",
+              "scene_id",
+              "template",
+              "composition",
+              "status",
+              "assignment",
+              "style",
+              "props",
+              "profile",
+              "timing",
+              "fingerprints"
+            ],
+            "properties": {
+              "id": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+              "occurrence_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "scene_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+              "template": {"enum": ["numeric-stat", "timeline", "map", "custom"]},
+              "composition": {"enum": ["NumericStat", "Timeline", "MapScene", "CustomScene"]},
+              "parent": {"type": ["string", "null"]},
+              "status": {"enum": ["staging", "failed", "complete"]},
+              "render_progress": {
+                "type": "object", "additionalProperties": false,
+                "required": ["phase"],
+                "properties": {
+                  "phase": {"enum": ["frozen", "rendered", "published"]},
+                  "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                },
+                "if": {"properties": {"phase": {"enum": ["rendered", "published"]}}},
+                "then": {"required": ["sha256"]}
+              },
+              "assignment": {
+                "type": "object",
+                "properties": {
+                  "material_use": {
+                    "type": "array",
+                    "items": {"$ref": "#/$defs/materialUseEntry"}
+                  },
+                  "timeline": {"$ref": "graphics-timeline.schema.json"},
+                  "scene_content": {"$ref": "graphics-content.schema.json"},
+                  "work": {"$ref": "#/$defs/savedWork"}
+                }
+              },
+              "style": {"type": "object"},
+              "props": {"type": "object"},
+              "profile": {"type": "object"},
+              "timing": {"type": "object"},
+              "fingerprints": {
+                "type": "object",
+                "required": [
+                  "assignment_sha256",
+                  "style_sha256",
+                  "props_sha256",
+                  "source",
+                  "inputs",
+                  "runtime"
+                ],
+                "properties": {
+                  "assignment_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                  "style_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                  "props_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                  "source": {"type": "object"},
+                  "fonts": {"type": "object"},
+                  "inputs": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "required": ["sha256", "frozen"],
+                      "properties": {
+                        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                        "frozen": {"type": "string"}
+                      }
+                    }
+                  },
+                  "runtime": {
+                    "type": "object",
+                    "required": ["kind", "worker_sha256"],
+                    "properties": {
+                      "kind": {"enum": ["remotion", "test-worker"]},
+                      "worker_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                      "package_lock_sha256": {
+                        "anyOf": [{"type": "string", "pattern": "^[0-9a-f]{64}$"}, {"type": "null"}]
+                      },
+                      "package_json_sha256": {
+                        "anyOf": [{"type": "string", "pattern": "^[0-9a-f]{64}$"}, {"type": "null"}]
+                      },
+                      "node_sha256": {
+                        "anyOf": [{"type": "string", "pattern": "^[0-9a-f]{64}$"}, {"type": "null"}]
+                      },
+                      "node_version": {"type": ["string", "null"]},
+                      "browser_executable": {"type": ["string", "null"]},
+                      "browser_type": {"type": ["string", "null"]},
+                      "browser_sha256": {
+                        "anyOf": [{"type": "string", "pattern": "^[0-9a-f]{64}$"}, {"type": "null"}]
+                      },
+                      "browser_version": {"type": ["string", "null"]}
+                    }
+                  },
+                  "audio": {"type": "object"},
+                  "facts": {"type": "object"},
+                  "background": {"type": "object"},
+                  "alignment": {"type": "object"}
+                }
+              },
+              "vo_preview": {"type": "object"},
+              "approval": {
+                "anyOf": [
+                  {"type": "null"},
+                  {
+                    "type": "object",
+                    "required": [
+                      "status",
+                      "by",
+                      "at",
+                      "channel",
+                      "project_id",
+                      "version_id",
+                      "occurrence_id",
+                      "scene_id",
+                      "content_sha256",
+                      "signature"
+                    ],
+                    "properties": {
+                      "status": {"const": "approved"},
+                      "by": {"type": "string", "minLength": 1, "maxLength": 500},
+                      "at": {"type": "string", "minLength": 1},
+                      "channel": {"enum": ["chat", "storyboard"]},
+                      "statement": {"type": ["string", "null"], "maxLength": 8000},
+                      "project_id": {"type": "string", "minLength": 1},
+                      "version_id": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+                      "occurrence_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+                      "scene_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+                      "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                      "signature": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                    }
+                  }
+                ]
+              },
+              "review": {
+                "anyOf": [
+                  {"type": "null"},
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": {"enum": ["pending", "approved", "changes"]},
+                      "comment": {"type": "string", "maxLength": 8000},
+                      "by": {"type": "string"},
+                      "at": {"type": "string"},
+                      "signature": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                    }
+                  }
+                ]
+              },
+              "review_history": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "at"],
+                  "properties": {
+                    "kind": {"enum": ["approval", "request", "request_complete"]},
+                    "at": {"type": "string", "minLength": 1},
+                    "status": {"const": "approved"},
+                    "project_id": {"type": "string", "minLength": 1},
+                    "scene_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+                    "occurrence_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+                    "version_id": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+                    "statement": {"type": ["string", "null"], "maxLength": 8000},
+                    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                    "signature": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                    "by": {"type": "string", "minLength": 1, "maxLength": 500},
+                    "channel": {"enum": ["chat", "storyboard"]},
+                    "request_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+                    "scope": {"enum": ["scene", "shared"]},
+                    "reviewed_version": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+                    "outcome": {"type": "string", "maxLength": 8000},
+                    "resulting_version": {"type": "string", "pattern": "^v[1-9][0-9]*$"}
+                  },
+                  "allOf": [
+                    {
+                      "if": {"properties": {"kind": {"const": "approval"}}, "required": ["kind"]},
+                      "then": {
+                        "required": [
+                          "by",
+                          "channel",
+                          "project_id",
+                          "scene_id",
+                          "occurrence_id",
+                          "version_id",
+                          "content_sha256",
+                          "signature"
+                        ]
+                      }
+                    },
+                    {
+                      "if": {"properties": {"kind": {"const": "request"}}, "required": ["kind"]},
+                      "then": {"required": ["by", "request_id", "reviewed_version", "scope"]}
+                    },
+                    {
+                      "if": {"properties": {"kind": {"const": "request_complete"}}, "required": ["kind"]},
+                      "then": {"required": ["request_id", "outcome", "resulting_version"]}
+                    }
+                  ]
+                }
+              },
+              "artifact": {
+                "type": ["object", "null"],
+                "properties": {
+                  "path": {"type": "string", "pattern": "^(previews|clips)/"},
+                  "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                  "verified": {"const": true},
+                  "audio_codec": {"type": "string"},
+                  "audio_streams": {"type": "integer"},
+                  "color_space": {"type": "string"}
+                }
+              },
+              "delivery": {
+                "anyOf": [
+                  {"type": "null"},
+                  {
+                    "type": "object",
+                    "required": [
+                      "path",
+                      "package_dir",
+                      "method",
+                      "version_id",
+                      "occurrence_id",
+                      "scene_id",
+                      "content_sha256",
+                      "video_sha256",
+                      "files"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "pattern": "^entrega/graphics/[A-Za-z0-9_-]{1,80}/[A-Za-z0-9_-]{1,80}/v[1-9][0-9]*/[A-Za-z0-9_.-]+\\.mp4$"
+                      },
+                      "package_dir": {
+                        "type": "string",
+                        "pattern": "^entrega/graphics/[A-Za-z0-9_-]{1,80}/[A-Za-z0-9_-]{1,80}/v[1-9][0-9]*$"
+                      },
+                      "method": {"const": "copy"},
+                      "version_id": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+                      "occurrence_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+                      "scene_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+                      "parent": {
+                        "anyOf": [
+                          {"type": "null"},
+                          {"type": "string", "pattern": "^v[1-9][0-9]*$"}
+                        ]
+                      },
+                      "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                      "video_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                      "files": {
+                        "type": "object",
+                        "minProperties": 1,
+                        "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "savedWork": {
+      "type": "object", "additionalProperties": false,
+      "required": ["checkpoints", "repairs"],
+      "properties": {
+        "repairs": {
+          "type": "array", "maxItems": 2,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["version", "at"],
+            "properties": {
+              "version": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+              "at": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "checkpoints": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["stage", "at", "outcome", "assignment_sha256", "files"],
+            "properties": {
+              "stage": {"enum": ["research", "authoring", "waiting", "error"]},
+              "at": {"type": "string", "minLength": 1, "maxLength": 100},
+              "outcome": {"type": "string", "minLength": 1, "maxLength": 8000},
+              "assignment_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "files": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+            },
+            "if": {"properties": {"stage": {"enum": ["research", "authoring"]}}},
+            "then": {"properties": {"files": {"minProperties": 1}}}
+          }
+        }
+      }
+    },
+    "materialUseEntry": {
+      "type": "object",
+      "required": [
+        "ref",
+        "rendered_use",
+        "raw_redistribution",
+        "evidence",
+        "conditions",
+        "sha256"
+      ],
+      "properties": {
+        "ref": {"type": "string", "minLength": 1},
+        "rendered_use": {
+          "enum": ["permitted", "restricted", "unknown"],
+          "description": "Permission for the asset to appear in the finished delivered clip"
+        },
+        "raw_redistribution": {
+          "enum": ["permitted", "restricted", "unknown"],
+          "description": "Permission to copy the original bytes into the delivery package; restricted originals stay in separately-held.json"
+        },
+        "evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "conditions": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "candidate_id": {"type": "string", "minLength": 1},
+        "candidate_signature": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "candidate_acquisition": {"type": "string", "minLength": 1},
+        "candidate_rights": {
+          "type": "object",
+          "properties": {
+            "status": {"enum": ["unknown", "permitted", "restricted"]},
+            "evidence": {"type": "array", "items": {"type": "string"}},
+            "license_name": {"type": ["string", "null"]},
+            "license_url": {"type": ["string", "null"]}
+          }
+        }
+      }
+    }
+  }
+}

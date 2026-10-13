@@ -46,6 +46,12 @@ async function exercise({ broken = false, printThrows = false } = {}) {
   viewer.querySelector = (selector) => selector === ".review-panel" ? panel : null;
   const select = new Element();
   select.value = "0";
+  const disclosures = ["graphics-details", "narration-details", "graphics-passage"].map((name, index) => {
+    const detail = new Element("details");
+    detail.className = name;
+    detail.open = index === 0;
+    return detail;
+  });
   const document = {
     querySelector(selector) {
       if (selector === "main") return main;
@@ -54,7 +60,9 @@ async function exercise({ broken = false, printThrows = false } = {}) {
       if (selector === "#select") return select;
       return main.querySelector(selector);
     },
-    querySelectorAll() { return []; },
+    querySelectorAll(selector) {
+      return disclosures.filter(detail => selector.split(",").some(part => part.trim() === "details." + detail.className));
+    },
     createElement(tag) {
       const element = new Element(tag);
       if (tag === "img") element.decode = () => new Promise((resolve, reject) => {
@@ -103,6 +111,10 @@ async function exercise({ broken = false, printThrows = false } = {}) {
   assert.equal(printed, 1);
   assert.equal(printButton.disabled, false);
   assert.deepEqual(printedImages, originalImages, "beforeprint must retain decoded image nodes");
+  assert.equal(disclosures.every(detail => detail.open), true, "Printing must expand full narration passages as well as technical details");
+  events.beforeprint();
+  events.afterprint();
+  assert.deepEqual(disclosures.map(detail => detail.open), [true, false, false], "Printing must restore original disclosure states");
   assert.ok(main.querySelectorAll("p").some((p) => p.textContent === "Review: Rejected"));
   assert.ok(main.querySelectorAll("p").some((p) => p.textContent === "Narration: “Original narration”"));
   assert.equal(main.querySelectorAll("article").length, 2, "Repeated preparation must not duplicate pages");
