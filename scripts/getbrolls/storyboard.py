@@ -14,8 +14,8 @@ def brand_logo():
 
 def render_page(
     items,
-    title="Collection Storyboard",
-    subtitle="Review each clip and decide whether it works. This takes about 2 minutes.",
+    title="Storyboard",
+    subtitle="Review clips and leave feedback.",
     note="Approval means you want this clip. Before publishing your video, check each source's license using the original link on its card.",
     extra_html="",
 ):
@@ -79,15 +79,24 @@ def render_page(
     board = (
         f"""<div class="tools" id="tools"><div class="selection"><button id="prev" aria-label="Previous shot">←</button><select id="select" aria-label="Select shot">{"".join(options)}</select><button id="next" aria-label="Next shot">→</button></div><div class="modes" role="group" aria-label="View"><button data-mode="side" aria-pressed="true">Side by side</button><button data-mode="material" aria-pressed="false">Material only</button></div></div><div class="viewer" id="viewer"></div><div class="caption" id="caption" aria-live="polite"></div><div class="gallery-head"><h2>Storyboard</h2>{gallery_tools}</div><div class="gallery">{"".join(gallery)}</div>{"".join(templates)}"""
         if items
-        else '<p class="empty-board">Nothing here yet. Return to the chat and request clips to populate this page.</p>'
+        else (
+            ""
+            if "graphics-board" in extra_html or "narration-board" in extra_html
+            else '<p class="empty-board">Nothing here yet. Return to the chat and request clips to populate this page.</p>'
+        )
     )
     sub = f'<p class="sub">{esc(subtitle)}</p>' if subtitle else ""
+    header_meta = (
+        f'<div class="header-meta"><span>{quadros}</span><span>B-roll Storyboard</span></div>' if items else ""
+    )
+    if not items and "graphics-board" in extra_html:
+        note = ""
     header = (
         '<header class="artifact-header"><div class="header-shell"><div class="header-top">'
         f'<div class="brand">{logo}<span class="wordmark">engenheiro<span>de vídeo<b>.</b></span></span></div>'
         '<span class="edition">Get B-rolls / Storyboard</span></div>'
         f'<div class="header-project"><div class="header-title"><h1>{esc(title)}</h1>{sub}</div>'
-        f'<div class="header-meta"><span>{quadros}</span><span>B-roll Storyboard</span></div></div></div></header>'
+        f"{header_meta}</div></div></header>"
     )
     film = any(x.get("gif") or (x.get("presenter") and not x.get("no_preview")) for x in items)
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GET B-ROLLS — {esc(title)}</title><style>{(ASSETS / "storyboard.css").read_text(encoding="utf-8")}</style></head><body class="{"film-board" if film else ""}">{header}<main><div class="intro"><span class="count" id="position" hidden></span></div>{extra_html}{board}{f"<footer>{esc(note)}</footer>" if note else ""}<noscript>Enable JavaScript to browse the shots.</noscript></main><script>{(ASSETS / "storyboard.js").read_text(encoding="utf-8")}</script></body></html>'''

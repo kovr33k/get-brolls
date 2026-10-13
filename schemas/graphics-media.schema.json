@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Get B-rolls Graphics background records v1",
+  "description": "Normalized selected-background identity. Drafts may omit suitability and material_use (null). Still images store null clocks. Kind is the probed container/codec representation; missing video duration is not a photograph. GIF/WebP/APNG-like containers are still photographs only after a proven single frame. WebP animation is decided from original RIFF VP8X/ANIM/ANMF metadata with bounded local reads; one decoded frame is not complete container proof. Multi-frame or unknown/incomplete WebP animation is not a photograph or retimed video even if a decoder exposes one frame. Short or unknown duration does not freeze an animation as an image. Resolved clocks map source onto local media using representation_source_start_s with at most one-frame error, and material_use.sha256 equals sha256. Rights identity is the complete status/evidence/license tuple, separate from suitability, approval and acquisition. Structural and file checks live in scripts/getbrolls/graphics_media.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "ref",
+    "kind",
+    "sha256",
+    "bytes",
+    "width",
+    "height",
+    "representation",
+    "provider",
+    "source_id",
+    "source_url",
+    "source_start_s",
+    "source_end_s",
+    "representation_source_start_s",
+    "local_start_s",
+    "local_end_s",
+    "local_duration_s",
+    "local_fps",
+    "fit",
+    "fps",
+    "duration_in_frames",
+    "frame_rounding",
+    "clock_state",
+    "candidate_signature",
+    "candidate_rights",
+    "candidate_acquisition",
+    "candidate_approval",
+    "suitability",
+    "material_use"
+  ],
+  "properties": {
+    "schema_version": {"const": 1, "type": "integer"},
+    "candidate_id": {"type": "string", "minLength": 1, "maxLength": 500},
+    "ref": {"$ref": "#/$defs/mediaRef"},
+    "kind": {"enum": ["video", "image"]},
+    "sha256": {"$ref": "#/$defs/sha256"},
+    "bytes": {"type": "integer", "minimum": 1},
+    "width": {"type": "integer", "minimum": 1},
+    "height": {"type": "integer", "minimum": 1},
+    "representation": {"$ref": "#/$defs/representation"},
+    "provider": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "source_id": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "source_url": {"anyOf": [{"type": "null"}, {"type": "string", "minLength": 1, "maxLength": 2000}]},
+    "source_start_s": {"anyOf": [{"type": "null"}, {"type": "number", "minimum": 0}]},
+    "source_end_s": {"anyOf": [{"type": "null"}, {"type": "number", "exclusiveMinimum": 0}]},
+    "representation_source_start_s": {"anyOf": [{"type": "null"}, {"type": "number", "minimum": 0}]},
+    "local_start_s": {"anyOf": [{"type": "null"}, {"type": "number", "minimum": 0}]},
+    "local_end_s": {"anyOf": [{"type": "null"}, {"type": "number", "exclusiveMinimum": 0}]},
+    "local_duration_s": {"anyOf": [{"type": "null"}, {"type": "number", "exclusiveMinimum": 0}]},
+    "local_fps": {"anyOf": [{"type": "null"}, {"type": "number", "exclusiveMinimum": 0}]},
+    "fit": {"enum": ["contain", "cover"]},
+    "fps": {"type": "number", "exclusiveMinimum": 0},
+    "duration_in_frames": {"type": "integer", "minimum": 1},
+    "frame_rounding": {"const": "half_up_nonnegative"},
+    "clock_state": {"enum": ["resolved", "unresolved", "not_applicable"]},
+    "candidate_signature": {"$ref": "#/$defs/sha256"},
+    "candidate_rights": {"$ref": "#/$defs/candidateRights"},
+    "candidate_acquisition": {"anyOf": [{"type": "null"}, {"type": "string", "minLength": 1, "maxLength": 2000}]},
+    "candidate_approval": {"$ref": "#/$defs/candidateApproval"},
+    "suitability": {
+      "anyOf": [{"type": "null"}, {"$ref": "#/$defs/suitability"}]
+    },
+    "material_use": {
+      "anyOf": [{"type": "null"}, {"$ref": "#/$defs/materialUse"}]
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "mediaRef": {
+      "type": "string",
+      "pattern": "^(previews|clips)/",
+      "minLength": 1
+    },
+    "permission": {"enum": ["permitted", "restricted", "unknown"]},
+    "representation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "duration_s", "fps", "bytes"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "duration_s": {"anyOf": [{"type": "null"}, {"type": "number", "exclusiveMinimum": 0}]},
+        "fps": {"anyOf": [{"type": "null"}, {"type": "number", "exclusiveMinimum": 0}]},
+        "bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "candidateRights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence", "license_name", "license_url"],
+      "description": "Complete rights identity is status, evidence, license_name and license_url together. Suitability, approval, acquisition and material_use remain separate facts.",
+      "properties": {
+        "status": {"anyOf": [{"type": "null"}, {"enum": ["unknown", "permitted", "restricted"]}]},
+        "evidence": {"type": "array", "items": {"type": "string"}},
+        "license_name": {"anyOf": [{"type": "null"}, {"type": "string", "minLength": 1, "maxLength": 2000}]},
+        "license_url": {"anyOf": [{"type": "null"}, {"type": "string", "minLength": 1, "maxLength": 2000}]}
+      }
+    },
+    "candidateApproval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["pending", "approved", "rejected"]},
+        "signature": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "suitability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["by", "statement", "at"],
+      "properties": {
+        "by": {"type": "string", "minLength": 1, "maxLength": 500},
+        "statement": {"type": "string", "minLength": 1, "maxLength": 8000},
+        "at": {"type": "string", "minLength": 1, "maxLength": 2000}
+      }
+    },
+    "materialUse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "rendered_use", "raw_redistribution", "evidence", "conditions", "sha256"],
+      "properties": {
+        "ref": {"$ref": "#/$defs/mediaRef"},
+        "rendered_use": {"$ref": "#/$defs/permission"},
+        "raw_redistribution": {"$ref": "#/$defs/permission"},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1, "maxLength": 2000}
+        },
+        "conditions": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Must equal the selected background record sha256; a different well-formed digest is a different identity."
+        }
+      }
+    },
+    "rendererProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "src", "fit", "width", "height", "trim_before", "duration_in_frames", "muted"],
+      "properties": {
+        "kind": {"enum": ["video", "image"]},
+        "src": {"type": "string", "pattern": "^media/[A-Za-z0-9][A-Za-z0-9._-]*$"},
+        "fit": {"enum": ["contain", "cover"]},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "trim_before": {"type": "integer", "minimum": 0},
+        "duration_in_frames": {"type": "integer", "minimum": 1},
+        "muted": {"const": true}
+      }
+    },
+    "frozenAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "frozen_ref",
+        "sha256",
+        "kind",
+        "candidate_id"
+      ],
+      "properties": {
+        "ref": {"type": "string", "minLength": 1},
+        "frozen_ref": {"type": "string", "pattern": "^public/media/[A-Za-z0-9][A-Za-z0-9._-]*$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "kind": {"const": "background"},
+        "candidate_id": {"type": "string", "minLength": 1},
+        "provider": {"type": "string"},
+        "source_id": {"type": "string"},
+        "source_url": {"anyOf": [{"type": "null"}, {"type": "string"}]},
+        "rendered_use": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/permission"}]},
+        "raw_redistribution": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/permission"}]},
+        "evidence": {"type": "array", "items": {"type": "string"}},
+        "conditions": {"anyOf": [{"type": "null"}, {"type": "string"}]},
+        "candidate_signature": {"$ref": "#/$defs/sha256"},
+        "candidate_acquisition": {"anyOf": [{"type": "null"}, {"type": "string"}]},
+        "candidate_rights": {"$ref": "#/$defs/candidateRights"},
+        "suitability": {
+          "anyOf": [{"type": "null"}, {"$ref": "#/$defs/suitability"}]
+        }
+      }
+    }
+  }
+}

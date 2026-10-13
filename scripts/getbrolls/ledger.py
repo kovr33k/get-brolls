@@ -99,8 +99,12 @@ def validate_manifest(data):  # noqa: C901, PLR0912 - existing size; validator w
             "manifest.json inválido ou incompatível. Preserve o arquivo e restaure uma cópia válida; nenhum dado foi reiniciado."
         ) from None
     from .fragment_search import validate_plans
+    from .graphics import validate_graphics
+    from .narration import validate_narration
 
     validate_plans(data)
+    validate_graphics(data)
+    validate_narration(data)
     return data
 
 
@@ -204,10 +208,6 @@ class Ledger:
             raise ValueError(
                 "Journal de recuperação inválido. Preserve .pending-transaction.json e restaure o projeto antes de continuar."
             ) from None
-        atomic_write(self.path, json.dumps(data, ensure_ascii=False, indent=2))
-        for c in data["items"]:
-            path = self.root / "candidates" / (id_stem(c["id"]) + ".json")
-            atomic_write(path, json.dumps(c, ensure_ascii=False, indent=2))
         event_path = self.root / "events.jsonl"
         prior = event_path.read_text(encoding="utf-8") if event_path.exists() else ""
         try:
@@ -216,6 +216,11 @@ class Ledger:
             raise ValueError(
                 "events.jsonl inválido. Histórico preservado; restaure o log para concluir a recuperação."
             ) from None
+        # Validate all retained history before changing the manifest or snapshots.
+        atomic_write(self.path, json.dumps(data, ensure_ascii=False, indent=2))
+        for c in data["items"]:
+            path = self.root / "candidates" / (id_stem(c["id"]) + ".json")
+            atomic_write(path, json.dumps(c, ensure_ascii=False, indent=2))
         extra = "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in events if e["transaction"] not in known)
         if extra:
             atomic_write(

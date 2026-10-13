@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Editable map or custom scene content",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "title",
+    "caption",
+    "beats"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "enum": [
+        "map",
+        "custom"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 140,
+      "pattern": "^[^\\x00-\\x1f]+$"
+    },
+    "caption": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 140,
+      "pattern": "^[^\\x00-\\x1f]+$"
+    },
+    "beats": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "fact_id",
+          "at_s"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[^\\x00-\\x1f]+$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[^\\x00-\\x1f]+$"
+          },
+          "fact_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[^\\x00-\\x1f]+$"
+          },
+          "at_s": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "data_ref": {
+      "type": "string",
+      "pattern": "^graphics-data/[^\\\\:]+$"
+    },
+    "data_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_ref": {
+      "type": "string",
+      "pattern": "^graphics-data/[^\\\\:]+\\.jsx$"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "data": {
+      "type": "object"
+    },
+    "bounds": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "number"
+      }
+    },
+    "focus": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "number"
+      }
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "feature_id",
+          "treatment",
+          "label_point",
+          "geometry"
+        ],
+        "properties": {
+          "feature_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[^\\x00-\\x1f]+$"
+          },
+          "treatment": {
+            "enum": [
+              "geography",
+              "recognized",
+              "claim",
+              "illustrative"
+            ]
+          },
+          "label_point": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "prefixItems": [
+              {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180
+              },
+              {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90
+              }
+            ]
+          },
+          "geometry": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "coordinates"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "Point"
+                  },
+                  "coordinates": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
+                      },
+                      {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "coordinates"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "Polygon"
+                  },
+                  "coordinates": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "array",
+                      "minItems": 4,
+                      "maxItems": 10000,
+                      "items": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "prefixItems": [
+                          {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          },
+                          {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "coordinates"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "MultiPolygon"
+                  },
+                  "coordinates": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 10000,
+                        "items": {
+                          "type": "array",
+                          "minItems": 2,
+                          "maxItems": 2,
+                          "prefixItems": [
+                            {
+                              "type": "number",
+                              "minimum": -180,
+                              "maximum": 180
+                            },
+                            {
+                              "type": "number",
+                              "minimum": -90,
+                              "maximum": 90
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "map"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "data_ref",
+          "data_sha256",
+          "bounds",
+          "focus",
+          "layers"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "source_ref"
+              ]
+            },
+            {
+              "required": [
+                "source_sha256"
+              ]
+            },
+            {
+              "required": [
+                "data"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "custom"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "source_ref",
+          "source_sha256",
+          "data"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "data_ref"
+              ]
+            },
+            {
+              "required": [
+                "data_sha256"
+              ]
+            },
+            {
+              "required": [
+                "bounds"
+              ]
+            },
+            {
+              "required": [
+                "focus"
+              ]
+            },
+            {
+              "required": [
+                "layers"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

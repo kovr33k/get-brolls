@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Get B-rolls Graphics audio records v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fps", "duration_in_frames", "effects", "vo"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "fps": {"type": "number", "exclusiveMinimum": 0},
+    "duration_in_frames": {"type": "integer", "minimum": 1},
+    "effects": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/effect"}
+    },
+    "vo": {
+      "anyOf": [{"type": "null"}, {"$ref": "#/$defs/vo"}]
+    }
+  },
+  "$defs": {
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "ref",
+        "sha256",
+        "source_url",
+        "terms_url",
+        "license",
+        "conditions",
+        "rendered_use",
+        "raw_redistribution",
+        "start_frame",
+        "source_start_s",
+        "duration_s",
+        "gain"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+        "ref": {
+          "type": "string",
+          "pattern": "^(sounds|previews|clips)/",
+          "minLength": 1
+        },
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_url": {
+          "anyOf": [{"type": "null"}, {"type": "string", "minLength": 1, "maxLength": 2000}]
+        },
+        "terms_url": {
+          "anyOf": [{"type": "null"}, {"type": "string", "minLength": 1, "maxLength": 2000}]
+        },
+        "license": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "conditions": {"type": "string", "minLength": 1, "maxLength": 8000},
+        "rendered_use": {"enum": ["permitted", "restricted", "unknown"]},
+        "raw_redistribution": {"enum": ["permitted", "restricted", "unknown"]},
+        "start_frame": {"type": "integer", "minimum": 0},
+        "source_start_s": {"type": "number", "minimum": 0},
+        "duration_s": {"type": "number", "exclusiveMinimum": 0},
+        "gain": {"type": "number"},
+        "candidate_id": {"type": "string", "minLength": 1, "maxLength": 500}
+      }
+    },
+    "vo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256", "kind", "source_start_s", "source_end_s", "gain"],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "pattern": "^(sounds|previews|clips|narration/private/audio)/",
+          "minLength": 1
+        },
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "kind": {"enum": ["full_recording", "fragment"]},
+        "source_start_s": {"type": "number", "minimum": 0},
+        "source_end_s": {"type": "number", "exclusiveMinimum": 0},
+        "gain": {"type": "number"}
+      }
+    },
+    "soundCue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "src", "start_frame", "trim_before_frame", "duration_in_frames", "gain"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+        "src": {"type": "string", "pattern": "^audio/[A-Za-z0-9][A-Za-z0-9._-]*$"},
+        "start_frame": {"type": "integer", "minimum": 0},
+        "trim_before_frame": {"type": "integer", "minimum": 0},
+        "duration_in_frames": {"type": "integer", "minimum": 1},
+        "gain": {"type": "number"}
+      }
+    },
+    "frozenAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "ref",
+        "frozen_ref",
+        "sha256",
+        "source_url",
+        "terms_url",
+        "license",
+        "conditions",
+        "rendered_use",
+        "raw_redistribution"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+        "kind": {"const": "effect"},
+        "ref": {"type": "string", "minLength": 1},
+        "frozen_ref": {"type": "string", "pattern": "^public/audio/[A-Za-z0-9][A-Za-z0-9._-]*$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_url": {
+          "anyOf": [{"type": "null"}, {"type": "string", "minLength": 1, "maxLength": 2000}]
+        },
+        "terms_url": {
+          "anyOf": [{"type": "null"}, {"type": "string", "minLength": 1, "maxLength": 2000}]
+        },
+        "license": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "conditions": {"type": "string", "minLength": 1, "maxLength": 8000},
+        "rendered_use": {"enum": ["permitted", "restricted", "unknown"]},
+        "raw_redistribution": {"enum": ["permitted", "restricted", "unknown"]}
+      }
+    },
+    "voPreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "sha256",
+        "source_ref",
+        "source_sha256",
+        "source_start_s",
+        "source_end_s",
+        "duration_s",
+        "gain",
+        "kind"
+      ],
+      "properties": {
+        "ref": {"type": "string", "pattern": "^previews/", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_start_s": {"type": "number", "minimum": 0},
+        "source_end_s": {"type": "number", "exclusiveMinimum": 0},
+        "duration_s": {"type": "number", "exclusiveMinimum": 0},
+        "gain": {"type": "number"},
+        "kind": {"enum": ["full_recording", "fragment"]}
+      }
+    }
+  }
+}
