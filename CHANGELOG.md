@@ -10,6 +10,10 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.13.11 — 2026-10-13
+
+- Timeline Storyboard: identify untimed milestones as context only instead of displaying `narration Nones`. Preserve actual narration times, including zero, and all saved scene data.
+
 ## 2.13.10 — 2026-10-13
 
 - Graphics revisions: explicitly replace an occurrence's composition with `graphics-assign --replace-template`, retaining immutable earlier versions and review requests. Detect composition changes as pending work, clear incompatible authoring content and preserve common evidence, audio, timing and repair history. New versions require fresh approval.

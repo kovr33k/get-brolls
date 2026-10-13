@@ -13,6 +13,7 @@ from _media import skip_unless_ffmpeg
 from test_graphics_facts_workflow import _approve, _facts_payload
 from test_graphics_review import ENV, _project, _version_hashes
 
+from getbrolls.graphics import _storyboard_timeline
 from getbrolls.graphics_timeline import normalize_timeline
 from getbrolls.ledger import Ledger, digest
 
@@ -197,6 +198,25 @@ class TimelineWorkflowTests(unittest.TestCase):
 
 
 class TimelineInputTests(unittest.TestCase):
+    def test_storyboard_separates_context_only_milestones_from_narrated_emphasis(self):
+        shown = {
+            "timeline": {
+                "title": "Synthetic milestones",
+                "milestones": [
+                    {"date": "1900", "label": "Context event", "fact_id": "a", "at_s": None},
+                    {"date": "1950", "label": "Opening event", "fact_id": "b", "at_s": 0},
+                    {"date": "2000", "label": "Later event", "fact_id": "c", "at_s": 10.6},
+                ],
+            }
+        }
+        before = json.dumps(shown, sort_keys=True)
+        html = _storyboard_timeline(shown)
+        self.assertIn("context only (no narrated emphasis)", html)
+        self.assertIn("narration 0s", html)
+        self.assertIn("narration 10.6s", html)
+        self.assertNotIn("Nones", html)
+        self.assertEqual(before, json.dumps(shown, sort_keys=True))
+
     def test_density_limits_refuse_overlapping_labels_before_render(self):
         timing = {"basis": "explicit", "start_s": 10, "end_s": 13}
         for count, date_limit, label_limit in ((2, 60, 120), (3, 30, 80), (4, 20, 80), (6, 20, 50)):
