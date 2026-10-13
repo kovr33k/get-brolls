@@ -9,6 +9,7 @@ class Element {
     this.children = [];
     this.dataset = {};
     this.value = "";
+    this.listeners = {};
   }
   append(...children) {
     children.forEach((child) => {
@@ -28,6 +29,7 @@ class Element {
   }
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
   setAttribute() {}
+  addEventListener(name, callback) { this.listeners[name] = callback; }
 }
 
 async function exercise({ broken = false, printThrows = false } = {}) {

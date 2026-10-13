@@ -117,6 +117,17 @@
     tools = document.querySelector("#tools"),
     cards = [...document.querySelectorAll(".shot")];
   const current = () => (select ? items[Number(select.value)] : items[0]);
+  // Count one saved preview per piece, retaining every version's decision separately.
+  const currentGraphics = new Map();
+  for (const row of graphicsRows) {
+    if (row.current || !currentGraphics.has(row.occurrence_id)) currentGraphics.set(row.occurrence_id, row);
+  }
+  const reviewTargets = [
+    ...items.map((item, index) => ({ decision: decisions[item.id], index })),
+    ...[...currentGraphics.values()].map(row => ({ decision: graphicsDecisions[row.id], row })),
+  ];
+  let pendingIndex = null;
+  select?.addEventListener("change", () => { pendingIndex = Number(select.value); });
 
   // Summary bar: counters, export, print, storage status.
   const summary = document.createElement("div");
@@ -179,7 +190,7 @@
   });
 
   function counts() {
-    const all = [...Object.values(decisions), ...Object.values(graphicsDecisions)];
+    const all = reviewTargets.map(target => target.decision);
     const n = (s) => all.filter((d) => d.state === s).length;
     return { approved: n("approved"), pending: n("pending"), other: all.length - n("approved") - n("pending") };
   }
@@ -391,18 +402,17 @@
     const host = document.querySelector(".graphics-board") || document.querySelector("main");
     if (host && !host.contains(summary)) host.prepend(summary);
   }
-  function goToPendingGraphics() {
-    const pendingRow = graphicsRows.find((row) => graphicsDecisions[row.id]?.state === "pending");
-    if (!pendingRow) return false;
+  function goToPendingGraphics(pendingRow) {
     const card = [...document.querySelectorAll(".graphics-card")].find(
       (el) => el.dataset.occurrence === pendingRow.occurrence_id,
     );
-    const display = card?.querySelector("[data-graphics-display]");
+    if (!card) return false;
+    const display = card.querySelector("[data-graphics-display]");
     if (display && display.value !== pendingRow.version) {
       display.value = pendingRow.version;
       display.dispatchEvent(new Event("change"));
     }
-    card?.scrollIntoView?.({ block: "start" });
+    card.scrollIntoView?.({ block: "start" });
     return true;
   }
   function wireSummary() {
@@ -410,18 +420,20 @@
     if (next && !next.dataset.wired) {
       next.dataset.wired = "1";
       next.onclick = () => {
-        const n = items.length;
-        if (n && select) {
-          const start = Number(select.value);
-          for (let step = 1; step <= n; step++) {
-            const i = (start + step) % n;
-            if (decisions[items[i].id].state === "pending") {
-              window.getbrollsGo?.(i);
-              return;
-            }
+        const n = reviewTargets.length;
+        const start = pendingIndex ?? (select ? Number(select.value) : -1);
+        for (let step = 1; step <= n; step++) {
+          const i = (start + step) % n;
+          const target = reviewTargets[i];
+          if (target.decision.state !== "pending") continue;
+          if (target.row) {
+            if (!goToPendingGraphics(target.row)) continue;
+          } else {
+            window.getbrollsGo?.(target.index);
           }
+          pendingIndex = i;
+          return;
         }
-        goToPendingGraphics();
       };
     }
     const exportButton = document.querySelector("#export-review");

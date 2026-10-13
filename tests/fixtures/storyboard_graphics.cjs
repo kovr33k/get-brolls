@@ -338,7 +338,8 @@ function run(scenario) {
   const storage = el("span", { "data-storage-status": "" });
   storage.dataset.storageStatus = "";
   const done = el("p", { className: "export-done" });
-  const summaryHost = el("div", { className: "review-summary" }, [exportButton, printButton, nextButton, storage, done]);
+  const summaryText = el("p", { "data-summary": "" });
+  const summaryHost = el("div", { className: "review-summary" }, [summaryText, exportButton, printButton, nextButton, storage, done]);
   const graphics = scenario.graphics || [];
   if (graphics.length) {
     const byOcc = new Map();
@@ -359,7 +360,7 @@ function run(scenario) {
   const presenter = el("figure", { className: "presenter" }, [el("div", { className: "image-box" })]);
   if (scenario.items) {
     viewer.append(presenter, material, candidatePanel());
-    main.append(select, viewer, el("button", { className: "shot" }));
+    main.append(select, viewer, ...scenario.items.map(() => el("button", { className: "shot" })));
   }
   const byId = {
     "export-review": exportButton,
@@ -384,7 +385,7 @@ function run(scenario) {
     },
     querySelectorAll(selector) {
       if (selector === "[data-storage-status]") return [storage];
-      if (selector === "[data-summary]") return [el("p")];
+      if (selector === "[data-summary]") return [summaryText];
       if (selector === ".export-done") return [done];
       return main.querySelectorAll(selector);
     },
@@ -414,6 +415,7 @@ function run(scenario) {
     Event: FakeEvent,
     getbrollsGo(index) {
       window.wentTo = index;
+      select.value = String(index);
     },
   };
   const context = {
@@ -461,6 +463,8 @@ function run(scenario) {
     store,
     main,
     board,
+    nextButton,
+    summaryText,
     exportButton,
     printButton,
     downloaded: () => downloaded,
@@ -772,6 +776,74 @@ assert.equal(exportedPiece.signature, pieceNew.signature);
 assert.equal(exportedPiece.reviewEpoch, "epoch-v10");
 assert.equal(exportedPiece.state, "approved");
 assert.equal(localExport.graphics.find(row => row.id === "graphics:separate-piece:v2").state, "pending");
+
+// Six current pieces, eight retained versions: history does not inflate the queue.
+const pendingPieces = Array.from({length: 6}, (_, index) => graphicsRow({
+  id: `graphics:piece-${index}:v10`, occurrence_id: `piece-${index}`, version: "v10",
+  versions: [{id: "v1", status: "complete"}, {id: "v10", status: "complete"}],
+}));
+const pendingHistory = [
+  {...pendingPieces[0], id: "graphics:piece-0:v1", version: "v1", current: false, state: "approved"},
+  {...pendingPieces[3], id: "graphics:piece-3:v1", version: "v1", current: false},
+];
+const queue = run({graphics: [pendingHistory[0], ...pendingPieces, pendingHistory[1]]});
+const queueCards = queue.board.querySelectorAll(".graphics-card");
+const oldDisplay = queueCards[0].querySelector("[data-graphics-display]");
+oldDisplay.value = "v1";
+oldDisplay.dispatchEvent(new queue.Event("change"));
+assert.equal(queue.summaryText.textContent, "0 approved · 0 reviewed · 6 pending");
+for (const expected of [0, 1, 2, 3, 4, 5, 0]) {
+  queueCards.forEach(card => { card.scrolled = false; });
+  queue.nextButton.click();
+  assert.deepEqual(queueCards.flatMap((card, index) => card.scrolled ? [index] : []), [expected]);
+}
+assert.equal(oldDisplay.value, "v10", "navigation selects the current saved version");
+const queueExport = exported(queue);
+assert.equal(queueExport.graphics.length, 8, "all historical decisions remain exportable");
+for (const row of [...pendingPieces, ...pendingHistory]) {
+  assert.equal(queueExport.graphics.find(saved => saved.id === row.id).state, row.state);
+}
+queueCards[1].querySelector('[data-graphics-decision="approved"]').click();
+assert.equal(queue.summaryText.textContent, "1 approved · 0 reviewed · 5 pending");
+queueCards.forEach(card => { card.scrolled = false; });
+queue.nextButton.click();
+assert.equal(queueCards[2].scrolled, true, "the next action skips an approved current piece");
+
+const settled = run({graphics: [
+  ...pendingPieces.map((row, index) => ({...row, state: index ? "approved" : "changes"})),
+  {...pendingHistory[0], state: "pending"}, pendingHistory[1],
+]});
+assert.equal(settled.summaryText.textContent, "5 approved · 1 reviewed · 0 pending");
+assert.equal(settled.nextButton.disabled, true, "old pending versions do not reopen the queue");
+const fallbackPiece = run({graphics: [{...v1, state: "pending"}, {...v2, current: false}]});
+assert.equal(fallbackPiece.summaryText.textContent, "0 approved · 0 reviewed · 1 pending");
+
+// Mixed boards cycle between candidate clips and current graphics pieces.
+const candidate = {
+  id: "candidate-queue", signature: "dd".repeat(32), reviewEpoch: "candidate-epoch",
+  title: "Synthetic candidate", review: {state: "pending"}, segment: {start_s: 0, end_s: 3},
+};
+const mixedQueue = run({items: [candidate], graphics: [pendingPieces[0], pendingPieces[1]]});
+assert.equal(mixedQueue.summaryText.textContent, "0 approved · 0 reviewed · 3 pending");
+const mixedCards = mixedQueue.board.querySelectorAll(".graphics-card");
+for (const card of mixedCards) {
+  mixedQueue.nextButton.click();
+  assert.equal(card.scrolled, true, "pending candidates do not hide graphics from navigation");
+  assert.equal(mixedQueue.window.wentTo, undefined);
+}
+mixedQueue.nextButton.click();
+assert.equal(mixedQueue.window.wentTo, 0, "navigation wraps back to the candidate player");
+
+const candidatesOnly = run({items: [candidate, {...candidate, id: "candidate-two"}]});
+candidatesOnly.nextButton.click();
+assert.equal(candidatesOnly.window.wentTo, 1);
+candidatesOnly.nextButton.click();
+assert.equal(candidatesOnly.window.wentTo, 0);
+const candidateSelect = candidatesOnly.document.querySelector("#select");
+candidateSelect.value = "1";
+candidateSelect.dispatchEvent(new candidatesOnly.Event("change"));
+candidatesOnly.nextButton.click();
+assert.equal(candidatesOnly.window.wentTo, 0, "manual candidate selection resets the navigation cursor");
 
 (async () => {
   const saved = run({

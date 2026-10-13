@@ -13,6 +13,7 @@ tags: [get-brolls]
 ## 2.13.12 — 2026-10-14
 
 - Graphics Storyboard: number saved previews separately for each continuous piece in Version / Compare with and related captions. Keep original version identities, media, approvals and revision targets intact; order retained versions numerically and distinguish failed render attempts from saved versions.
+- Storyboard review: count the current saved preview once per graphics piece, retaining historical decisions in comparison and export. Next pending cycles through pending clips and current graphics pieces, skips reviewed items and wraps after the last item.
 
 ## 2.13.11 — 2026-10-13
 
