@@ -614,6 +614,18 @@
           "required": false
         },
         {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "replace_template",
+          "help": "Explicitly change this occurrence's composition; retain frozen versions and require new content/approval",
+          "nargs": 0,
+          "option_strings": [
+            "--replace-template"
+          ],
+          "required": false
+        },
+        {
           "action": "_StoreAction",
           "choices": null,
           "default": null,

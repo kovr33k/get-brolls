@@ -1072,6 +1072,8 @@ Tested pins: `remotion`, `@remotion/renderer` and `@remotion/bundler` **4.0.534*
 
 `--scene` is the authored scene identity: different numeric concepts are different scenes, and the same scene may recur on several occurrences. `--template numeric-stat` selects the `NumericStat` composition and is independent of that scene id. Original chapter context and narration keep harmless line breaks.
 
+To revise an existing occurrence into another composition, repeat `graphics-assign` with the same `--scene` and `--occurrence`, the new `--template` and explicit `--replace-template`. Retained versions keep their original compositions, sources, timing and decisions; rendering creates a descendant version requiring fresh approval. The pending assignment drops incompatible timeline/custom/map content and waits for the new content, preserving common facts, audio, alignment and consumed repair attempts. Without this flag, a template change is refused. Selecting an earlier version still selects that version's own frozen composition.
+
 ```powershell
 python scripts/gb.py graphics-doctor
 python scripts/gb.py graphics-doctor --prepare-browser

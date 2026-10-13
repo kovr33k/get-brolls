@@ -10,6 +10,10 @@ tags: [get-brolls]
 
 ## Unreleased
 
+## 2.13.10 — 2026-10-13
+
+- Graphics revisions: explicitly replace an occurrence's composition with `graphics-assign --replace-template`, retaining immutable earlier versions and review requests. Detect composition changes as pending work, clear incompatible authoring content and preserve common evidence, audio, timing and repair history. New versions require fresh approval.
+
 - Numeric graphics acceptance: map issue #53's sixteen criteria to implementation, synthetic regressions and retained real Windows render/browser evidence. Update the estimated-timing regression to verify the compact Storyboard's draft badge, duration/frame count and public timing basis. Keep later scene approval, delivery and Resolve acceptance separate.
 
 - Long Storyboard passages: show a short preview with an explicit read-more control, retaining the full original text in the card and expanding it for printing without changing saved scene inputs or durations.
