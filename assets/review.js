@@ -127,6 +127,8 @@
     ...[...currentGraphics.values()].map(row => ({ decision: graphicsDecisions[row.id], row })),
   ];
   let pendingIndex = null;
+  const graphicsCards = [...document.querySelectorAll(".graphics-card")];
+  let graphicsPieceIndex = 0;
   select?.addEventListener("change", () => { pendingIndex = Number(select.value); });
 
   // Summary bar: counters, export, print, storage status.
@@ -403,17 +405,59 @@
     if (host && !host.contains(summary)) host.prepend(summary);
   }
   function goToPendingGraphics(pendingRow) {
-    const card = [...document.querySelectorAll(".graphics-card")].find(
-      (el) => el.dataset.occurrence === pendingRow.occurrence_id,
-    );
+    const pieceIndex = graphicsCards.findIndex(card => card.dataset.occurrence === pendingRow.occurrence_id);
+    const card = graphicsCards[pieceIndex];
     if (!card) return false;
+    showGraphicsPiece(pieceIndex);
     const display = card.querySelector("[data-graphics-display]");
     if (display && display.value !== pendingRow.version) {
       display.value = pendingRow.version;
       display.dispatchEvent(new Event("change"));
     }
-    card.scrollIntoView?.({ block: "start" });
+    const destination = items.length ? card : document.querySelector(".graphics-board") || card;
+    destination.scrollIntoView?.({ block: "start" });
     return true;
+  }
+  function showGraphicsPiece(index, track = true) {
+    graphicsPieceIndex = Math.max(0, Math.min(index, graphicsCards.length - 1));
+    graphicsCards.forEach((card, i) => {
+      card.classList.toggle("is-active-piece", i === graphicsPieceIndex);
+      if (i !== graphicsPieceIndex) {
+        [...card.querySelectorAll("video"), ...card.querySelectorAll("audio")].forEach(pauseMedia);
+      }
+    });
+    const piece = document.querySelector("[data-graphics-piece]");
+    if (piece) piece.value = String(graphicsPieceIndex);
+    const previous = document.querySelector("[data-graphics-prev]");
+    const next = document.querySelector("[data-graphics-next]");
+    const position = document.querySelector("[data-graphics-position]");
+    if (previous) previous.disabled = graphicsPieceIndex === 0;
+    if (next) next.disabled = graphicsPieceIndex === graphicsCards.length - 1;
+    if (position) position.textContent = `${graphicsPieceIndex + 1} / ${graphicsCards.length}`;
+    if (track) {
+      const occurrence = graphicsCards[graphicsPieceIndex]?.dataset.occurrence;
+      const target = reviewTargets.findIndex(target => target.row?.occurrence_id === occurrence);
+      if (target >= 0) pendingIndex = target;
+    }
+  }
+  function bindGraphicsNavigation() {
+    const navigation = document.querySelector(".graphics-navigation");
+    if (!navigation || navigation.dataset.wired || !graphicsCards.length) return;
+    const piece = navigation.querySelector("[data-graphics-piece]");
+    if (!piece) return;
+    graphicsCards.forEach((card, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = `${index + 1}. ${card.querySelector("h3")?.firstChild?.textContent.trim() || "Graphics piece"}`;
+      piece.append(option);
+    });
+    piece.onchange = () => showGraphicsPiece(Number(piece.value));
+    navigation.querySelector("[data-graphics-prev]").onclick = () => showGraphicsPiece(graphicsPieceIndex - 1);
+    navigation.querySelector("[data-graphics-next]").onclick = () => showGraphicsPiece(graphicsPieceIndex + 1);
+    navigation.dataset.wired = "1";
+    navigation.hidden = graphicsCards.length <= 1;
+    document.querySelector(".graphics-board")?.classList.add("is-paged");
+    showGraphicsPiece(0, !items.length);
   }
   function wireSummary() {
     const next = document.querySelector("#next-pending");
@@ -1016,6 +1060,7 @@
     mountPlayer();
     mountPanel();
     mountGraphics();
+    bindGraphicsNavigation();
     wireSummary();
   }
   if (viewer) new MutationObserver(mount).observe(viewer, { childList: true });

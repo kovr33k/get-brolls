@@ -14,6 +14,7 @@ tags: [get-brolls]
 
 - Graphics Storyboard: number saved previews separately for each continuous piece in Version / Compare with and related captions. Keep original version identities, media, approvals and revision targets intact; order retained versions numerically and distinguish failed render attempts from saved versions.
 - Storyboard review: count the current saved preview once per graphics piece, retaining historical decisions in comparison and export. Next pending cycles through pending clips and current graphics pieces, skips reviewed items and wraps after the last item.
+- Graphics review: show one piece at a time with a piece selector, previous/next controls and position. Pause media when leaving a piece; keep all pieces in print and decision export. Generate reusable posters from the saved videos during review generation so an animation's empty first frame does not hide its contents before playback, without changing saved media or approvals.
 
 ## 2.13.11 — 2026-10-13
 

@@ -915,6 +915,11 @@ class GraphicsStoryboardUiTests(unittest.TestCase):
             self.assertEqual("v1", by_version["v2"]["parent"])
             page = (Path(tmp) / "brolls" / "review.html").read_text(encoding="utf-8")
             self.assertTrue("<select data-graphics-display" in page, "retained versions need a version selector")
+            self.assertIn('class="graphics-navigation"', page)
+            self.assertIn("data-graphics-piece", page)
+            posters = re.findall(r'<video[^>]+poster="([^"]+)"', page)
+            self.assertEqual(2, len(posters))
+            self.assertTrue(all((Path(tmp) / "brolls" / poster).is_file() for poster in posters))
             self.assertEqual(1, page.count('<details class="graphics-details">'))
             self.assertEqual(2, page.count('class="graphics-version-details'))
             self.assertTrue(
