@@ -104,6 +104,8 @@ WORKER_ENV = "GB_GRAPHICS_WORKER"
 BROWSER_PREPARE_ENV = "GB_GRAPHICS_PREPARE_BROWSER"
 FROZEN_REFS_PREFIX = "inputs/refs/"
 ASSIGNMENT_FIELDS = (
+    "template",
+    "composition",
     "chapter_id",
     "chapter_context",
     "purpose",
@@ -4428,23 +4430,28 @@ def _occurrence_display_props(args):
 
 
 def _inherit_occurrence_records(root, occurrence, previous):
-    if previous and isinstance(previous.get("facts"), dict):
+    if not previous:
+        return
+    if isinstance(previous.get("facts"), dict):
         occurrence["facts"] = previous["facts"]
         if isinstance(previous.get("props_before_facts"), dict):
             occurrence["props_before_facts"] = previous["props_before_facts"]
         _apply_facts_display(root, occurrence)
-    if previous and isinstance(previous.get("audio"), dict):
-        occurrence["audio"] = previous["audio"]
-    if previous and isinstance(previous.get("background"), dict):
-        occurrence["background"] = previous["background"]
-    if previous and isinstance(previous.get("alignment"), dict):
-        occurrence["alignment"] = previous["alignment"]
-    if previous and isinstance(previous.get("alignment_previews"), dict):
-        occurrence["alignment_previews"] = previous["alignment_previews"]
-    if previous and isinstance(previous.get("alignment_group"), dict):
-        occurrence["alignment_group"] = previous["alignment_group"]
-    for key in ("timeline", "scene_content", "work"):
-        if previous and isinstance(previous.get(key), dict):
+    for key in (
+        "audio",
+        "background",
+        "alignment",
+        "alignment_previews",
+        "alignment_group",
+        "work",
+        "timeline",
+        "scene_content",
+    ):
+        if isinstance(previous.get(key), dict):
+            if key == "timeline" and occurrence["template"] != "timeline":
+                continue
+            if key == "scene_content" and previous[key].get("kind") != occurrence["template"]:
+                continue
             occurrence[key] = copy.deepcopy(previous[key])
 
 
@@ -4474,8 +4481,14 @@ def assign_command(ledger, args):
     previous = graphics["occurrences"].get(occ_id)
     if previous and previous.get("scene_id") != scene_id:
         raise ValueError("Occurrence " + occ_id + " already belongs to scene " + previous["scene_id"] + ".")
-    if previous and previous.get("template") not in (None, template):
-        raise ValueError("Occurrence " + occ_id + " already uses template " + previous["template"] + ".")
+    if previous and previous.get("template") not in (None, template) and not getattr(args, "replace_template", False):
+        raise ValueError(
+            "Occurrence "
+            + occ_id
+            + " already uses template "
+            + previous["template"]
+            + ". Use --replace-template to revise its composition while retaining earlier versions."
+        )
     timing = _timing_from_args(args, graphics["profile"]["fps"])
     occurrence = {
         "occurrence_id": occ_id,

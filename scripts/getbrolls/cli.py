@@ -723,6 +723,11 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 help="Composition independent of --scene: numeric-stat, timeline, map, or one editable custom JSX scene",
             )
             p.add_argument(
+                "--replace-template",
+                action="store_true",
+                help="Explicitly change this occurrence's composition; retain frozen versions and require new content/approval",
+            )
+            p.add_argument(
                 "--occurrence", required=True, help="Stable occurrence id, 1–80 letters, numbers, hyphen or underscore"
             )
             p.add_argument("--chapter", required=True, help="Chapter identifier retained with the assignment")

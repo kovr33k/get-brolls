@@ -6,7 +6,7 @@ updated: 2026-10-13
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.13.9
+# Qualidade e evidências — GET B-ROLLS 2.13.10
 
 Este documento resume a qualidade atual e os limites das evidências. Relatórios cronológicos, URLs públicas de amostras e resultados de versões anteriores ficam no [arquivo de evidências](archive/quality-evidence-through-2026-10-07.md). Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
