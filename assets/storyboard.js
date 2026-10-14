@@ -65,6 +65,7 @@
   function go(next) {
     index = Math.max(0, Math.min(templates.length - 1, next));
     render();
+    window.dispatchEvent(new CustomEvent("getbrolls:navigate", { detail: { index } }));
   }
   window.getbrollsGo = go;
   select.addEventListener("change", () => go(Number(select.value)));

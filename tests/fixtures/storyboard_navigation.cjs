@@ -40,10 +40,12 @@ const document = {
     return selector === "template[data-shot]" ? templates : [];
   },
 };
-const window = { addEventListener() {} };
+const navigations = [];
+const window = { addEventListener() {}, dispatchEvent(event) { navigations.push(event.detail.index); } };
 vm.runInNewContext(fs.readFileSync(process.argv[2], "utf8"), {
   document,
   window,
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
   matchMedia: () => ({ matches: true }),
 });
 assert.equal(selectedTemplate, 0);
@@ -69,3 +71,4 @@ toolbarAttached = true;
 window.getbrollsGo(0);
 assert.equal(previous.disabled, true);
 assert.equal(position.textContent, "01 / 03");
+assert.deepEqual(navigations, [1, 2, 1, 0], "all player navigation notifies the review layer");

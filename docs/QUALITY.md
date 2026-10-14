@@ -2,11 +2,11 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-13
+updated: 2026-10-14
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.13.11
+# Qualidade e evidências — GET B-ROLLS 2.13.12
 
 Este documento resume a qualidade atual e os limites das evidências. Relatórios cronológicos, URLs públicas de amostras e resultados de versões anteriores ficam no [arquivo de evidências](archive/quality-evidence-through-2026-10-07.md). Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
@@ -35,6 +35,12 @@ The RU metadata advertised both dubbed English and Russian `*-orig` tracks; decl
 ## Numeric motion graphics — 2026-10-13
 
 The [numeric graphics checkpoint](MOTION-GRAPHICS-ACCEPTANCE.md) maps all sixteen criteria of [#53](https://github.com/kovr33k/get-brolls/issues/53) to the public CLI, compatible project records, optional Remotion runtime, immutable renders and shared Storyboard. It records 89 focused checks, actual Full HD H.264/30 fps Windows output and browser observations separately from subsequent approval, delivery and Resolve acceptance. Final integration requires the submitted PR's complete Windows checks. Private project inputs and media remain outside distribution.
+
+## Bounded graphics pilot — 2026-10-14
+
+The [graphics pilot checkpoint](GRAPHICS-PILOT-ACCEPTANCE.md) records six exact current-version visual approvals across five concept types, three narration-backed scene deliveries with separate VO and retained editable sources, and direct human confirmation of all three pairs in Resolve at 30 fps. The other three concepts remain estimated visual drafts. Single-context sequential production replaces delegation as a requirement of this accepted pilot. Older contexts, versions, requests and approvals remain historical records. These statements establish the bounded supplied-material test, not an all-five-concept narration-backed production montage.
+
+Storyboard observations cover per-piece version numbers, one visible piece, cyclic pending navigation, saved decisions and representative video posters without moving the playback clocks. All eight saved versions in the main pilot remained intact; all three delivered source packages and six media files were checked. Private originals, paths and acceptance statements are retained outside distribution. Final integration still requires the associated PR's complete Windows checks and a local post-merge verification; the issue closure records identify that integrated evidence.
 
 ## What each evidence layer establishes
 

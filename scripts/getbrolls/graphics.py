@@ -22,6 +22,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import TypeGuard
 
+from .config import tool_path
 from .ledger import digest
 from .media import run as media_run
 from .models import now, require_fetch
@@ -3314,7 +3315,7 @@ def _occurrence_versions(graphics, occurrence_id):
                 "timing_basis": timing.get("basis"),
             }
         )
-    rows.sort(key=lambda row: row.get("id") or "")
+    rows.sort(key=lambda row: (len(row.get("id") or ""), row.get("id") or ""))
     return rows
 
 
@@ -6810,7 +6811,7 @@ GRAPHICS_REVIEW_PANEL = (
 
 def _storyboard_failed_version(version):
     return (
-        f'<p class="graphics-pending">Version {_esc(version.get("id"))} failed and cannot be approved. '
+        f'<p class="graphics-pending">Render attempt ID {_esc(version.get("id"))} failed and cannot be approved. '
         "A later complete version is a new unapproved result.</p>"
     )
 
@@ -6856,7 +6857,63 @@ def _storyboard_passage(narration):
     )
 
 
-def _storyboard_complete_version(version, shown):
+def _storyboard_poster(root, version):
+    """Cache a representative video frame during review generation, without changing saved state."""
+    artifact = _as_dict(version.get("artifact"))
+    sha = artifact.get("sha256")
+    duration = artifact.get("duration_s")
+    if (
+        not isinstance(sha, str)
+        or not SHA256_RE.fullmatch(sha)
+        or not isinstance(duration, (int, float))
+        or isinstance(duration, bool)
+        or not math.isfinite(duration)
+        or duration <= 0
+    ):
+        return None
+    try:
+        source = _confine_existing(root, artifact.get("path"))
+        if _file_sha256(source) != sha:
+            return None
+        rel = f"previews/graphics-poster-{sha}.jpg"
+        dest = _confine_planned(root, Path(root) / rel)
+        if dest.exists():
+            return rel if dest.is_file() and dest.stat().st_size else None
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        temporary = _confine_planned(root, dest.with_name(f"{dest.stem}-{uuid.uuid4().hex}.tmp.jpg"))
+    except (ValueError, OSError):
+        return None
+    # Invalid executable pins still fail explicitly; an unavailable optional decoder does not break review.
+    tool_path("ffmpeg")
+    try:
+        media_run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                "-ss",
+                str(max(0, duration / 2 - 1 / DEFAULT_FPS)),
+                "-i",
+                str(source),
+                "-vf",
+                "scale='min(960,iw)':-2",
+                "-frames:v",
+                "1",
+                str(temporary),
+            ],
+            op="graphics_storyboard_poster",
+        )
+        temporary.replace(dest)
+        return rel
+    except (ValueError, OSError):
+        return None
+    finally:
+        with suppress(OSError):
+            temporary.unlink()
+
+
+def _storyboard_complete_version(version, shown, label, poster=None):
     rel = version["artifact"].get("path")
     fps = _as_dict(version.get("profile")).get("fps") or DEFAULT_FPS
     vo = version.get("vo_preview") if isinstance(version.get("vo_preview"), dict) else {}
@@ -6868,18 +6925,22 @@ def _storyboard_complete_version(version, shown):
         else ""
     )
     return (
-        f'<video class="graphics-preview" controls preload="metadata" src="{_esc(rel)}" data-fps="{_esc(fps)}"></video>'
+        '<video class="graphics-preview" controls preload="metadata"'
+        + (f' poster="{_esc(poster)}"' if poster else "")
+        + f' src="{_esc(rel)}" data-fps="{_esc(fps)}"></video>'
         + audio_html
-        + f'<p class="graphics-version-label">{_esc(version.get("id"))}</p>'
+        + f'<p class="graphics-version-label">{_esc(label)}</p>'
         + _storyboard_passage(shown.get("narration"))
     )
 
 
-def _storyboard_version_details(version, occ, readiness):
-    parent = f", parent {_esc(version.get('parent'))}" if version.get("parent") else ", no parent"
+def _storyboard_version_details(version, occ, readiness, labels):
+    parent_id = version.get("parent")
+    parent = f", parent {_esc(labels.get(parent_id, parent_id))}" if parent_id else ", no parent"
     current_label = "current saved version" if occ.get("current_version") == version.get("id") else "retained version"
     return (
-        f"<p>Version {_esc(version.get('id'))} ({_esc(current_label)}){parent}"
+        f"<p>Version {_esc(labels[version.get('id')])} ({_esc(current_label)}){parent}. "
+        f"Saved ID {_esc(version.get('id'))}"
         f", sha256 {_esc((version['artifact'].get('sha256') or '')[:12])}…, "
         f"{_esc(version['artifact'].get('width'))}×{_esc(version['artifact'].get('height'))} "
         f"@ {_esc(version['artifact'].get('fps'))} fps, "
@@ -6897,11 +6958,12 @@ def _storyboard_version_tools(complete_versions, current_id):
     display_disabled = "" if ids else " disabled"
     compare_disabled = " disabled" if len(ids) <= 1 else ""
     compare = ['<option value="">None</option>']
-    for version in complete_versions:
+    for number, version in enumerate(complete_versions, start=1):
         ident = version.get("id")
+        label = f"v{number}"
         selected = " selected" if ident == selected_id else ""
-        options.append(f'<option value="{_esc(ident)}"{selected}>{_esc(ident)}</option>')
-        compare.append(f'<option value="{_esc(ident)}">{_esc(ident)}</option>')
+        options.append(f'<option value="{_esc(ident)}"{selected}>{label}</option>')
+        compare.append(f'<option value="{_esc(ident)}">{label}</option>')
     return [
         '<div class="graphics-version-tools">',
         f"<label>Version <select data-graphics-display{display_disabled}>{''.join(options)}</select></label>",
@@ -6914,7 +6976,7 @@ def _occurrence_storyboard_versions(versions, occ_id):
     rows = [
         version for version in versions.values() if isinstance(version, dict) and version.get("occurrence_id") == occ_id
     ]
-    rows.sort(key=lambda row: row.get("id") or "")
+    rows.sort(key=lambda row: (len(row.get("id") or ""), row.get("id") or ""))
     complete = [
         version for version in rows if version.get("status") == "complete" and isinstance(version.get("artifact"), dict)
     ]
@@ -6930,6 +6992,13 @@ def storyboard_section(ledger):  # noqa: PLR0915 - One ordered section preserves
     parts = [
         '<section class="graphics-board" aria-label="Graphics assignments">',
         "<h2>Graphics</h2>",
+        (
+            '<div class="graphics-navigation" aria-label="Graphics pieces" hidden>'
+            '<button type="button" data-graphics-prev aria-label="Previous graphics piece">←</button>'
+            "<label>Piece <select data-graphics-piece></select></label>"
+            '<button type="button" data-graphics-next aria-label="Next graphics piece">→</button>'
+            "<span data-graphics-position></span></div>"
+        ),
     ]
     versions = graphics.get("versions") or {}
     if not isinstance(versions, dict):
@@ -6939,6 +7008,7 @@ def storyboard_section(ledger):  # noqa: PLR0915 - One ordered section preserves
             continue
         occ_id = occ.get("occurrence_id")
         complete_versions, failed_versions = _occurrence_storyboard_versions(versions, occ_id)
+        labels = {version.get("id"): f"v{number}" for number, version in enumerate(complete_versions, start=1)}
         current_id = occ.get("current_version")
         current_version = versions.get(current_id) if isinstance(current_id, str) else None
         frozen = None
@@ -7006,13 +7076,17 @@ def storyboard_section(ledger):  # noqa: PLR0915 - One ordered section preserves
                     f'<div class="graphics-version{shown_class}" data-version="{_esc(version.get("id"))}" '
                     f'data-row-id="{_esc(row_id)}" data-current="{current_attr}">'
                 )
-                parts.append(_storyboard_complete_version(version, frozen_shown))
+                parts.append(
+                    _storyboard_complete_version(
+                        version, frozen_shown, labels[version.get("id")], _storyboard_poster(ledger.root, version)
+                    )
+                )
                 parts.append('<p class="graphics-decision-record" data-graphics-decision-record></p>')
                 parts.append("</div>")
                 details.append(
                     f'<div class="graphics-version-details{shown_class}" data-version="{_esc(version.get("id"))}">'
                 )
-                details.append(_storyboard_version_details(version, occ, readiness))
+                details.append(_storyboard_version_details(version, occ, readiness, labels))
                 details.extend(_storyboard_assignment_body(frozen_shown, root=ledger.root))
                 details.append("</div>")
             parts.append("</div>")
