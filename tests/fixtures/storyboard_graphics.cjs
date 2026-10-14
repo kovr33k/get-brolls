@@ -405,8 +405,9 @@ function run(scenario) {
   let downloaded;
   const posted = [];
   class FakeEvent {
-    constructor(type) {
+    constructor(type, options = {}) {
       this.type = type;
+      this.detail = options.detail;
     }
   }
   const window = {
@@ -418,12 +419,15 @@ function run(scenario) {
       graphics,
     },
     GETBROLLS_SAVE: scenario.save || null,
-    addEventListener() {},
+    listeners: {},
+    addEventListener(name, handler) { window.listeners[name] = handler; },
+    dispatchEvent(event) { window.listeners[event.type]?.(event); },
     print() {},
     Event: FakeEvent,
     getbrollsGo(index) {
       window.wentTo = index;
       select.value = String(index);
+      window.dispatchEvent(new FakeEvent("getbrolls:navigate", {detail: {index}}));
     },
   };
   const context = {
@@ -862,13 +866,16 @@ for (const card of mixedCards) {
 mixedQueue.nextButton.click();
 assert.equal(mixedQueue.window.wentTo, 0, "navigation wraps back to the candidate player");
 
-const candidatesOnly = run({items: [candidate, {...candidate, id: "candidate-two"}]});
+const candidatesOnly = run({items: [candidate, {...candidate, id: "candidate-two"}, {...candidate, id: "candidate-three"}]});
 candidatesOnly.nextButton.click();
 assert.equal(candidatesOnly.window.wentTo, 1);
 candidatesOnly.nextButton.click();
-assert.equal(candidatesOnly.window.wentTo, 0);
+assert.equal(candidatesOnly.window.wentTo, 2);
+candidatesOnly.window.getbrollsGo(0);
+candidatesOnly.nextButton.click();
+assert.equal(candidatesOnly.window.wentTo, 1, "player buttons and gallery navigation reset the pending cursor");
 const candidateSelect = candidatesOnly.document.querySelector("#select");
-candidateSelect.value = "1";
+candidateSelect.value = "2";
 candidateSelect.dispatchEvent(new candidatesOnly.Event("change"));
 candidatesOnly.nextButton.click();
 assert.equal(candidatesOnly.window.wentTo, 0, "manual candidate selection resets the navigation cursor");

@@ -130,6 +130,10 @@
   const graphicsCards = [...document.querySelectorAll(".graphics-card")];
   let graphicsPieceIndex = 0;
   select?.addEventListener("change", () => { pendingIndex = Number(select.value); });
+  window.addEventListener("getbrolls:navigate", event => {
+    const index = event.detail?.index;
+    if (Number.isInteger(index) && index >= 0 && index < items.length) pendingIndex = index;
+  });
 
   // Summary bar: counters, export, print, storage status.
   const summary = document.createElement("div");
