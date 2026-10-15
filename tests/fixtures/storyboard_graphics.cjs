@@ -251,6 +251,8 @@ function graphicsCard(rows) {
   });
   const meta = el("p", { className: "graphics-meta" }, [badge]);
   const comment = el("textarea", { "data-graphics-comment": "" });
+  const imageInput = el("input", { type: "file", "data-graphics-reference": "" });
+  const referencePreview = el("div", { "data-graphics-reference-preview": "" });
   comment.dataset.graphicsComment = "";
   const shared = el("input", { type: "checkbox", "data-graphics-shared": "" });
   shared.dataset.graphicsShared = "";
@@ -261,7 +263,7 @@ function graphicsCard(rows) {
   const toggle = el("button", { className: "comment-toggle", text: "Comment" });
   const confirm = el("button", { className: "confirm-review" });
   confirm.hidden = true;
-  const fields = el("div", { className: "review-fields" }, [comment, shared, confirm]);
+  const fields = el("div", { className: "review-fields" }, [comment, imageInput, referencePreview, shared, confirm]);
   fields.hidden = true;
   const detailPanes = rows.map((row) => {
     const pane = el("div", {
@@ -404,6 +406,7 @@ function run(scenario) {
   };
   let downloaded;
   const posted = [];
+  const uploads = [];
   class FakeEvent {
     constructor(type, options = {}) {
       this.type = type;
@@ -460,6 +463,10 @@ function run(scenario) {
       }
     },
     fetch: async (_url, options) => {
+      if (_url === scenario.save?.referenceUrl) {
+        uploads.push(options.body);
+        return { ok: !scenario.uploadFail, json: async () => scenario.uploadFail ? {error: "Synthetic upload refusal"} : {reference: scenario.reference} };
+      }
       posted.push(JSON.parse(options.body));
       if (scenario.saveFail) throw new Error("offline");
       return { ok: true, json: async () => ({ name: "20261010-120000.json", path: "brolls/reviews/20261010-120000.json" }) };
@@ -481,6 +488,7 @@ function run(scenario) {
     printButton,
     downloaded: () => downloaded,
     posted,
+    uploads,
     done,
     storage,
     Event: FakeEvent,
@@ -881,6 +889,77 @@ candidatesOnly.nextButton.click();
 assert.equal(candidatesOnly.window.wentTo, 0, "manual candidate selection resets the navigation cursor");
 
 (async () => {
+  const imageReference = {
+    ref: "graphics-data/references/" + "ee".repeat(32) + ".png", sha256: "ee".repeat(32),
+    name: "example.png", bytes: 100, width: 40, height: 20, kind: "image",
+  };
+  const withImage = run({
+    graphics: [{...v1, state: "pending", comment: ""}], reference: imageReference,
+    save: {url: "/__save", header: "X-GetBrolls-Token", token: "fixture-token", referenceUrl: "/__graphics-reference"},
+  });
+  const imagePanel = withImage.board.querySelector(".graphics-review-panel");
+  imagePanel.querySelector('[data-graphics-decision="changes"]').click();
+  const imageComment = imagePanel.querySelector("[data-graphics-comment]");
+  imageComment.value = "Adopt the image colors; keep our values.";
+  imageComment.oninput();
+  const imageInput = imagePanel.querySelector("[data-graphics-reference]");
+  imageInput.files = [{name: "example.png", size: 100}];
+  imageInput.onchange();
+  assert.match(imagePanel.querySelector("[data-graphics-reference-preview]").textContent, /selected, not saved/);
+  imagePanel.querySelector(".confirm-review").click();
+  withImage.exportButton.click();
+  for (let i = 0; i < 24; i++) await Promise.resolve();
+  assert.equal(withImage.uploads.length, 1);
+  assert.equal(withImage.posted.length, 1);
+  assert.deepEqual(withImage.posted[0].graphics[0].reference, imageReference);
+  assert.match(imagePanel.querySelector("[data-graphics-reference-preview]").textContent, /saved in project/);
+  assert.doesNotMatch(imagePanel.querySelector("[data-graphics-reference-preview]").textContent, /selected, not saved/);
+  assert.doesNotMatch(imagePanel.querySelector("[data-graphics-status]").textContent, /selected, not saved/);
+  assert.equal(imagePanel.querySelector("[data-graphics-shared]").disabled, true);
+
+  const imageDrafts = run({
+    graphics: [v1, v2],
+    save: {url: "/__save", header: "X-GetBrolls-Token", token: "fixture-token", referenceUrl: "/__graphics-reference"},
+  });
+  const boundPanel = imageDrafts.board.querySelector(".graphics-review-panel");
+  const boundDisplay = imageDrafts.board.querySelector("[data-graphics-display]");
+  const boundInput = boundPanel.querySelector("[data-graphics-reference]");
+  boundDisplay.value = "v1";
+  boundDisplay.dispatchEvent(new imageDrafts.Event("change"));
+  boundPanel.querySelector('[data-graphics-decision="changes"]').click();
+  boundInput.files = [{name: "v1-only.png", size: 100}];
+  boundInput.onchange();
+  boundDisplay.value = "v2";
+  boundDisplay.dispatchEvent(new imageDrafts.Event("change"));
+  assert.equal(boundInput.value, "");
+  assert.equal(boundPanel.querySelector("[data-graphics-reference-preview]").textContent, "");
+  assert.equal(boundPanel.querySelector(".confirm-review").hidden, true);
+  boundDisplay.value = "v1";
+  boundDisplay.dispatchEvent(new imageDrafts.Event("change"));
+  assert.match(boundPanel.querySelector("[data-graphics-reference-preview]").textContent, /v1-only.png · selected, not saved/);
+
+  const uploadFailure = run({
+    graphics: [{...v1, state: "changes", comment: "Keep this image draft."}], uploadFail: true,
+    save: {url: "/__save", header: "X-GetBrolls-Token", token: "fixture-token", referenceUrl: "/__graphics-reference"},
+  });
+  const failedInput = uploadFailure.board.querySelector("[data-graphics-reference]");
+  failedInput.files = [{name: "retry.png", size: 100}];
+  failedInput.onchange();
+  uploadFailure.exportButton.click();
+  for (let i = 0; i < 16; i++) await Promise.resolve();
+  assert.match(uploadFailure.storage.textContent, /Synthetic upload refusal/);
+  assert.equal(uploadFailure.posted.length, 0);
+  assert.match(uploadFailure.board.querySelector("[data-graphics-reference-preview]").textContent, /retry.png · selected, not saved/);
+
+  const referenceFailure = run({
+    graphics: [{...v1, state: "changes", comment: "Use this saved image.", reference: imageReference}], saveFail: true,
+    save: {url: "/__save", header: "X-GetBrolls-Token", token: "fixture-token", referenceUrl: "/__graphics-reference"},
+  });
+  referenceFailure.exportButton.click();
+  for (let i = 0; i < 16; i++) await Promise.resolve();
+  assert.match(referenceFailure.storage.textContent, /not saved to the project/);
+  assert.equal(referenceFailure.downloaded(), undefined, "a failed reference save is not disguised as a media-package download");
+
   const saved = run({
     graphics: [v1],
     save: { url: "/__save", header: "X-Getbrolls-Token", token: "fixture-token" },

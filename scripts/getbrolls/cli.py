@@ -65,6 +65,7 @@ SUMMARIES = {
     "graphics-approve": "Record an explicit human approval of one complete graphics version; render is not approval",
     "graphics-select": "Select an existing complete graphics version without rewriting frozen files",
     "graphics-request-complete": "Record chat-authorized processing of a saved graphics revision request",
+    "graphics-reference-apply": "Bind an inspected saved image and its analysis to graphics authoring; never render",
     "graphics-facts": "Attach researched displayed-fact evidence to one graphics occurrence from bounded --file JSON",
     "graphics-fact-resolve": "Record an already received editorial decision for one saved fact conflict; does not invent approval",
     "graphics-audio": "Attach confined sound cues and optional VO source clocks to one graphics occurrence from bounded --file JSON",
@@ -180,6 +181,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         "graphics-approve",
         "graphics-select",
         "graphics-request-complete",
+        "graphics-reference-apply",
         "graphics-facts",
         "graphics-fact-resolve",
         "graphics-audio",
@@ -833,6 +835,11 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         if name == "graphics-select":
             p.add_argument("--occurrence", required=True, help="Occurrence id whose retained version is selected")
             p.add_argument("--version", required=True, help="Existing complete version id to select")
+        if name == "graphics-reference-apply":
+            p.add_argument("--request", required=True, help="Saved image-reference request id")
+            p.add_argument(
+                "--analysis", required=True, help="Actual adopted characteristics after inspecting the saved image"
+            )
         if name == "graphics-request-complete":
             p.add_argument("--request", required=True, help="Saved revision-request id from status.graphics or review")
             p.add_argument("--version", required=True, help="Complete descendant version produced for that request")

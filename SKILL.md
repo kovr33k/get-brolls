@@ -3,11 +3,11 @@ name: get-brolls
 description: 'Coleta, pré-visualiza e entrega B-rolls com revisão humana e origem registrada. Use quando alguém pedir b-roll, vídeos de apoio, imagens de apoio, cutaways, inserts, footage, "um corte do X falando Y", um print da tela de um site ou de uma notícia, ou material para ilustrar um vídeo, Reel ou aula — buscando em YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org ou bancos (Pexels, Pixabay), gerando prévias para revisão humana e entregando os trechos com origem e condições de uso. Also in English: collect B-roll, cutaways, inserts, supporting footage, stock video, screen grabs. Não serve para editar, montar ou renderizar o vídeo final. Not for editing or rendering the finished video.'
 license: MIT
 metadata:
-  version: "2.13.12"
+  version: "2.14.0"
   type: "skill"
   status: "current"
   created: "2026-09-15"
-  updated: "2026-10-14"
+  updated: "2026-10-15"
   tags: "b-roll, youtube, instagram, tiktok, storyboard"
 ---
 
@@ -118,7 +118,7 @@ Registre as condições com `permit` (`--evidence`, `--preset` ou `--declared-by
 
 Gráficos numéricos opcionais são registros explícitos do projeto, nunca candidatos inventados. `search`, `help` e `status` funcionam sem o runtime Remotion. Diagnóstico: `graphics-doctor` (e `--prepare-browser` só quando for preparar o Chromium local). `--scene` é a identidade da cena; `--template numeric-stat` é a composição. Estilo proposto e render local: [Graphics](docs/GUIDE.md#graphics). Um render completo não é aprovação humana nem entrega.
 
-Para produzir ou continuar motion graphics, ou processar revisões salvas no Storyboard, leia primeiro [Sequential graphics production](references/graphics-workflow.md). O agente anfitrião delega uma ocorrência por vez; o CLI preserva contexto, fontes, versões e contadores. A política de agentes e as instruções explícitas da pessoa continuam valendo.
+Para produzir ou continuar motion graphics, ou processar revisões e imagens de referência salvas no Storyboard, leia primeiro [Sequential graphics production](references/graphics-workflow.md). Trabalhe uma ocorrência por vez no contexto gerenciador; o CLI preserva arquivos, instruções, versões e contadores. A política de agentes e as instruções explícitas da pessoa continuam valendo.
 
 ## Quando não há fonte
 

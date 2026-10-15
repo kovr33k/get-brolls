@@ -2,13 +2,17 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-14
+updated: 2026-10-15
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+## 2.14.0 — 2026-10-15
+
+- Graphics references: attach one validated PNG/JPEG and a required prompt in the local Storyboard before first rendering or when revising an exact saved version. Retain copied bytes, targets, hashes and inspection context; freeze the reference independently of rendered media and preserve old version signatures. Add explicit chat-activated `graphics-reference-apply`, bounded authenticated transfer, truthful saved/error feedback, idempotent import and initial-version completion. Keep legacy review, read-only status and existing approvals compatible. Multiple/video references and shared reference editing remain subsequent tickets.
 
 ## 2.13.12 — 2026-10-14
 

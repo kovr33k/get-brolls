@@ -80,6 +80,7 @@ a.source-link-card:hover{border-color:var(--accent)}
 .review-panel .confirm-review[disabled]{opacity:.55;cursor:not-allowed}
 .export-done:empty{display:none}
 .export-done{flex-basis:100%;box-sizing:border-box;margin:8px 0 0;padding:9px 11px;background:#e4eddf;border:1px solid #33552a;border-radius:6px;color:#33552a;font:13px/1.45 system-ui,Arial,sans-serif}
+.review-summary .export-done{white-space:normal;flex-wrap:wrap;overflow-wrap:anywhere}
 
 /* Galeria. */
 .gallery-head{display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap}

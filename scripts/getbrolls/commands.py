@@ -348,6 +348,7 @@ FLOW_SUMMARIES = {
         + str(r.get("version"))
         + "."
     ),
+    "graphics-reference-apply": lambda _r: "Saved inspected image reference context; no render was started.",
     "graphics-facts": lambda r: (
         "Saved displayed-fact evidence for graphics "
         + str((r.get("occurrence") or {}).get("occurrence_id") or r.get("occurrence"))
@@ -1707,6 +1708,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         "graphics-approve",
         "graphics-select",
         "graphics-request-complete",
+        "graphics-reference-apply",
         "graphics-facts",
         "graphics-fact-resolve",
         "graphics-audio",
@@ -1734,6 +1736,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             timing_resolve_command,
         )
         from .graphics_continuation import checkpoint_command, continue_command, handoff_command
+        from .graphics_references import apply_command as reference_apply_command
         from .graphics_scenes import content_command
         from .narration import analyze_command, resume_command
 
@@ -1749,6 +1752,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             "graphics-approve": approve_command,
             "graphics-select": select_command,
             "graphics-request-complete": request_complete_command,
+            "graphics-reference-apply": reference_apply_command,
             "graphics-facts": facts_command,
             "graphics-fact-resolve": fact_resolve_command,
             "graphics-audio": audio_command,

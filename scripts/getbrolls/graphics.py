@@ -126,6 +126,7 @@ ASSIGNMENT_FIELDS = (
     "alignment",
     "timeline",
     "scene_content",
+    "reference_context",
 )
 ALIGNMENT_IDENTITY_BLOCKERS = (
     "stale_recording",
@@ -521,6 +522,9 @@ def _validate_assignment_fields(payload, seen_rev, profile):
     from .graphics_continuation import validate_work
 
     validate_work(payload)
+    from .graphics_references import validate_context
+
+    validate_context(payload.get("reference_context"))
 
 
 def _validate_optional_scene(payload, template):
@@ -1374,6 +1378,9 @@ def _validate_fingerprints(version, assignment, style, props):
 
 
 def _validate_optional_fingerprints(fingerprints, version, assignment):
+    from .graphics_references import validate_frozen
+
+    validate_frozen(assignment, fingerprints)
     audio_fp = fingerprints.get("audio")
     if audio_fp is not None:
         _validate_audio_fingerprints(audio_fp, version)
@@ -1601,6 +1608,10 @@ def _validate_request_target(req, graphics, project_id):
     occ = occurrences[req["occurrence_id"]]
     if not isinstance(occ, dict) or occ.get("scene_id") != req["scene_id"]:
         raise ValueError
+    if req.get("kind") == "authoring":
+        if req.get("reviewed_version") is not None or not isinstance(req.get("reference"), dict):
+            raise ValueError
+        return occ, None
     if not isinstance(req.get("reviewed_version"), str) or not VERSION_RE.fullmatch(req["reviewed_version"]):
         raise ValueError
     versions = graphics.get("versions") if isinstance(graphics.get("versions"), dict) else {}
@@ -1619,8 +1630,19 @@ def _validate_processed_result(req, processing, graphics):
         raise ValueError
     if result.get("occurrence_id") != req.get("occurrence_id"):
         raise ValueError
-    if not _is_descendant(versions, resulting, req.get("reviewed_version")):
+    if req.get("kind") == "authoring":
+        if result.get("parent") is not None:
+            raise ValueError
+    elif not _is_descendant(versions, resulting, req.get("reviewed_version")):
         raise ValueError
+    if req.get("reference") is not None:
+        context = _as_dict(_as_dict(result.get("assignment")).get("reference_context"))
+        if (
+            context.get("request_id") != req["id"]
+            or context.get("reference") != req["reference"]
+            or context.get("prompt") != req["text"]
+        ):
+            raise ValueError
 
 
 def _validate_request_processing(req, graphics):
@@ -1657,6 +1679,10 @@ def _validate_request(req, graphics, seen_ids, project_id=None):
     if req.get("state") not in ("saved", "processed", "stale"):
         raise ValueError
     _validate_request_processing(req, graphics)
+    if "reference" in req:
+        from .graphics_references import validate_reference
+
+        validate_reference(req["reference"])
 
 
 def _validate_requests(graphics, project_id=None):
@@ -2293,7 +2319,7 @@ def graphics_content_payload(version):
         "style_sha256": fingerprints.get("style_sha256"),
         "props_sha256": fingerprints.get("props_sha256"),
     }
-    for key in ("audio", "facts", "background", "alignment"):
+    for key in ("audio", "facts", "background", "alignment", "references"):
         value = fingerprints.get(key)
         if value is not None:
             payload[key] = value
@@ -2433,6 +2459,9 @@ def _declared_fingerprint_files(version):
     declared.extend(_declared_runtime_files(fingerprints))
     declared.extend(_declared_audio_files(fingerprints))
     declared.extend(_declared_background_files(fingerprints))
+    declared.extend(
+        (item["frozen_ref"], item["sha256"]) for item in _as_dict(fingerprints.get("references")).get("files") or []
+    )
     return declared
 
 
@@ -3210,6 +3239,10 @@ def graphics_delivery_progress(data, root=None):
 
 
 def _request_stale_reason(req, graphics):
+    if req.get("kind") == "authoring":
+        from .graphics_references import stale_initial
+
+        return stale_initial(req, graphics)
     occurrences = graphics.get("occurrences") if isinstance(graphics.get("occurrences"), dict) else {}
     versions = graphics.get("versions") if isinstance(graphics.get("versions"), dict) else {}
     occ = occurrences.get(req.get("occurrence_id"))
@@ -3218,6 +3251,8 @@ def _request_stale_reason(req, graphics):
         return "stale_target"
     if occ.get("current_version") != req.get("reviewed_version"):
         return "current_version_mismatch"
+    if _as_dict(occ.get("reference_context")).get("request_id") == req.get("id") and req.get("id"):
+        return None
     if _assignment_changed(version.get("assignment"), occ):
         return "assignment_mismatch"
     return None
@@ -3250,6 +3285,7 @@ def _public_requests(graphics):
                 "text": req.get("text"),
                 "processing": req.get("processing"),
                 "reason": reason,
+                **({key: req[key] for key in ("kind", "reference", "content_sha256") if key in req}),
             }
         )
     return rows
@@ -3264,6 +3300,7 @@ def _request_identity(req):
         "content_sha256": req.get("content_sha256"),
         "text": req.get("text"),
         "scope": req.get("scope"),
+        **({key: req[key] for key in ("kind", "reference") if key in req}),
     }
 
 
@@ -3401,8 +3438,12 @@ def graphics_review_records(ledger, project):
                     "versions": occ_versions,
                     "requests": occ_requests,
                     "context": _review_frozen_context(version, root=ledger.root),
+                    **({"reference": matched["reference"]} if matched and matched.get("reference") else {}),
                 }
             )
+    from .graphics_references import initial_rows
+
+    records.extend(initial_rows(graphics, project))
     return records
 
 
@@ -3636,7 +3677,7 @@ def _changes_scope(ctx, row, ident):
     return scope
 
 
-def _request_payload(project_id, version, comment, scope, content):
+def _request_payload(project_id, version, comment, scope, content, *, reference=None):  # noqa: PLR0913 - Preserve the canonical legacy target fields and add optional image identity.
     return {
         "project_id": project_id,
         "scene_id": version["scene_id"],
@@ -3645,6 +3686,7 @@ def _request_payload(project_id, version, comment, scope, content):
         "content_sha256": content,
         "text": comment.strip(),
         "scope": scope,
+        **({"reference": copy.deepcopy(reference)} if reference is not None else {}),
     }
 
 
@@ -3752,9 +3794,15 @@ def _apply_graphics_changes(ctx, target):
     scope = _changes_scope(ctx, row, ident)
     if scope is None:
         return
-    payload = _request_payload(ctx["project_id"], version, target["comment"], scope, target["content"])
+    payload = _request_payload(
+        ctx["project_id"], version, target["comment"], scope, target["content"], reference=row.get("reference")
+    )
     supplied = row.get("requestId")
-    request_id = supplied if isinstance(supplied, str) and _valid_id(supplied) else derive_request_id(payload)
+    request_id = (
+        supplied
+        if row.get("reference") is None and isinstance(supplied, str) and _valid_id(supplied)
+        else derive_request_id(payload)
+    )
     existing_payload = dict(payload)
     if _sha256(row.get("signature")):
         existing_payload["content_sha256"] = row.get("signature")
@@ -3777,6 +3825,7 @@ def _apply_graphics_changes(ctx, target):
             "scope": scope,
             "state": "stale" if stale else "saved",
             "processing": None,
+            **({"reference": copy.deepcopy(row["reference"])} if row.get("reference") is not None else {}),
         }
     )
     _archive_current_approval(version)
@@ -3828,9 +3877,14 @@ def _reuse_existing_changes(ctx, target):
         target["comment"],
         scope,
         row.get("signature") if _sha256(row.get("signature")) else target["content"],
+        reference=row.get("reference"),
     )
     supplied = row.get("requestId")
-    request_id = supplied if isinstance(supplied, str) and _valid_id(supplied) else derive_request_id(payload)
+    request_id = (
+        supplied
+        if row.get("reference") is None and isinstance(supplied, str) and _valid_id(supplied)
+        else derive_request_id(payload)
+    )
     existing = _lookup_request(ctx["working"], request_id)
     if existing is None:
         return False
@@ -3862,7 +3916,20 @@ def _resolve_graphics_row(ctx, row):
     return {"ident": ident, "version": version, "content": content, "state": state, "comment": comment, "row": row}
 
 
-def _apply_one_graphics_row(ctx, row):
+def _apply_one_graphics_row(ctx, row):  # noqa: PLR0911 - Initial targets and invalid references add explicit early refusals to legacy dispatch.
+    from .graphics_references import checked_image, import_initial
+
+    if isinstance(row, dict) and row.get("initial") is True:
+        import_initial(ctx, row)
+        return
+    if isinstance(row, dict) and row.get("reference") is not None and row.get("state") == "changes":
+        try:
+            checked_image(ctx["root"], row["reference"])
+            if row.get("scope", "scene") != "scene":
+                raise ValueError("Image-reference requests currently target one scene.")
+        except (ValueError, OSError) as exc:
+            _skip_row(ctx["skipped"], row.get("id"), "invalid_reference", str(exc))
+            return
     target = _resolve_graphics_row(ctx, row)
     if target is None:
         return
@@ -4211,8 +4278,19 @@ def _complete_result_version(graphics, found, version_id):
         raise ValueError("A versão resultante precisa existir e estar completa.")
     if result.get("occurrence_id") != found.get("occurrence_id"):
         raise ValueError("A versão resultante não pertence à occurrence do pedido. Nada foi retargetado.")
-    if not _is_descendant(versions, version_id, found.get("reviewed_version")):
+    if found.get("kind") == "authoring":
+        if result.get("parent") is not None:
+            raise ValueError("Initial authoring must complete against its initial version.")
+    elif not _is_descendant(versions, version_id, found.get("reviewed_version")):
         raise ValueError("A versão resultante precisa ser uma descendente completa distinta da versão revisada.")
+    if found.get("reference") is not None:
+        context = _as_dict(_as_dict(result.get("assignment")).get("reference_context"))
+        if (
+            context.get("request_id") != found["id"]
+            or context.get("reference") != found["reference"]
+            or context.get("prompt") != found["text"]
+        ):
+            raise ValueError("The resulting version did not freeze this reference request.")
     return result
 
 
@@ -4447,6 +4525,7 @@ def _inherit_occurrence_records(root, occurrence, previous):
         "work",
         "timeline",
         "scene_content",
+        "reference_context",
     ):
         if isinstance(previous.get(key), dict):
             if key == "timeline" and occurrence["template"] != "timeline":
@@ -5249,10 +5328,15 @@ def _fail_version(record, occ, ledger, exc, staging):
 
 
 def render_command(ledger, args):  # noqa: C901, PLR0912, PLR0915 - staging first, then freeze, verify, publish
+    from .graphics_references import checked_image
+    from .graphics_references import freeze as freeze_reference
+
     graphics = ledger.data.get("graphics")
     if not isinstance(graphics, dict) or args.occurrence not in graphics.get("occurrences", {}):
         raise ValueError("Unknown graphics occurrence. Register it with graphics-assign first.")
     occ = graphics["occurrences"][args.occurrence]
+    if isinstance(occ.get("reference_context"), dict):
+        checked_image(ledger.root, occ["reference_context"]["reference"])
     status = runtime_status()
     worker, kind = _worker_path()
     audio_record = occ.get("audio") if isinstance(occ.get("audio"), dict) else None
@@ -5335,6 +5419,10 @@ def render_command(ledger, args):  # noqa: C901, PLR0912, PLR0915 - staging firs
         fingerprints["facts"] = {"sha256": _payload_hash(assignment["facts"])}
     if isinstance(assignment.get("alignment"), dict):
         fingerprints["alignment"] = {"sha256": _payload_hash(assignment["alignment"])}
+    if isinstance(assignment.get("reference_context"), dict):
+        from .graphics_references import frozen_record
+
+        fingerprints["references"] = frozen_record(assignment["reference_context"])
     record = {
         "id": version_id,
         "occurrence_id": occ["occurrence_id"],
@@ -5389,6 +5477,8 @@ def render_command(ledger, args):  # noqa: C901, PLR0912, PLR0915 - staging firs
         frozen_worker = version_dir / "inputs" / worker.name
         _copy_checked(worker, frozen_worker, runtime["worker_sha256"])
         _freeze_refs(version_dir, ref_pairs, mapping)
+        if isinstance(assignment.get("reference_context"), dict):
+            fingerprints["references"] = freeze_reference(ledger.root, version_dir, assignment["reference_context"])
         if audio_record is not None:
             from .graphics_audio import freeze_audio
 
@@ -6736,7 +6826,7 @@ def _storyboard_pending_changes(frozen, current, root=None):
 
 
 def _matching_saved_request(occ_requests, version_id, comment):
-    for req in occ_requests:
+    for req in reversed(occ_requests):
         if not isinstance(req, dict):
             continue
         if req.get("reviewed_version") == version_id and (req.get("text") or "") == (comment or ""):
@@ -6792,6 +6882,10 @@ GRAPHICS_REVIEW_PANEL = (
     '<div class="review-fields" hidden>'
     '<label>What to change<textarea data-graphics-comment rows="3" maxlength="8000"'
     ' placeholder="Describe the revision or approval statement…"></textarea></label>'
+    '<label>Image reference<input type="file" data-graphics-reference accept="image/png,image/jpeg,.png,.jpg,.jpeg"></label>'
+    "<small>PNG or JPEG · up to 16 MiB / 20 megapixels. Describe what to take from the image. "
+    "Saving keeps it in the project; processing starts after your chat instruction.</small>"
+    '<div class="graphics-reference-preview" data-graphics-reference-preview role="status"></div>'
     '<label class="graphics-shared-scope"><input type="checkbox" data-graphics-shared>'
     " Apply this change to all graphics (shared)</label>"
     '<button class="confirm-review" type="button" hidden>Confirm change request</button>'
@@ -7059,9 +7153,7 @@ def storyboard_section(ledger):  # noqa: PLR0915 - One ordered section preserves
                 "provider, media preview or human approval. Pending or failed assignments cannot be approved.</p>"
             )
             details.extend(_storyboard_failed_version(version) for version in failed_versions)
-            parts.append(
-                '<details class="graphics-details"><summary>Details</summary>' + "".join(details) + "</details>"
-            )
+            parts.append(GRAPHICS_REVIEW_PANEL.replace("<!-- graphics-details -->", "".join(details)))
         else:
             parts.append('<div class="graphics-versions">')
             for version in complete_versions:

@@ -87,10 +87,75 @@
       state: GRAPHICS_STATES.includes(prior?.state) ? prior.state : "pending",
       comment: typeof prior?.comment === "string" ? prior.comment : "",
       scope: graphicsScope(prior?.scope, req?.scope || row.scope),
+      reference: prior?.reference || row.reference || null,
+      referenceSaved: prior?.referenceSaved === true || !!row.reference,
       updatedAt: typeof prior?.updatedAt === "string" ? prior.updatedAt : undefined,
     };
   }
   const alignmentDecisions = {};
+  const referenceFiles = new Map();
+  const referencePreviews = new Map();
+  const referenceSelectionNote = "Image selected, not saved. Describe its use, confirm the request, then Save decisions.";
+  let referenceSaving = false;
+  function referencePreview(panel, row) {
+    const box = panel?.querySelector("[data-graphics-reference-preview]");
+    if (!box) return;
+    box.textContent = "";
+    const selected = referenceFiles.get(row.id);
+    const decision = graphicsDecisions[row.id];
+    const reference = decision.reference;
+    const status = panel.querySelector("[data-graphics-status]");
+    if (!selected && status?.textContent === referenceSelectionNote) status.textContent = "";
+    const shared = panel.querySelector("[data-graphics-shared]");
+    if (shared) {
+      const localOnly = row.initial === true || !!selected || !!reference;
+      shared.disabled = localOnly;
+      if (shared.parentElement) shared.parentElement.hidden = localOnly;
+      if (localOnly) { shared.checked = false; decision.scope = "scene"; }
+    }
+    if (!selected && !reference) return;
+    const image = document.createElement("img");
+    image.alt = "Image reference";
+    const uploaded = referencePreviews.get(row.id);
+    image.src = selected ? selected.url : uploaded?.ref === reference.ref ? uploaded.url :
+      "/__graphics-reference/" + reference.ref.split("/").pop();
+    box.append(image);
+    const label = document.createElement("span");
+    label.textContent = selected
+      ? selected.file.name + " · selected, not saved"
+      : reference.name + (decision.referenceSaved ? " · saved in project" : " · uploaded; save the request");
+    box.append(label);
+  }
+  async function uploadReferences() {
+    const save = window.GETBROLLS_SAVE;
+    if (!save?.referenceUrl || !save.token) throw new Error("Open Storyboard through the local server to save image references.");
+    for (const [id, selected] of referenceFiles) {
+      const row = graphicsRows.find(item => item.id === id);
+      const decision = graphicsDecisions[id];
+      if (!row || decision.state !== "changes" || !decision.comment.trim()) {
+        throw new Error("Describe the image's intended use and confirm the request before saving.");
+      }
+      if (decision.scope !== "scene") throw new Error("Image reference requests currently target one scene.");
+      const metadata = Object.fromEntries(
+        ["id", "project", "scene_id", "occurrence_id", "version", "signature", "reviewEpoch", "initial"].map(key => [key, row[key]])
+      );
+      metadata.name = selected.file.name;
+      const response = await fetch(save.referenceUrl, {
+        method: "POST",
+        headers: { [save.header]: save.token, "X-GetBrolls-Reference": encodeURIComponent(JSON.stringify(metadata)), "Content-Type": "application/octet-stream" },
+        body: selected.file,
+      });
+      const answer = await response.json();
+      if (!response.ok) throw new Error(answer.error || "Image upload failed; the draft was preserved.");
+      if (referenceFiles.get(id) !== selected) throw new Error("The selected reference changed during transfer. Save the current draft again.");
+      decision.reference = answer.reference;
+      decision.referenceSaved = false;
+      referencePreviews.set(id, {ref: answer.reference.ref, url: selected.url});
+      referenceFiles.delete(id);
+      persist();
+    }
+    paintGraphics();
+  }
   for (const row of alignmentRows) {
     const old = savedAlignment[row.id];
     const prior =
@@ -911,11 +976,17 @@
       );
       const approve = panel.querySelector('[data-graphics-decision="approved"]');
       if (approve) approve.disabled = !canApprove(row);
+      if (approve) approve.hidden = row.initial === true;
+      const change = panel.querySelector('[data-graphics-decision="changes"]');
+      if (change) change.textContent = row.initial ? "Prepare first version" : "Needs changes";
+      referencePreview(panel, row);
       if (status && !panel.dataset.asking) status.textContent = "";
     }
     function rebind() {
       const next = graphicsRowByVersion(occurrence, display?.value) || rows.find((row) => row.current) || rows[0];
       boundId = next.id;
+      const imageInput = panel?.querySelector("[data-graphics-reference]");
+      if (imageInput) imageInput.value = "";
       if (compare && compare.value === display?.value) compare.value = "";
       resetTransientAction();
       showSelected();
@@ -940,6 +1011,28 @@
     const fields = panel.querySelector(".review-fields");
     const toggle = panel.querySelector(".comment-toggle");
     const confirm = panel.querySelector(".confirm-review");
+    const imageInput = panel.querySelector("[data-graphics-reference]");
+    if (imageInput) {
+      imageInput.disabled = !window.GETBROLLS_SAVE?.referenceUrl;
+      imageInput.title = "PNG/JPEG, up to 16 MiB and 20 megapixels; local server required.";
+      imageInput.onchange = () => {
+        const file = imageInput.files?.[0];
+        if (!file) return;
+        if (file.size > (window.GETBROLLS_SAVE.referenceMaxBytes || 16777216)) {
+          status.textContent = "The image exceeds 16 MiB; choose a smaller PNG/JPEG.";
+          return;
+        }
+        const old = referenceFiles.get(boundId);
+        if (old) URL.revokeObjectURL(old.url);
+        const uploaded = referencePreviews.get(boundId);
+        if (uploaded) URL.revokeObjectURL(uploaded.url);
+        referencePreviews.delete(boundId);
+        referenceFiles.set(boundId, { file, url: URL.createObjectURL(file) });
+        graphicsDecisions[boundId].referenceSaved = false;
+        referencePreview(panel, selectedRow());
+        status.textContent = referenceSelectionNote;
+      };
+    }
     function reveal(open) {
       if (fields) fields.hidden = !open;
       toggle?.setAttribute("aria-expanded", String(open));
@@ -1051,6 +1144,9 @@
       const display = card.querySelector("[data-graphics-display]");
       const compare = card.querySelector("[data-graphics-compare]");
       if (display) paintVersionPanes(card, display.value, compare?.value);
+      const row = graphicsRowByVersion(card.dataset.occurrence, display?.value) ||
+        graphicsRows.find(item => item.occurrence_id === card.dataset.occurrence && item.current);
+      if (row) referencePreview(card.querySelector(".graphics-review-panel"), row);
     });
   }
   function mountGraphics() {
@@ -1110,7 +1206,7 @@
   function exportGraphicsRow(row) {
     const decision = graphicsDecisions[row.id];
     const scope = decision.scope === "shared" ? "shared" : "scene";
-    return {
+    const payload = {
       ...row,
       signature: row.signature,
       reviewEpoch: row.reviewEpoch,
@@ -1119,10 +1215,26 @@
       scope: decision.state === "changes" && scope === "shared" ? "shared" : "scene",
       requestId: exportRequestId(row, decision),
     };
+    delete payload.reference;
+    if (decision.state === "changes" && decision.reference) payload.reference = decision.reference;
+    return payload;
   }
   function exportReview() {
     const note = (text) =>
       document.querySelectorAll("[data-storage-status]").forEach((el) => (el.textContent = text));
+    if (referenceSaving) return;
+    if (referenceFiles.size) {
+      referenceSaving = true;
+      note("Uploading image references to the project…");
+      uploadReferences().then(() => {
+        referenceSaving = false;
+        exportReview();
+      }).catch(error => {
+        referenceSaving = false;
+        note(error.message || "Reference transfer failed; the draft is preserved.");
+      });
+      return;
+    }
     for (const d of Object.values(decisions)) {
       if (["changes", "alternative"].includes(d.state) && !d.comment.trim()) {
         note("A change request needs a comment. Open that clip and describe the changes.");
@@ -1198,6 +1310,18 @@
           return response.json();
         })
         .then((answer) => {
+          for (const row of graphicsRows) {
+            const decision = graphicsDecisions[row.id];
+            const sent = result.graphics.find(item => item.id === row.id);
+            if (sent?.reference && decision.reference === sent.reference && !referenceFiles.has(row.id)) {
+              decision.referenceSaved = true;
+              const uploaded = referencePreviews.get(row.id);
+              if (uploaded) URL.revokeObjectURL(uploaded.url);
+              referencePreviews.delete(row.id);
+            }
+          }
+          persist();
+          paintGraphics();
           note("");
           announce(
             "Decisions saved to the project (" +
@@ -1207,10 +1331,18 @@
           );
         })
         .catch(() => {
+          if (result.graphics?.some(row => row.reference)) {
+            note("The reference request was not saved to the project. Keep this draft and retry; no media package was downloaded.");
+            return;
+          }
           // Servidor fora do ar ou recusa: cai no download, que nunca depende dele.
           note("Could not save to the project; downloaded the file instead.");
           download(result);
         });
+      return;
+    }
+    if (result.graphics?.some(row => row.reference)) {
+      note("Image references require the local Storyboard server. Open the project there and save again.");
       return;
     }
     download(result);

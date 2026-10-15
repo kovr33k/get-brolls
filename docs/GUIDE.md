@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-14
+updated: 2026-10-15
 tags: [get-brolls, guide, installation, providers, storyboard, graphics]
 ---
 
@@ -1044,6 +1044,16 @@ Executar nesta ordem:
 Não ler nem imprimir cookies, `.env`, browser credential stores ou tokens. Usar signed CDN URLs já capturadas em `.conf` como fonte operacional temporária. A solicitação de coleta autoriza a captura das URLs do post na sessão indicada. Reutilize essa autorização; peça acesso somente se faltar sessão/autorização necessária. A captura é temporária e operada pelo agente, conforme a seção [Instagram pelo navegador](#instagram--navegadorplaywright-dois-streams-e-mp4).
 
 ## Graphics
+
+### Saved image references
+
+Open Storyboard through the local `serve` command. On a planned scene choose **Prepare first version**; on a retained preview choose **Needs changes**. Describe what to adopt in **What to change**, choose one **Image reference**, confirm the request and click **Save decisions**. This stage supports a PNG/JPEG image up to 16 MiB and 20 megapixels, validated by its actual content and full image decoding. Multiple files, video intervals, shared reference scope and active-reference removal are later tickets. A directly opened HTML page keeps ordinary JSON review, but cannot transfer a new image into the project.
+
+The thumbnail first says **selected, not saved**, then distinguishes uploaded bytes from a request saved in the project. A transfer/save failure retains the draft and explains that the reference request was not saved; downloading ordinary JSON is not a substitute for media transfer. A repeated identical save/import reuses the same request. The copied original survives moving the external file. Changed/missing project bytes, changed assignments, stale versions and foreign targets are refused without retargeting.
+
+After saving, ask the managing agent in chat to process the request. `import-review` and `status` expose its original prompt and content-bound `reference` descriptor. A pre-render request has `kind: authoring`, the assignment signature and no reviewed version; a revision retains its actual reviewed version. Inspect the saved image first, then record the actual adopted characteristics with `graphics-reference-apply --request ID --analysis "what was actually inspected and adopted" --project PROJECT`. This records context without launching analysis or rendering. Author the requested changes through the normal scene tools and run `graphics-render`; finish with `graphics-request-complete --request ID --version VERSION --outcome "actual result" --project PROJECT`.
+
+The new version freezes the reference bytes, original prompt and analysis independently of the rendered composition. A reference is a design example, not automatically inserted media or a source of factual values. Existing narration, verified data, old versions and their signatures remain intact, and the new result needs its own human approval. Saving/uploading/importing or opening the page never starts semantic analysis, rendering, paid requests or delegation. The agent's inspection and resulting preview remain separate from technical file checks and human visual acceptance.
 
 ### Selected maps and custom authoring
 
