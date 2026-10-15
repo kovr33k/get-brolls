@@ -28,11 +28,15 @@ def handoff_command(ledger, args):
             raise ValueError("Revision request must identify this exact occurrence.")
         if request.get("processing") is not None or request.get("state") != "saved":
             raise ValueError("Revision request was already processed; do not replay it.")
-        if request.get("reviewed_version") != occurrence.get("current_version"):
+        if request.get("kind") == "authoring":
+            if g._request_stale_reason(request, graphics):
+                raise ValueError("Initial reference assignment changed; preserve the original request.")
+        elif request.get("reviewed_version") != occurrence.get("current_version"):
             raise ValueError("Select the actually reviewed version before restoring an older-version request.")
-        reviewed = graphics["versions"][request["reviewed_version"]]
-        if request["content_sha256"] != g.graphics_content_sha256(reviewed):
-            raise ValueError("Reviewed version content changed; preserve the stale request.")
+        if request.get("reviewed_version") is not None:
+            reviewed = graphics["versions"][request["reviewed_version"]]
+            if request["content_sha256"] != g.graphics_content_sha256(reviewed):
+                raise ValueError("Reviewed version content changed; preserve the stale request.")
     refs = g._assignment_input_refs(occurrence)
     pairs = g._confine_refs(ledger.root, refs, g.INPUT_PREFIXES)
     versions = {
@@ -124,7 +128,9 @@ def validate_work(occurrence):
 def assignment_signature(occurrence):
     from .graphics import ASSIGNMENT_FIELDS, _payload_hash
 
-    return _payload_hash({key: occurrence.get(key) for key in ASSIGNMENT_FIELDS})
+    return _payload_hash(
+        {key: occurrence.get(key) for key in ASSIGNMENT_FIELDS if key != "reference_context" or key in occurrence}
+    )
 
 
 def _repair_meaning_changed(previous, current):

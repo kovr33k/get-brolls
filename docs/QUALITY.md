@@ -2,11 +2,11 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-14
+updated: 2026-10-15
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.13.12
+# Qualidade e evidências — GET B-ROLLS 2.14.0
 
 Este documento resume a qualidade atual e os limites das evidências. Relatórios cronológicos, URLs públicas de amostras e resultados de versões anteriores ficam no [arquivo de evidências](archive/quality-evidence-through-2026-10-07.md). Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
@@ -41,6 +41,14 @@ The [numeric graphics checkpoint](MOTION-GRAPHICS-ACCEPTANCE.md) maps all sixtee
 The [graphics pilot checkpoint](GRAPHICS-PILOT-ACCEPTANCE.md) records six exact current-version visual approvals across five concept types, three narration-backed scene deliveries with separate VO and retained editable sources, and direct human confirmation of all three pairs in Resolve at 30 fps. The other three concepts remain estimated visual drafts. Single-context sequential production replaces delegation as a requirement of this accepted pilot. Older contexts, versions, requests and approvals remain historical records. These statements establish the bounded supplied-material test, not an all-five-concept narration-backed production montage.
 
 Storyboard observations cover per-piece version numbers, one visible piece, cyclic pending navigation, saved decisions and representative video posters without moving the playback clocks. All eight saved versions in the main pilot remained intact; all three delivered source packages and six media files were checked. Private originals, paths and acceptance statements are retained outside distribution. Final integration still requires the associated PR's complete Windows checks and a local post-merge verification; the issue closure records identify that integrated evidence.
+
+## Saved image references — 2026-10-15 (2.14.0 candidate)
+
+Seven synthetic-image HTTP/CLI journeys pass for initial authoring and exact-version revisions, copied PNG/JPEG bytes, reopen/import, immutable reference context, retained history, conflicting prompts and targets, malformed input and missing or changed files. Combined final focused results cover **65 passing tests**: seven reference journeys, 21 graphics-review tests, eleven graphics-media workflow tests, 24 Storyboard tests and two CLI-surface checks. Ruff, formatting, Pyright, version/mirror, relative links and JavaScript syntax pass.
+
+The preceding full local Windows run exercised **1,616 tests with 32 skips** and found two failures: the intentional CLI addition needed its golden fixture updated, and an untouched initial graphics row incorrectly made a refused alignment import look successful. Both were corrected and their affected checks pass. A new same-prompt image regression also needed its synthetic source regenerated before reuse; all seven reference tests then passed. This is combined verification evidence, not a claim of one completely green full run after the corrections. Required PR Windows CI remains an integration gate.
+
+Actual local-browser observations cover native file selection, transfer/save and reopened prompts/thumbnails for a planned scene and a complete v1, distinct selected/saved feedback, and mobile layout without horizontal overflow at a 375-pixel viewport. Node regressions additionally cover version-bound image drafts and upload/save refusals without a misleading JSON-media fallback. The reference is independently frozen and excluded from composition media and the editable-delivery binary allowlist. Tests use synthetic files and the fixture renderer; no paid analysis or production render was launched. Reference-matching quality and integrated human visual acceptance remain separate, with final acceptance in [#79](https://github.com/kovr33k/get-brolls/issues/79).
 
 ## What each evidence layer establishes
 

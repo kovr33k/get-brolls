@@ -24,6 +24,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Literal, TypeAlias, cast
+from urllib.parse import unquote
 
 DEFAULT_PORT = 8767
 
@@ -34,6 +35,7 @@ SAVE_PATH = "/__save"
 PING_PATH = "/__ping"
 # Mesmo teto do `import-review`: um board legítimo não passa disso.
 MAX_SAVE_BYTES = 2000000
+MAX_REFERENCE_HEADER = 16000
 PID_FILE = ".serve.pid"
 LOG_FILE = ".serve.log"
 # O log da rodada anterior fica guardado em `.serve.log.1`, cortado no último 1 MB:
@@ -249,11 +251,14 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         origin = self.headers.get("Origin")
         return not (origin and origin != f"http://{host}")
 
-    def do_POST(self):  # noqa: PLR0911 - existing size; one route per POST endpoint, one early return per refusal/response
+    def do_POST(self):  # noqa: C901, PLR0911 - Shared local authentication precedes explicit JSON-save and bounded-image routes.
         if not self._local_request():
             self._refuse(403, "Pedido de outra origem; este servidor só atende esta máquina.")
             return
-        if self.path.split("?")[0] != SAVE_PATH:
+        from .graphics_references import UPLOAD_PATH
+
+        route = self.path.split("?")[0]
+        if route not in (SAVE_PATH, UPLOAD_PATH):
             self._refuse(404, "Endereço desconhecido.")
             return
         token = self.headers.get(TOKEN_HEADER) or ""
@@ -262,6 +267,9 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         # cabeçalho qualquer não pode virar 500, é só mais um token errado.
         if not expected or not token.isascii() or not hmac.compare_digest(token, expected):
             self._refuse(403, "Token da sessão ausente ou inválido.")
+            return
+        if route == UPLOAD_PATH:
+            self._upload_reference()
             return
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -288,7 +296,13 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         if not isinstance(data, dict):
             self._refuse(400, "O corpo precisa ser um objeto JSON.")
             return
-        path = save_review(Path(self.directory), data)
+        from .graphics_references import save_review as save_reference_review
+
+        try:
+            path = save_reference_review(Path(self.directory), data, save_review)
+        except (ValueError, OSError) as exc:
+            self._refuse(400, str(exc))
+            return
         body = json.dumps({"path": str(path), "name": path.name}, ensure_ascii=False).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -296,7 +310,35 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def send_head(self):
+    def _upload_reference(self):
+        from .graphics_references import MAX_IMAGE_BYTES, NAME_HEADER, upload
+
+        self.connection.settimeout(15)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            if not 0 < length <= MAX_IMAGE_BYTES or self.headers.get("Transfer-Encoding"):
+                self.close_connection = True
+                self._refuse(413, "Supply one PNG/JPEG image up to 16 MiB.")
+                return
+            raw = self.headers.get(NAME_HEADER, "")
+            if len(raw) > MAX_REFERENCE_HEADER:
+                raise ValueError("Reference metadata is too large.")
+            metadata = json.loads(unquote(raw, errors="strict"))
+            if not isinstance(metadata, dict):
+                raise ValueError("Reference metadata must identify the displayed scene.")
+            ref = upload(Path(self.directory), self.rfile, length, metadata)
+        except (ValueError, OSError) as exc:
+            self.close_connection = True
+            self._refuse(400, str(exc))
+            return
+        body = json.dumps({"reference": ref}, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_head(self):  # noqa: PLR0911 - Private refusals, ping, review, saved references and ordinary preview files stay distinct.
         import io
 
         self._accept_byte_ranges = False
@@ -325,8 +367,23 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             return io.BytesIO(body)
-        # O token vive só na memória do servidor e na página servida por ele: quem
-        # abrir o review.html direto do disco continua com o caminho do download.
+        if self.path.startswith("/__graphics-reference/"):
+            from .graphics_references import served_image
+
+            try:
+                path = served_image(
+                    Path(self.directory), self.path.split("?")[0].removeprefix("/__graphics-reference/")
+                )
+                stream = path.open("rb")
+            except (ValueError, OSError):
+                return self._head_error(404, "Unknown saved image reference.")
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png" if path.suffix == ".png" else "image/jpeg")
+            self.send_header("Content-Length", str(path.stat().st_size))
+            self.end_headers()
+            return stream
+        # The token lives only in memory and pages served by this local session;
+        # opening review.html directly from disk keeps the ordinary JSON download.
         if self.path.split("?")[0] in ("/review.html", "/"):
             page = Path(self.directory) / "review.html"
             if page.is_file():
@@ -471,6 +528,7 @@ def _inject_token(page, token):
         + json.dumps(TOKEN_HEADER)
         + ',"token":'
         + json.dumps(token)
+        + ',"referenceUrl":"/__graphics-reference","referenceMaxBytes":16777216'
         + "};</script>"
     )
     if "</head>" in page:
