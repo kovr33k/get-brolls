@@ -2,13 +2,16 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-15
+updated: 2026-10-16
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+- Design documentation: consolidate the [AI production interview](docs/DESIGN-AI-GENERATION.md) into an [accepted first-version contract](docs/SPEC-AI-GENERATION.md). After shared scenario routing to B-roll, Remotion or AI, offer three alternatives for each AI beat, with selection and an optional comment. Default to three descriptions, with optional three-image comparison. Include image/video references, prompt-led changes, direct Storyboard launches and automatic updates. Retain exact-still approval before video, actual recorded-narration coverage, suitable atmosphere/effects and separate narration. Prefer GPT/Grok subscriptions; confirm each paid OpenRouter launch, including a corrective generation. Preserve versions and recovery, with at most one corrective generation for an observed defect. Record [subscription-capacity limits](docs/research/GPT-IMAGE-SUBSCRIPTION-LIMITS.md) and a [provider-route feasibility audit](docs/research/AI-SUBSCRIPTION-ROUTES.md), separating documented/source-level capability from live media and Resolve acceptance. Consolidated design and scope were accepted on 2026-10-16; implementation and live acceptance remain to be completed.
+- Research: record the [AI generation donor UI and pipeline assessment](docs/research/AI-GENERATION-UI-PIPELINES.md), separating existing interfaces, CLI-only revision workflows, reference/keyframe roles, variant reuse, request-bound estimates and proposed Storyboard extensions. Runtime behavior is unchanged.
 
 ## 2.14.0 — 2026-10-15
 

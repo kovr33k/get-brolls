@@ -8,9 +8,13 @@ tags: [get-brolls, catalogs, motion-graphics, domain-model]
 
 # Get-brolls domain language
 
-Domain terms used when designing searches and authored graphics for scenario fragments. Catalog-specific routes are described in [SOURCE-CATALOGS.md](docs/SOURCE-CATALOGS.md); user-facing wording is covered by [glossario.md](references/glossario.md).
+Domain terms used when designing searches, authored graphics and AI production for scenario fragments. Catalog-specific routes are described in [SOURCE-CATALOGS.md](docs/SOURCE-CATALOGS.md); user-facing wording is covered by [glossario.md](references/glossario.md).
 
 ## Language
+
+**Narrative beat**:
+A meaningful unit of original scenario text used to plan its visual treatment and route work to the relevant production module.
+_Avoid_: Search query, fixed-duration clip, generated asset
 
 **Search fragment**:
 A portion selected directly from the original scenario as one visual search task. Its scope is chosen according to meaning.
@@ -89,3 +93,45 @@ _Avoid_: Graphics approval, completed revision
 **Graphics sound effect**:
 A sound selected for a visual event in a graphics scene, with its timing and level belonging to that scene version.
 _Avoid_: Voice-over, background music
+
+## AI production language
+
+**AI-generated asset**:
+A model-generated image or video proposed as visual material for a scenario fragment.
+_Avoid_: Documentary source, graphics scene
+
+**AI still approval**:
+A human editorial decision accepting a specific AI-generated image as the visual input for video production.
+_Avoid_: Graphics approval, video approval, generation success
+
+**AI visual style**:
+The agreed project-wide appearance that guides AI-generated assets, including realism, palette and lighting.
+_Avoid_: Individual image prompt, graphics template, provider preset
+
+**AI image revision request**:
+A natural-language request to change a selected AI-generated image, stating what is unsatisfactory or what should change.
+_Avoid_: Image approval, completed edit, new unrelated concept
+
+**AI sequence**:
+An ordered set of one or more AI-generated clips intended to cover a scenario fragment's narration interval.
+_Avoid_: Single provider response, complete chapter, narration recording
+
+**AI scene alternative**:
+A distinct visual treatment of a scenario fragment offered for editorial selection.
+_Avoid_: Consecutive shot, approved video, saved revision
+
+**AI economy mode**:
+A scene-comparison mode that presents textual alternatives before generating the chosen image.
+_Avoid_: Lower image quality, cheaper provider, API billing mode
+
+**AI image comparison mode**:
+A scene-comparison mode that presents alternatives as generated images for visual selection.
+_Avoid_: Video approval, automatic animation, consecutive shots
+
+**AI reference**:
+An image or video supplied with editorial instructions to guide an AI scene's appearance, content or motion.
+_Avoid_: Approved animation input, documentary evidence, automatic media inclusion
+
+**AI generation job**:
+A bounded request to produce a specified AI image or clip from identified scene inputs.
+_Avoid_: Editorial approval, scene alternative, resumed download
