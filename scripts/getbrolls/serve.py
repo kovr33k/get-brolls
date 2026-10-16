@@ -311,21 +311,22 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def _upload_reference(self):
-        from .graphics_references import MAX_IMAGE_BYTES, NAME_HEADER, upload
+        from .graphics_references import MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, NAME_HEADER, upload
 
         self.connection.settimeout(15)
         try:
             length = int(self.headers.get("Content-Length") or 0)
-            if not 0 < length <= MAX_IMAGE_BYTES or self.headers.get("Transfer-Encoding"):
-                self.close_connection = True
-                self._refuse(413, "Supply one PNG/JPEG image up to 16 MiB.")
-                return
             raw = self.headers.get(NAME_HEADER, "")
             if len(raw) > MAX_REFERENCE_HEADER:
                 raise ValueError("Reference metadata is too large.")
-            metadata = json.loads(unquote(raw, errors="strict"))
+            metadata = json.loads(unquote(raw, errors="strict")) if raw else {}
             if not isinstance(metadata, dict):
                 raise ValueError("Reference metadata must identify the displayed scene.")
+            limit = MAX_VIDEO_BYTES if metadata.get("kind") == "video" else MAX_IMAGE_BYTES
+            if not 0 < length <= limit or self.headers.get("Transfer-Encoding"):
+                self.close_connection = True
+                self._refuse(413, "Supply PNG/JPEG up to 16 MiB or MP4/H.264 up to 64 MiB.")
+                return
             ref = upload(Path(self.directory), self.rfile, length, metadata)
         except (ValueError, OSError) as exc:
             self.close_connection = True
@@ -374,14 +375,11 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
                 path = served_image(
                     Path(self.directory), self.path.split("?")[0].removeprefix("/__graphics-reference/")
                 )
-                stream = path.open("rb")
             except (ValueError, OSError):
-                return self._head_error(404, "Unknown saved image reference.")
-            self.send_response(200)
-            self.send_header("Content-Type", "image/png" if path.suffix == ".png" else "image/jpeg")
-            self.send_header("Content-Length", str(path.stat().st_size))
-            self.end_headers()
-            return stream
+                return self._head_error(404, "Unknown saved media reference.")
+            if self._apply_byte_range(path):
+                return self._send_byte_range_response(path, alias=True)
+            return self._send_reference_file(path)
         # The token lives only in memory and pages served by this local session;
         # opening review.html directly from disk keeps the ordinary JSON download.
         if self.path.split("?")[0] in ("/review.html", "/"):
@@ -448,15 +446,33 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         self._accept_byte_ranges = True
         return super().send_head()
 
-    def _send_byte_range_response(self, path):
+    def _send_reference_file(self, path):
+        """Full response for an already admitted private media alias."""
+        try:
+            stream = Path(path).open("rb")  # noqa: SIM115 - the HTTP handler owns and closes the returned stream.
+            info = os.fstat(stream.fileno())
+        except OSError:
+            return self._head_error(404, "Unknown saved media reference.")
+        self.send_response(200)
+        self.send_header("Content-Type", self.guess_type(str(path)))
+        self.send_header("Content-Length", str(info.st_size))
+        self.send_header("Last-Modified", self.date_time_string(info.st_mtime))
+        self._accept_byte_ranges = True
+        self.end_headers()
+        return stream
+
+    def _send_byte_range_response(self, path, *, alias=False):
+        def full():
+            return self._send_reference_file(path) if alias else self._send_full_admitted_file()
+
         parsed = _parse_single_byte_range(self.headers.get("Range"))
         if parsed is None:
-            return self._send_full_admitted_file()
+            return full()
         target = Path(path)
         try:
             size = target.stat().st_size
         except OSError:
-            return self._send_full_admitted_file()
+            return full()
         selected = _satisfy_byte_range(parsed, size)
         if selected is None:
             return self._send_unsatisfiable_range(size)
@@ -473,11 +489,7 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         except (OSError, ValueError) as exc:
             if stream is not None:
                 stream.close()
-            return (
-                self._head_error(404, "Não encontrado.")
-                if isinstance(exc, ValueError)
-                else self._send_full_admitted_file()
-            )
+            return self._head_error(404, "Não encontrado.") if isinstance(exc, ValueError) else full()
         length = end - start + 1
         try:
             self.send_response(206)
@@ -528,7 +540,7 @@ def _inject_token(page, token):
         + json.dumps(TOKEN_HEADER)
         + ',"token":'
         + json.dumps(token)
-        + ',"referenceUrl":"/__graphics-reference","referenceMaxBytes":16777216'
+        + ',"referenceUrl":"/__graphics-reference","referenceMaxBytes":16777216,"referenceVideoMaxBytes":67108864,"referenceMaxFiles":8,"referenceTotalMaxBytes":134217728'
         + "};</script>"
     )
     if "</head>" in page:

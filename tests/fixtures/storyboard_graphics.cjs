@@ -465,7 +465,9 @@ function run(scenario) {
     fetch: async (_url, options) => {
       if (_url === scenario.save?.referenceUrl) {
         uploads.push(options.body);
-        return { ok: !scenario.uploadFail, json: async () => scenario.uploadFail ? {error: "Synthetic upload refusal"} : {reference: scenario.reference} };
+        const failed = scenario.uploadFail || uploads.length === scenario.uploadFailAt;
+        return { ok: !failed, json: async () => failed ? {error: "Synthetic upload refusal"} :
+          {reference: scenario.references?.[uploads.length - 1] || scenario.reference} };
       }
       posted.push(JSON.parse(options.body));
       if (scenario.saveFail) throw new Error("offline");
@@ -911,11 +913,66 @@ assert.equal(candidatesOnly.window.wentTo, 0, "manual candidate selection resets
   for (let i = 0; i < 24; i++) await Promise.resolve();
   assert.equal(withImage.uploads.length, 1);
   assert.equal(withImage.posted.length, 1);
-  assert.deepEqual(withImage.posted[0].graphics[0].reference, imageReference);
+  assert.deepEqual(withImage.posted[0].graphics[0].references, [{...imageReference, label: "R1"}]);
   assert.match(imagePanel.querySelector("[data-graphics-reference-preview]").textContent, /saved in project/);
   assert.doesNotMatch(imagePanel.querySelector("[data-graphics-reference-preview]").textContent, /selected, not saved/);
   assert.doesNotMatch(imagePanel.querySelector("[data-graphics-status]").textContent, /selected, not saved/);
   assert.equal(imagePanel.querySelector("[data-graphics-shared]").disabled, true);
+
+  const videoReference = {...imageReference, ref: imageReference.ref.replace(".png", ".mp4"), kind: "video",
+    name: "example.png", duration_s: 6, fps: 10, codec: "h264"};
+  const reopenedInitial = {...v1, id: "graphics:stat-01:initial", initial: true, version: null,
+    state: "changes", comment: "Imported saved R1 and R3 request.", requestId: "grq-new-import",
+    references: [{...imageReference, label: "R1"}, {...videoReference, label: "R3"}]};
+  const reopened = run({graphics:[reopenedInitial],
+    save:{url:"/__save",header:"X-GetBrolls-Token",token:"fixture-token",referenceUrl:"/__graphics-reference"}, store:{
+    "getbrolls-v2-graphics:synthetic-graphics":JSON.stringify({[reopenedInitial.id]:{
+      signature:reopenedInitial.signature, reviewEpoch:reopenedInitial.reviewEpoch,
+      state:"pending", comment:"Older browser draft.", updatedAt:"before-import", requestId:null
+    }})
+  }});
+  reopened.exportButton.click();
+  for (let i = 0; i < 16; i++) await Promise.resolve();
+  const reopenedExport = reopened.posted[0];
+  assert.equal(reopenedExport.graphics[0].state,"changes");
+  assert.equal(reopenedExport.graphics[0].comment,reopenedInitial.comment);
+  assert.deepEqual(reopenedExport.graphics[0].references,reopenedInitial.references);
+  const mixedScenario = {
+    graphics: [{...v1, state: "changes", comment: "Use R1 colors and R2 motion from 3 to 5 seconds."}],
+    references: [imageReference, videoReference, videoReference], uploadFailAt: 2,
+    save: {url: "/__save", header: "X-GetBrolls-Token", token: "fixture-token", referenceUrl: "/__graphics-reference"},
+  };
+  const mixedRefs = run(mixedScenario);
+  const mixedInput = mixedRefs.board.querySelector("[data-graphics-reference]");
+  mixedInput.files = [{name: "example.png", size: 100}, {name: "example.png", type: "video/mp4", size: 200}];
+  mixedInput.onchange();
+  const mixedPreview = mixedRefs.board.querySelector("[data-graphics-reference-preview]");
+  assert.match(mixedPreview.textContent, /R1 · example.png/);
+  assert.match(mixedPreview.textContent, /R2 · example.png/);
+  assert.equal(mixedPreview.querySelectorAll("video").length, 1);
+  mixedPreview.querySelector("video").onerror();
+  assert.match(mixedPreview.textContent, /Browser preview unavailable/);
+  mixedRefs.exportButton.click();
+  for (let i = 0; i < 32; i++) await Promise.resolve();
+  assert.equal(mixedRefs.posted.length, 0, "a partial batch cannot become a saved request");
+  assert.match(mixedRefs.storage.textContent, /Synthetic upload refusal/);
+  mixedRefs.exportButton.click();
+  for (let i = 0; i < 40; i++) await Promise.resolve();
+  assert.equal(mixedRefs.uploads.length, 3, "retry retains the intact first upload");
+  assert.deepEqual(mixedRefs.posted[0].graphics[0].references,
+    [{...imageReference, label: "R1"}, {...videoReference, label: "R2"}]);
+  assert.match(mixedPreview.textContent, /saved in project/);
+  assert.doesNotMatch(mixedPreview.textContent, /selected, not saved/);
+
+  const removedRefs = run({...mixedScenario, uploadFailAt: undefined});
+  const removedInput = removedRefs.board.querySelector("[data-graphics-reference]");
+  removedInput.files = mixedInput.files;
+  removedInput.onchange();
+  const removedPreview = removedRefs.board.querySelector("[data-graphics-reference-preview]");
+  removedPreview.querySelector("button").click();
+  assert.equal(removedPreview.querySelectorAll("video").length, 1);
+  assert.match(removedPreview.textContent, /R2 · example.png/);
+  assert.doesNotMatch(removedPreview.textContent, /R1 ·/);
 
   const imageDrafts = run({
     graphics: [v1, v2],

@@ -1609,7 +1609,7 @@ def _validate_request_target(req, graphics, project_id):
     if not isinstance(occ, dict) or occ.get("scene_id") != req["scene_id"]:
         raise ValueError
     if req.get("kind") == "authoring":
-        if req.get("reviewed_version") is not None or not isinstance(req.get("reference"), dict):
+        if req.get("reviewed_version") is not None or not (req.get("reference") or req.get("references")):
             raise ValueError
         return occ, None
     if not isinstance(req.get("reviewed_version"), str) or not VERSION_RE.fullmatch(req["reviewed_version"]):
@@ -1635,14 +1635,10 @@ def _validate_processed_result(req, processing, graphics):
             raise ValueError
     elif not _is_descendant(versions, resulting, req.get("reviewed_version")):
         raise ValueError
-    if req.get("reference") is not None:
-        context = _as_dict(_as_dict(result.get("assignment")).get("reference_context"))
-        if (
-            context.get("request_id") != req["id"]
-            or context.get("reference") != req["reference"]
-            or context.get("prompt") != req["text"]
-        ):
-            raise ValueError
+    from .graphics_references import context_matches
+
+    if not context_matches(req, _as_dict(result.get("assignment"))):
+        raise ValueError
 
 
 def _validate_request_processing(req, graphics):
@@ -1679,10 +1675,9 @@ def _validate_request(req, graphics, seen_ids, project_id=None):
     if req.get("state") not in ("saved", "processed", "stale"):
         raise ValueError
     _validate_request_processing(req, graphics)
-    if "reference" in req:
-        from .graphics_references import validate_reference
+    from .graphics_references import references
 
-        validate_reference(req["reference"])
+    references(req)
 
 
 def _validate_requests(graphics, project_id=None):
@@ -3285,7 +3280,7 @@ def _public_requests(graphics):
                 "text": req.get("text"),
                 "processing": req.get("processing"),
                 "reason": reason,
-                **({key: req[key] for key in ("kind", "reference", "content_sha256") if key in req}),
+                **({key: req[key] for key in ("kind", "reference", "references", "content_sha256") if key in req}),
             }
         )
     return rows
@@ -3300,7 +3295,7 @@ def _request_identity(req):
         "content_sha256": req.get("content_sha256"),
         "text": req.get("text"),
         "scope": req.get("scope"),
-        **({key: req[key] for key in ("kind", "reference") if key in req}),
+        **({key: req[key] for key in ("kind", "reference", "references") if key in req}),
     }
 
 
@@ -3438,7 +3433,7 @@ def graphics_review_records(ledger, project):
                     "versions": occ_versions,
                     "requests": occ_requests,
                     "context": _review_frozen_context(version, root=ledger.root),
-                    **({"reference": matched["reference"]} if matched and matched.get("reference") else {}),
+                    **({key: matched[key] for key in ("reference", "references") if matched and key in matched}),
                 }
             )
     from .graphics_references import initial_rows
@@ -3677,7 +3672,9 @@ def _changes_scope(ctx, row, ident):
     return scope
 
 
-def _request_payload(project_id, version, comment, scope, content, *, reference=None):  # noqa: PLR0913 - Preserve the canonical legacy target fields and add optional image identity.
+def _request_payload(project_id, version, comment, scope, content, *, row=None):  # noqa: PLR0913 - Preserve the canonical legacy target fields and optional media identity.
+    from .graphics_references import reference_fields
+
     return {
         "project_id": project_id,
         "scene_id": version["scene_id"],
@@ -3686,7 +3683,7 @@ def _request_payload(project_id, version, comment, scope, content, *, reference=
         "content_sha256": content,
         "text": comment.strip(),
         "scope": scope,
-        **({"reference": copy.deepcopy(reference)} if reference is not None else {}),
+        **reference_fields(row or {}),
     }
 
 
@@ -3788,19 +3785,19 @@ def _lookup_request(working, request_id):
 
 
 def _apply_graphics_changes(ctx, target):
+    from .graphics_references import reference_fields
+
     row = target["row"]
     version = target["version"]
     ident = target["ident"]
     scope = _changes_scope(ctx, row, ident)
     if scope is None:
         return
-    payload = _request_payload(
-        ctx["project_id"], version, target["comment"], scope, target["content"], reference=row.get("reference")
-    )
+    payload = _request_payload(ctx["project_id"], version, target["comment"], scope, target["content"], row=row)
     supplied = row.get("requestId")
     request_id = (
         supplied
-        if row.get("reference") is None and isinstance(supplied, str) and _valid_id(supplied)
+        if not reference_fields(row) and isinstance(supplied, str) and _valid_id(supplied)
         else derive_request_id(payload)
     )
     existing_payload = dict(payload)
@@ -3825,7 +3822,7 @@ def _apply_graphics_changes(ctx, target):
             "scope": scope,
             "state": "stale" if stale else "saved",
             "processing": None,
-            **({"reference": copy.deepcopy(row["reference"])} if row.get("reference") is not None else {}),
+            **reference_fields(row),
         }
     )
     _archive_current_approval(version)
@@ -3866,6 +3863,8 @@ def _apply_graphics_changes(ctx, target):
 
 
 def _reuse_existing_changes(ctx, target):
+    from .graphics_references import reference_fields
+
     row = target["row"]
     ident = target["ident"]
     scope = _changes_scope(ctx, row, ident)
@@ -3877,12 +3876,12 @@ def _reuse_existing_changes(ctx, target):
         target["comment"],
         scope,
         row.get("signature") if _sha256(row.get("signature")) else target["content"],
-        reference=row.get("reference"),
+        row=row,
     )
     supplied = row.get("requestId")
     request_id = (
         supplied
-        if row.get("reference") is None and isinstance(supplied, str) and _valid_id(supplied)
+        if not reference_fields(row) and isinstance(supplied, str) and _valid_id(supplied)
         else derive_request_id(payload)
     )
     existing = _lookup_request(ctx["working"], request_id)
@@ -3917,16 +3916,16 @@ def _resolve_graphics_row(ctx, row):
 
 
 def _apply_one_graphics_row(ctx, row):  # noqa: PLR0911 - Initial targets and invalid references add explicit early refusals to legacy dispatch.
-    from .graphics_references import checked_image, import_initial
+    from .graphics_references import checked_references, import_initial, reference_fields
 
     if isinstance(row, dict) and row.get("initial") is True:
         import_initial(ctx, row)
         return
-    if isinstance(row, dict) and row.get("reference") is not None and row.get("state") == "changes":
+    if isinstance(row, dict) and reference_fields(row) and row.get("state") == "changes":
         try:
-            checked_image(ctx["root"], row["reference"])
+            checked_references(ctx["root"], row)
             if row.get("scope", "scene") != "scene":
-                raise ValueError("Image-reference requests currently target one scene.")
+                raise ValueError("Reference requests currently target one scene.")
         except (ValueError, OSError) as exc:
             _skip_row(ctx["skipped"], row.get("id"), "invalid_reference", str(exc))
             return
@@ -4283,14 +4282,10 @@ def _complete_result_version(graphics, found, version_id):
             raise ValueError("Initial authoring must complete against its initial version.")
     elif not _is_descendant(versions, version_id, found.get("reviewed_version")):
         raise ValueError("A versão resultante precisa ser uma descendente completa distinta da versão revisada.")
-    if found.get("reference") is not None:
-        context = _as_dict(_as_dict(result.get("assignment")).get("reference_context"))
-        if (
-            context.get("request_id") != found["id"]
-            or context.get("reference") != found["reference"]
-            or context.get("prompt") != found["text"]
-        ):
-            raise ValueError("The resulting version did not freeze this reference request.")
+    from .graphics_references import context_matches
+
+    if not context_matches(found, _as_dict(result.get("assignment"))):
+        raise ValueError("The resulting version did not freeze this reference request and composition.")
     return result
 
 
@@ -5328,7 +5323,7 @@ def _fail_version(record, occ, ledger, exc, staging):
 
 
 def render_command(ledger, args):  # noqa: C901, PLR0912, PLR0915 - staging first, then freeze, verify, publish
-    from .graphics_references import checked_image
+    from .graphics_references import checked_context
     from .graphics_references import freeze as freeze_reference
 
     graphics = ledger.data.get("graphics")
@@ -5336,7 +5331,7 @@ def render_command(ledger, args):  # noqa: C901, PLR0912, PLR0915 - staging firs
         raise ValueError("Unknown graphics occurrence. Register it with graphics-assign first.")
     occ = graphics["occurrences"][args.occurrence]
     if isinstance(occ.get("reference_context"), dict):
-        checked_image(ledger.root, occ["reference_context"]["reference"])
+        checked_context(ledger.root, occ["reference_context"], occ)
     status = runtime_status()
     worker, kind = _worker_path()
     audio_record = occ.get("audio") if isinstance(occ.get("audio"), dict) else None
@@ -6882,8 +6877,8 @@ GRAPHICS_REVIEW_PANEL = (
     '<div class="review-fields" hidden>'
     '<label>What to change<textarea data-graphics-comment rows="3" maxlength="8000"'
     ' placeholder="Describe the revision or approval statement…"></textarea></label>'
-    '<label>Image reference<input type="file" data-graphics-reference accept="image/png,image/jpeg,.png,.jpg,.jpeg"></label>'
-    "<small>PNG or JPEG · up to 16 MiB / 20 megapixels. Describe what to take from the image. "
+    '<label>References<input type="file" data-graphics-reference multiple accept="image/png,image/jpeg,video/mp4,.png,.jpg,.jpeg,.mp4"></label>'
+    "<small>Up to 8 files / 128 MiB total. PNG/JPEG: 16 MiB / 20 MP each. MP4/H.264: 64 MiB / 4K / 120 fps each. Describe what to take and any video interval; originals stay unchanged. "
     "Saving keeps it in the project; processing starts after your chat instruction.</small>"
     '<div class="graphics-reference-preview" data-graphics-reference-preview role="status"></div>'
     '<label class="graphics-shared-scope"><input type="checkbox" data-graphics-shared>'

@@ -2,11 +2,11 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-15
+updated: 2026-10-16
 tags: [get-brolls, quality, qa, evidence]
 ---
 
-# Qualidade e evidências — GET B-ROLLS 2.14.0
+# Qualidade e evidências — GET B-ROLLS 2.15.0
 
 Este documento resume a qualidade atual e os limites das evidências. Relatórios cronológicos, URLs públicas de amostras e resultados de versões anteriores ficam no [arquivo de evidências](archive/quality-evidence-through-2026-10-07.md). Resultados ao vivo são registros datados, não promessa de disponibilidade futura nem aprovação editorial.
 
@@ -51,6 +51,18 @@ The initial full local Windows run exercised **1,616 tests with 32 skips** and f
 A fresh local post-merge run on `973e7c7` passed **1,617 tests in 609.309 seconds with 32 skips**, with no failures or errors. Global lint, formatting, types, version/mirror, relative links, Bash/PowerShell/JavaScript syntax and whitespace checks also passed. The tested code and dependency files remained unchanged throughout verification. This establishes local technical verification; required PR Windows CI remains a production-publication gate.
 
 Actual local-browser observations cover native file selection, transfer/save and reopened prompts/thumbnails for a planned scene and a complete v1, distinct selected/saved feedback, and mobile layout without horizontal overflow at a 375-pixel viewport. Node regressions additionally cover version-bound image drafts and upload/save refusals without a misleading JSON-media fallback. The reference is independently frozen and excluded from composition media and the editable-delivery binary allowlist. Tests use synthetic files and the fixture renderer; no paid analysis or production render was launched. Reference-matching quality and integrated human visual acceptance remain separate, with final acceptance in [#79](https://github.com/kovr33k/get-brolls/issues/79).
+
+The 2.14.0 delivery was integrated through [PR #80](https://github.com/kovr33k/get-brolls/pull/80), with its required Windows checks passing, and [#75](https://github.com/kovr33k/get-brolls/issues/75) closed. Seven fresh image-reference tests passed locally after the GitHub merge.
+
+## Mixed image/video references — 2026-10-16 (2.15.0 candidate)
+
+The complete local Windows unittest collection was exercised in two groups: **267 graphics tests** (one skip) and **1,354 remaining tests** (31 skips). The first remaining-tests invocation had 12 import-path errors in a private grouping script, not product failures; all three affected test modules passed when rerun through the normal unittest entry point. A fifth mixed-reference journey was then added and passed, bringing the exercised collection to **1,622 distinct tests, 32 skips**. Subsequent affected rechecks cover the final reference code and interface. This is aggregate local evidence, not a claim of one uninterrupted full-suite pass or completed PR CI for 2.15.0.
+
+Five mixed-reference HTTP/CLI journeys cover initial and revision requests, duplicate names and stable labels with gaps, save/reopen/import, noninitial source intervals, explicit whole clips longer than one minute, actual decoding and measurements, unsupported/truncated/corrupt MP4, file/count/total bounds, unchanged manifests after refusals, missing/tampered temporal evidence, original-candidate identity, source clocks, approval/use gates, frozen history and editable-delivery exclusions. Seven legacy single-image journeys remain compatible. Node interface checks cover partial-batch failure/retry, retained successful transfers, stable labels after draft removal, changed saved-request identity on reopening, honest preview errors and refusal of misleading JSON-media fallbacks.
+
+Actual local-browser observations cover the native multiple-file picker, two identically named stills plus a video, removing R2 while preserving R3, a saved image/video request, imported prompt/labels, and native playback of the saved MP4 (320×180, six seconds). At a 375-pixel viewport, document and client widths were both 360 pixels, with no horizontal overflow. The temporary viewport was reset. Browser preview failure is covered by the interface regression, separately from successful real playback.
+
+A synthetic native Remotion render, using the installed locked runtime and prepared browser, places the explicitly selected blue **3–5-second** interval under the authored NumericStat panel. The original's first three seconds are red; decoded output pixels and the viewed Full-HD frame confirm the blue interval, independently of a fixture renderer. The selected source and temporal sheet were inspected. An actual editable delivery excluded design-reference originals and retained restricted composition media through the existing separately-held path. Synthetic approvals and permissions apply only to these test fixtures. No paid semantic service, provider generation, real-client visual acceptance or Resolve acceptance was performed. Human reference-matching acceptance remains in [#79](https://github.com/kovr33k/get-brolls/issues/79).
 
 ## What each evidence layer establishes
 

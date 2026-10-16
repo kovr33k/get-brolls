@@ -69,7 +69,21 @@
               "project_id": {"type": "string", "minLength": 1},
               "scene_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
               "occurrence_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
-              "reviewed_version": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+              "reviewed_version": {"type": ["string", "null"], "pattern": "^v[1-9][0-9]*$"},
+              "kind": {"const": "authoring"},
+              "reference": {"type": "object", "description": "Legacy singular saved PNG/JPEG descriptor; runtime validates bytes and identity."},
+              "references": {
+                "type": "array", "minItems": 1, "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "required": ["label", "ref", "sha256", "name", "kind", "bytes", "width", "height"],
+                  "properties": {
+                    "label": {"type": "string", "pattern": "^R[1-8]$"},
+                    "kind": {"enum": ["image", "video"]}
+                  },
+                  "description": "Stable labelled descriptor. Runtime additionally validates unique labels, actual codec/measurements, source hashes and aggregate bounds."
+                }
+              },
               "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
               "text": {"type": "string", "minLength": 1, "maxLength": 8000},
               "scope": {"enum": ["scene", "shared"]},
@@ -96,6 +110,15 @@
               }
             },
             "allOf": [
+              {"not": {"required": ["reference", "references"]}},
+              {
+                "if": {"properties": {"kind": {"const": "authoring"}}, "required": ["kind"]},
+                "then": {
+                  "properties": {"reviewed_version": {"type": "null"}},
+                  "anyOf": [{"required": ["reference"]}, {"required": ["references"]}]
+                },
+                "else": {"properties": {"reviewed_version": {"type": "string", "pattern": "^v[1-9][0-9]*$"}}}
+              },
               {
                 "if": {"properties": {"state": {"const": "processed"}}, "required": ["state"]},
                 "then": {
