@@ -65,6 +65,7 @@ def handoff_command(ledger, args):  # noqa: C901 - one snapshot boundary checks 
     }
     if occurrence["occurrence_id"] in graphics.get("reference_states", {}):
         from .graphics_reference_context import active, scope_status
+        from .graphics_reference_recovery import work_status as reference_work_status
         from .graphics_references import checked_references
 
         sha, state = active(graphics, occurrence["occurrence_id"])
@@ -72,7 +73,7 @@ def handoff_command(ledger, args):  # noqa: C901 - one snapshot boundary checks 
         packet["active_references"] = {"sha256": sha, **state}
         packet["reference_scopes"] = [
             group
-            for group in scope_status(graphics)
+            for group in scope_status(graphics, work=reference_work_status(ledger.root, graphics))
             if group["source_occurrence_id"] == occurrence["occurrence_id"]
             or any(t["occurrence_id"] == occurrence["occurrence_id"] for t in group["targets"])
         ]
@@ -393,6 +394,10 @@ def _continue_one(ledger, occurrence):
 
 
 def continue_command(ledger, args):
+    if getattr(args, "request", None):
+        from .graphics_reference_recovery import continue_command as continue_reference_request
+
+        return continue_reference_request(ledger, args)
     graphics = ledger.data.get("graphics")
     if not isinstance(graphics, dict):
         raise ValueError("This project has no graphics assignments to continue.")

@@ -192,10 +192,14 @@ def stale(req, graphics):
     return None
 
 
-def decorate(graphics, rows):
-    groups = scope_status(graphics)
+def decorate(graphics, rows, *, root=None):
+    from .graphics_reference_recovery import work_status
+
+    work = work_status(root, graphics)
+    groups = scope_status(graphics, work=work)
     for row in rows:
         row["activeReferences"] = summary(graphics, row["occurrence_id"])
+        row["referenceWork"] = [item for item in work if item["request_id"] == row.get("requestId")]
         version = graphics.get("versions", {}).get(row.get("version"), {})
         frozen = version.get("assignment", {}).get("reference_context") or {}
         row["frozenReferences"] = _refs(frozen)
@@ -517,6 +521,8 @@ def _target_row(ledger, graphics, oid):
 
 def scope_command(ledger, args):  # noqa: C901, PLR0912 - one atomic fixed-scope write with explicit refusal and replay boundaries.
     """Record concrete targets once. Never expand a natural-language 'all'."""
+    from .graphics_reference_recovery import work_status
+
     g = _g()
     path = Path(args.file)
     if path.stat().st_size > media.MAX_REVIEW_BYTES:
@@ -541,7 +547,11 @@ def scope_command(ledger, args):  # noqa: C901, PLR0912 - one atomic fixed-scope
         if existing["resolution_sha256"] != g._payload_hash(spec):
             raise ValueError("This shared scope is already fixed. Create a new request for a different scope.")
         return {
-            "scope": next(s for s in scope_status(graphics) if s["request_id"] == req["id"]),
+            "scope": next(
+                s
+                for s in scope_status(graphics, work=work_status(ledger.root, graphics))
+                if s["request_id"] == req["id"]
+            ),
             "idempotent": True,
             "render_started": False,
         }
@@ -607,7 +617,9 @@ def scope_command(ledger, args):  # noqa: C901, PLR0912 - one atomic fixed-scope
     ledger.data["graphics"] = working
     ledger.save("graphics-reference-scope")
     return {
-        "scope": next(s for s in scope_status(working) if s["request_id"] == req["id"]),
+        "scope": next(
+            s for s in scope_status(working, work=work_status(ledger.root, working)) if s["request_id"] == req["id"]
+        ),
         "idempotent": False,
         "render_started": False,
     }
@@ -673,7 +685,8 @@ def _validate_scopes(graphics):
             raise ValueError("Fixed shared resolution fingerprint changed.")
 
 
-def scope_status(graphics):
+def scope_status(graphics, *, work=None):
+    evidence = {item["request_id"]: item for item in work or []}
     rows = []
     for req in graphics.get("requests", []):
         if req.get("scope") != "shared" or not req.get("reference_change"):
@@ -683,6 +696,8 @@ def scope_status(graphics):
         for target in (group or {}).get("targets", []):
             child = _g()._lookup_request(graphics, target["request_id"]) or {}
             state, reason = _g()._request_effective_state(child, graphics)
+            if evidence.get(target["request_id"], {}).get("state") == "blocked":
+                state, reason = "blocked", "; ".join(evidence[target["request_id"]]["issues"])
             occ = graphics.get("occurrences", {}).get(target["occurrence_id"], {})
             targets.append(
                 {
@@ -699,7 +714,7 @@ def scope_status(graphics):
             else "complete"
             if all(t["state"] == "processed" for t in targets)
             else "conflict"
-            if any(t["state"] == "stale" for t in targets)
+            if any(t["state"] in ("stale", "blocked") for t in targets)
             else "incomplete"
         )
         rows.append(

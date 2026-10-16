@@ -948,6 +948,11 @@ assert.equal(candidatesOnly.window.wentTo, 0, "manual candidate selection resets
     instructions: [{prompt:"Original blue palette.",scope:"scene",bindings:[]},{prompt:"Keep the larger title.",scope:"scene",bindings:[]}]};
   const activeCurrent = {...v2, state:"changes",comment:"Keep the larger title.",scope:"scene",activeReferences:activeSet,
     references:activeSet.references, referenceBase:"aa".repeat(32),reference_change:{base:"aa".repeat(32),result:activeSet.sha256}};
+  const blockedReference = run({graphics:[{...activeCurrent,referenceWork:[{
+    state:"blocked",files:[{label:"R3",state:"changed"}],issues:["reference_changed:R3"]}]}]});
+  const blockedPreview = blockedReference.board.querySelector("[data-graphics-reference-preview]");
+  assert.match(blockedPreview.textContent,/need attention: R3/);
+  assert.match(blockedPreview.textContent,/Preserve the originals/);
   const historicalActive = {...v1,activeReferences:activeSet,frozenReferences:[{...imageReference,label:"R1"}],
     frozenReferenceInstructions:[{prompt:"Frozen blue palette.",scope:"scene",bindings:[]}]};
   const activeBoard = run({graphics:[historicalActive,activeCurrent],references:[{...imageReference,sha256:"dd".repeat(32)}],
@@ -1014,6 +1019,7 @@ assert.equal(candidatesOnly.window.wentTo, 0, "manual candidate selection resets
   assert.equal(mixedPreview.querySelectorAll("video").length, 1);
   mixedPreview.querySelector("video").onerror();
   assert.match(mixedPreview.textContent, /Browser preview unavailable/);
+  assert.doesNotMatch(mixedPreview.textContent, /original remains available/);
   mixedRefs.exportButton.click();
   for (let i = 0; i < 32; i++) await Promise.resolve();
   assert.equal(mixedRefs.posted.length, 0, "a partial batch cannot become a saved request");
@@ -1076,7 +1082,7 @@ assert.equal(candidatesOnly.window.wentTo, 0, "manual candidate selection resets
   });
   referenceFailure.exportButton.click();
   for (let i = 0; i < 16; i++) await Promise.resolve();
-  assert.match(referenceFailure.storage.textContent, /not saved to the project/);
+  assert.match(referenceFailure.storage.textContent, /save was not confirmed; it may already be in the project/);
   assert.equal(referenceFailure.downloaded(), undefined, "a failed reference save is not disguised as a media-package download");
 
   const saved = run({

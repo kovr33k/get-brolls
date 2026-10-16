@@ -461,31 +461,54 @@ def save_review(directory, data, save):
             raise ValueError("Reference review envelope belongs to another project or format.")
         if ledger.pending.exists():
             raise ValueError("A project write is pending; finish it before saving references.")
-        for row in rows:
-            if "referenceBase" in row and row.get("state") == "changes":
-                from .graphics_reference_context import check_row
+        existing = _existing_review(directory, data)
+        if existing:
+            for row in rows:
+                checked_references(directory, row)
+            return existing
+        _validate_review_rows(ledger, rows)
+        return save(directory, data, identity=_submission_identity(data))
 
-                check_row(ledger, row, replay=True)
-                continue
-            if row.get("state") == "pending" and not reference_fields(row):
-                continue
-            if (
-                row.get("state") != "changes"
-                or not _g()._bounded_prose(row.get("comment"))
-                or row.get("scope", "scene") != "scene"
-            ):
-                raise ValueError("A saved reference needs a scene-local change request and a nonblank prompt.")
-            if not checked_references(directory, row):
-                raise ValueError("Save at least one reference with this authoring request.")
-            target(ledger, row)
 
-        return _existing_review(directory, data) or save(directory, data)
+def _validate_review_rows(ledger, rows):
+    for row in rows:
+        if "referenceBase" in row and row.get("state") == "changes":
+            from .graphics_reference_context import check_row
+
+            check_row(ledger, row, replay=True)
+            continue
+        if row.get("state") == "pending" and not reference_fields(row):
+            continue
+        if (
+            row.get("state") != "changes"
+            or not _g()._bounded_prose(row.get("comment"))
+            or row.get("scope", "scene") != "scene"
+        ):
+            raise ValueError("A saved reference needs a scene-local change request and a nonblank prompt.")
+        if not checked_references(ledger.root, row):
+            raise ValueError("Save at least one reference with this authoring request.")
+        target(ledger, row)
+
+
+def _submission_identity(data):
+    return _g()._payload_hash({k: v for k, v in data.items() if k != "exportedAt"})
 
 
 def _existing_review(directory, data):
     folder = _g()._confine_planned(directory, Path(directory) / "reviews")
     canonical = {k: v for k, v in data.items() if k != "exportedAt"}
-    for path in sorted(folder.glob("*.json"), reverse=True)[:32]:
+    stable = folder / ("references-" + _submission_identity(data) + ".json")
+    if stable.exists() or stable.is_symlink():
+        stable = _g()._confine_existing(
+            Path(directory), stable.relative_to(directory).as_posix(), prefixes=("reviews/",)
+        )
+        if stable.stat().st_size > MAX_REVIEW_BYTES:
+            raise ValueError("Saved submission changed; preserve it before retrying.")
+        previous = json.loads(stable.read_text(encoding="utf-8"))
+        if not isinstance(previous, dict) or {k: v for k, v in previous.items() if k != "exportedAt"} != canonical:
+            raise ValueError("Conflicting saved submission; nothing was overwritten.")
+        return stable
+    for path in sorted(folder.glob("[0-9]*.json"), reverse=True)[:32]:
         if path.is_symlink() or path.stat().st_size > MAX_REVIEW_BYTES:
             continue
         try:
@@ -497,7 +520,7 @@ def _existing_review(directory, data):
     return None
 
 
-def served_image(directory, filename):
+def served_image(directory, filename):  # noqa: C901 - manifest and durable/legacy submission claims share one narrow original-file alias.
     """Only originals claimed by this project's saved reviews/manifest are public."""
     refpath = "graphics-data/references/" + filename
     if not REF_RE.fullmatch(refpath):
@@ -505,11 +528,13 @@ def served_image(directory, filename):
     ledger = Ledger(Path(directory).parent, recover=False)
     records = list((ledger.data.get("graphics") or {}).get("requests") or [])
     folder = _g()._confine_planned(directory, Path(directory) / "reviews")
-    for path in sorted(folder.glob("*.json"), reverse=True)[:32]:
+    for path in [*folder.glob("references-*.json"), *sorted(folder.glob("[0-9]*.json"), reverse=True)[:32]]:
         if path.is_symlink() or path.stat().st_size > MAX_REVIEW_BYTES:
             continue
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
+            if path.name.startswith("references-") and path.stem != "references-" + _submission_identity(payload):
+                continue
             if payload.get("project") == ledger.data.get("project_id") and isinstance(payload.get("graphics"), list):
                 records.extend(payload.get("graphics", []))
         except (ValueError, OSError, AttributeError):

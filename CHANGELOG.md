@@ -13,6 +13,7 @@ tags: [get-brolls]
 ## 2.16.0 — 2026-10-16
 
 - Graphics references: retain the active files and original instructions across text-only revisions, with individual remove/replace and stale-base protection. Freeze the effective state, actual instruction resolution and original inspection evidence in each new version. Resolve explicit shared prompts into fixed scene/version/context targets with per-scene exceptions, independent outcomes and visible unresolved/conflict/incomplete states. Replays keep their original scope, other approvals remain unchanged, and saving/resolution stays idle until chat-activated processing.
+- Graphics reference recovery: publish complete submissions atomically and retain one stable file across lost-response retries, without changing the original target. Report uncertain browser saves honestly, refuse truncated or ambiguously framed transfers, and retain successful uploads. Add read-only per-request evidence/recovery status and explicit request-bound continuation, reusing intact results and fixed shared targets without duplicate rendering or narration resubmission. Preserve interrupted journals, partial work and conflicting evidence; register existing background candidates during continuation checks.
 
 ## 2.15.0 — 2026-10-16
 

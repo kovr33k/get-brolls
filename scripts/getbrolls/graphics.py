@@ -1976,7 +1976,9 @@ def graphics_status(data, root=None):
             item["timeline"] = copy.deepcopy(occ["timeline"])
         items.append(item)
     from .graphics_reference_context import scope_status
+    from .graphics_reference_recovery import work_status as reference_work_status
 
+    reference_work = reference_work_status(root, graphics)
     return {
         "occurrences": len(graphics.get("occurrences") or {}),
         "pending": pending,
@@ -1985,7 +1987,9 @@ def graphics_status(data, root=None):
         "current_style_revision": graphics.get("current_style_revision"),
         "items": items,
         "requests": _public_requests(graphics),
-        "reference_scopes": scope_status(graphics),
+        "reference_scopes": scope_status(graphics, work=reference_work),
+        "reference_work": reference_work,
+        "reference_recovery_pending": root is not None and (Path(root) / ".pending-transaction.json").exists(),
         "delivery": graphics_delivery_progress(data, root),
     }
 
@@ -2976,6 +2980,8 @@ def _timing_repair_reasons(occurrence, frozen=None, *, root=None, version=None, 
 
 
 def _facts_audio_reasons(root, occurrence, frozen=None, version=None, items=None, data=None):  # noqa: PLR0913, PLR0917 - Current ledger, frozen version and candidate rights are independent readiness inputs.
+    if items is None and isinstance(data, dict):
+        items = data.get("items")
     reasons = []
     facts_required_block = False
     alignment_unresolved = False
@@ -3496,7 +3502,7 @@ def graphics_review_records(ledger, project):
     records.extend(initial_rows(graphics, project))
     from .graphics_reference_context import decorate
 
-    decorate(graphics, records)
+    decorate(graphics, records, root=ledger.root)
     return records
 
 
@@ -4397,8 +4403,13 @@ def request_complete_command(ledger, args):
     )
     if shared_id:
         from .graphics_reference_context import scope_status
+        from .graphics_reference_recovery import work_status
 
-        answer["reference_scope"] = next(group for group in scope_status(graphics) if group["request_id"] == shared_id)
+        answer["reference_scope"] = next(
+            group
+            for group in scope_status(graphics, work=work_status(ledger.root, graphics))
+            if group["request_id"] == shared_id
+        )
     return answer
 
 

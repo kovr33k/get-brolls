@@ -1157,6 +1157,18 @@
             "--occurrence"
           ],
           "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "request",
+          "help": "Resume this exact saved reference request or its fixed shared targets, reusing intact completed results",
+          "nargs": null,
+          "option_strings": [
+            "--request"
+          ],
+          "required": false
         }
       ]
     },

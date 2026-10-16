@@ -795,9 +795,14 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 help="Consume one of at most two saved scene-code repair attempts after a failed render",
             )
         if name == "graphics-continue":
-            p.add_argument(
+            continuation = p.add_mutually_exclusive_group()
+            continuation.add_argument(
                 "--occurrence",
                 help="Continue only this occurrence; omit to inspect and continue all assignments sequentially",
+            )
+            continuation.add_argument(
+                "--request",
+                help="Resume this exact saved reference request or its fixed shared targets, reusing intact completed results",
             )
         if name == "graphics-checkpoint":
             p.add_argument(

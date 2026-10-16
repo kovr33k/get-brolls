@@ -157,6 +157,15 @@
       line.textContent = `Shared request: ${group.state}. ` + (group.targets.length ? group.targets.map(t => `${t.title || t.occurrence_id}: ${t.state}${t.reason ? " (" + t.reason + ")" : ""} — ${t.instruction}`).join("; ") : "Targets must be resolved in chat before processing.");
       info.append(line);
     }
+    for (const work of row.referenceWork || []) {
+      if (work.state === "blocked") {
+        const warning = document.createElement("p");
+        const missing = work.files.filter(file => file.state !== "available").map(file => file.label);
+        warning.textContent = "Saved reference files, inspection evidence or the rendered result need attention" +
+          (missing.length ? ": " + missing.join(", ") : "") + ". Preserve the originals and ask in chat to recover this request.";
+        info.append(warning);
+      }
+    }
     const uploaded = referencePreviews.get(row.id);
     const entries = [
       ...saved.filter(ref => !selected?.some(entry => entry.label === ref.label)).map(ref => ({ref, label: ref.label, url: uploaded?.find(item => item.ref === ref.ref)?.url})),
@@ -176,7 +185,7 @@
       const label = document.createElement("span");
       label.textContent = (ref?.label || entry.label) + " · " + (entry.file?.name || ref.name) +
         (entry.file ? " · selected, not saved" : historical ? " · frozen in version" : decision.referenceSaved ? " · saved in project" : " · save the changed request");
-      media.onerror = () => { label.textContent += " · Browser preview unavailable; the original remains available for inspection."; };
+      media.onerror = () => { label.textContent += " · Browser preview unavailable. Ask in chat to inspect the saved reference or recover its original."; };
       item.append(media, label);
       if (!historical) {
         const remove = document.createElement("button");
@@ -1494,7 +1503,7 @@
         })
         .catch(() => {
           if (result.graphics?.some(row => row.reference || row.references)) {
-            note("The reference request was not saved to the project. Keep this draft and retry; no media package was downloaded.");
+            note("The reference save was not confirmed; it may already be in the project. Keep this draft and retry the same request; no media package was downloaded.");
             return;
           }
           // Servidor fora do ar ou recusa: cai no download, que nunca depende dele.
