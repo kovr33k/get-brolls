@@ -10,7 +10,7 @@ tags: [get-brolls, ai-generation, storyboard, design, interview]
 
 This document records the design interview for the AI production module. The editor confirmed the consolidated workflow and first-version scope on 2026-10-16. Product/design acceptance does not establish implementation, provider access or real-media acceptance.
 
-The consolidated [first-version contract](SPEC-AI-GENERATION.md) was accepted with this interview on 2026-10-16. It combines the confirmed decisions, shared-workflow integration and acceptance checks. Implementation proceeds under repository workflows; live operations retain their concrete authorization requirements.
+The [formal specification](SPEC-AI-GENERATION.md) carries the accepted product decisions, shared-workflow integration and acceptance checks. Its `to-spec` primary testing boundary and tracker publication were approved on 2026-10-16. Specification work does not authorize implementation or live operations; implementation remains stopped pending a separate explicit assignment.
 
 ## Confirmed starting scope
 
@@ -149,7 +149,7 @@ This concerns reference inspection and applying the requested characteristics; i
 
 The explicit product questions Q1-Q16 are recorded, including the Q3/Q4 revisions. The editor confirmed the consolidated workflow and first-version scope on 2026-10-16. The [first-version contract](SPEC-AI-GENERATION.md) gives a complete example, shared project/Resolve integration and verification boundaries. The [provider-route audit](research/AI-SUBSCRIPTION-ROUTES.md) establishes documentation/source evidence separately from actual media access.
 
-The interview's shared-understanding checkpoint is complete. Implementation preparation can proceed. Concrete account, model, media-quality and Resolve acceptance remain future checks; API and pilot operations still require the accepted concrete authorization rather than treating design acceptance as a blanket paid-generation grant.
+The interview's shared-understanding checkpoint is complete. Formal specification work can proceed. Implementation requires a separate explicit assignment. Concrete account, model, media-quality and Resolve acceptance remain future checks; API and pilot operations require their concrete authorization rather than treating design acceptance as a generation grant.
 
 ## Decision records and glossary
 
