@@ -226,7 +226,8 @@ class GraphicsReferenceRecoveryTests(unittest.TestCase):
                     )
                 retry = {**payload, "exportedAt": "retry after response loss"}
                 answer = post(url + serve.SAVE_PATH, json.dumps(retry).encode(), server.save_token)
-                self.assertEqual(str(stored[0]), answer["path"])
+                self.assertTrue(stored[0].samefile(answer["path"]))
+                self.assertEqual(stored[0].name, answer["name"])
                 with urllib.request.urlopen(url + "/__graphics-reference/" + Path(refs[0]["ref"]).name) as response:
                     self.assertEqual((Path(project) / "brolls" / refs[0]["ref"]).read_bytes(), response.read())
             request = import_saved(project, answer["path"])
