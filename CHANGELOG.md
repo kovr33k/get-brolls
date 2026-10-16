@@ -2,13 +2,17 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-15
+updated: 2026-10-16
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+## 2.15.0 — 2026-10-16
+
+- Graphics references: save up to eight labelled image/video attachments and one prompt for initial authoring or an exact-version revision. Admit actual bounded PNG/JPEG or MP4/H.264 bytes, retain labels after draft removal and successful uploads after a partial transfer, and preserve legacy single-image requests. Add explicit source-interval/whole-clip temporal inspection and per-file analysis with frozen originals and evidence. Explicit background inclusion reuses registered local candidates, source clocks, selection and material-use gates; design originals remain outside editable delivery. Saving/importing never launches analysis or rendering.
 
 ## 2.14.0 — 2026-10-15
 
