@@ -82,6 +82,12 @@ Seven public HTTP/CLI synthetic-media fault journeys cover initial and revision 
 
 An actual local-browser fault harness disconnected the first successful save response after durable publication. The page retained the draft and reported an unconfirmed save; retry returned the same stable JSON filename. Import and replay added exactly one graphics request and kept the two existing versions. Request-bound continuation also verified and reused the previously rendered native Remotion **v2**, with no new render, repair or paid submission. The harness is private test tooling; production has no fault-injection option. All originals, permissions and editorial decisions here are synthetic fixtures. This evidence does not replace final PR Windows checks, human reference-matching or Resolve acceptance.
 
+## Integrated reference acceptance preparation — 2026-10-16 (2.16.0 candidate)
+
+The [reference acceptance checkpoint](GRAPHICS-REFERENCES-ACCEPTANCE.md) maps all 55 stories and 13 parent criteria to automated, browser/native and human evidence. A fresh synthetic project retains three unapproved native Full-HD previews: image-guided initial production, an exact-version mixed-reference revision with the actual blue original **3–5-second** background, and a text-only descendant retaining both references and original data/narration. All three are H.264, 30 fps and two seconds, strictly decoded and measured. Their originals, prompts, analysis limitations, temporal sheet and old-version hashes are retained outside distribution.
+
+The still is an authored geometric palette/layout sketch; the selected video interval is flat blue without audio or fine motion. This demonstrates the stated source-clock/inclusion and retained-direction behavior, not general cinematic style matching. There is no recorded VO in this packet. The existing audio/paired-media and bounded Resolve evidence retains its original scope. Human visual assessment of these actual previews remains pending, as does the final integration decision. Required PR Windows checks apply to the revision being integrated; separate AI-module work is not represented as an already tested combined release.
+
 ## What each evidence layer establishes
 
 | Evidence | Establishes | Does not establish |
