@@ -77,6 +77,7 @@
       old &&
       old.signature === row.signature &&
       old.reviewEpoch === row.reviewEpoch &&
+      (!row.activeReferences || old.referenceBase === row.activeReferences.sha256) &&
       (!row.requestId || old.requestId === row.requestId) &&
       !(old.state === "pending" && !old.updatedAt && row.state !== "pending")
         ? old
@@ -89,9 +90,10 @@
       state: GRAPHICS_STATES.includes(prior?.state) ? prior.state : "pending",
       comment: typeof prior?.comment === "string" ? prior.comment : "",
       scope: graphicsScope(prior?.scope, req?.scope || row.scope),
-      reference: prior?.reference || row.reference || null,
-      references: prior?.references || row.references || null,
-      referenceSaved: prior === row ? !!(row.reference || row.references) : prior?.referenceSaved === true,
+      reference: row.activeReferences ? null : prior?.reference || row.reference || null,
+      references: prior !== row && prior?.references != null ? prior.references : row.activeReferences?.references || row.references || null,
+      referenceBase: row.activeReferences?.sha256 || null,
+      referenceSaved: prior === row ? !!(row.activeReferences || row.reference || row.references) : prior?.referenceSaved === true,
       updatedAt: typeof prior?.updatedAt === "string" ? prior.updatedAt : undefined,
     };
   }
@@ -116,19 +118,51 @@
       if (input) input.value = "";
     }
     const decision = graphicsDecisions[row.id];
-    const saved = savedReferences(decision);
+    const historical = !!row.activeReferences && row.current === false;
+    const saved = historical ? row.frozenReferences || [] : savedReferences(decision);
     const status = panel.querySelector("[data-graphics-status]");
     if (!selected && status?.textContent === referenceSelectionNote) status.textContent = "";
     const shared = panel.querySelector("[data-graphics-shared]");
     if (shared) {
-      const localOnly = row.initial === true || !!selected || saved.length > 0;
+      const localOnly = historical || (!row.activeReferences && (row.initial === true || !!selected || saved.length > 0));
       shared.disabled = localOnly;
       if (shared.parentElement) shared.parentElement.hidden = localOnly;
       if (localOnly) { shared.checked = false; decision.scope = "scene"; }
     }
+    const input = panel.querySelector("[data-graphics-reference]");
+    if (input) input.disabled = historical || !window.GETBROLLS_SAVE?.referenceUrl;
+    let info = panel.querySelector("[data-reference-context]");
+    if (!info) { info = document.createElement("div"); info.dataset.referenceContext = "1"; }
+    if (row.activeReferences) box.append(info);
+    info.textContent = "";
+    const caption = document.createElement("p");
+    caption.textContent = historical ? "Frozen references in this version. Viewing history does not change the active set." :
+      `Active references for future changes · ${row.activeReferences?.instruction_count || 0} earlier instructions retained. Remove or replace individual files; describe any changed instructions in your prompt.`;
+    info.append(caption);
+    const history = historical ? row.frozenReferenceInstructions : row.activeReferences?.instructions;
+    if (history?.length) {
+      const details = document.createElement("details");
+      const title = document.createElement("summary");
+      title.textContent = historical ? "Instructions frozen in this version" : "Earlier instructions";
+      details.append(title);
+      for (const event of history) {
+        const text = document.createElement("p");
+        text.textContent = event.prompt + (event.application ? " — " + event.application : "");
+        details.append(text);
+      }
+      info.append(details);
+    }
+    for (const group of row.referenceScopes || []) {
+      const line = document.createElement("p");
+      line.textContent = `Shared request: ${group.state}. ` + (group.targets.length ? group.targets.map(t => `${t.title || t.occurrence_id}: ${t.state}${t.reason ? " (" + t.reason + ")" : ""} — ${t.instruction}`).join("; ") : "Targets must be resolved in chat before processing.");
+      info.append(line);
+    }
     const uploaded = referencePreviews.get(row.id);
-    const entries = selected || saved.map(ref => ({ref, url: uploaded?.find(item => item.ref === ref.ref)?.url}));
-    entries.forEach((entry, index) => {
+    const entries = [
+      ...saved.filter(ref => !selected?.some(entry => entry.label === ref.label)).map(ref => ({ref, label: ref.label, url: uploaded?.find(item => item.ref === ref.ref)?.url})),
+      ...(historical ? [] : selected || []),
+    ].sort((a,b) => Number(a.label?.slice(1)) - Number(b.label?.slice(1)));
+    entries.forEach(entry => {
       const ref = entry.ref;
       const kind = ref?.kind || entry.kind;
       const item = document.createElement("div");
@@ -141,24 +175,43 @@
       } else media.alt = "Image reference " + (ref?.label || entry.label);
       const label = document.createElement("span");
       label.textContent = (ref?.label || entry.label) + " · " + (entry.file?.name || ref.name) +
-        (selected ? " · selected, not saved" : decision.referenceSaved ? " · saved in project" : " · uploaded; save the request");
+        (entry.file ? " · selected, not saved" : historical ? " · frozen in version" : decision.referenceSaved ? " · saved in project" : " · save the changed request");
       media.onerror = () => { label.textContent += " · Browser preview unavailable; the original remains available for inspection."; };
       item.append(media, label);
-      if (selected) {
+      if (!historical) {
         const remove = document.createElement("button");
         remove.type = "button";
         remove.textContent = "Remove " + entry.label;
         remove.disabled = referenceSaving;
         remove.onclick = () => {
           if (referenceSaving) return;
-          URL.revokeObjectURL(entry.url);
-          selected.splice(index, 1);
+          if (entry.url) URL.revokeObjectURL(entry.url);
+          if (selected) {
+            const at = selected.indexOf(entry);
+            if (at >= 0) selected.splice(at, 1);
+            if (!selected.length) referenceFiles.delete(row.id);
+          }
+          decision.reference = null;
+          decision.references = savedReferences(decision).filter(ref => ref.label !== entry.label);
+          decision.referenceSaved = false;
           const input = panel.querySelector("[data-graphics-reference]");
           if (input) input.value = "";
-          if (!selected.length) referenceFiles.delete(row.id);
+          persist();
           referencePreview(panel, row);
         };
         item.append(remove);
+        const replace = document.createElement("button");
+        replace.type = "button";
+        replace.textContent = "Replace " + entry.label;
+        replace.disabled = referenceSaving || !window.GETBROLLS_SAVE?.referenceUrl;
+        replace.onclick = () => {
+          if (referenceSaving || !input) return;
+          panel.dataset.replaceReference = entry.label;
+          input.multiple = false;
+          input.value = "";
+          input.click();
+        };
+        item.append(replace);
       }
       box.append(item);
     });
@@ -172,11 +225,11 @@
       if (!row || decision.state !== "changes" || !decision.comment.trim()) {
         throw new Error("Describe the references' intended use and confirm the request before saving.");
       }
-      if (decision.scope !== "scene") throw new Error("Reference requests currently target one scene.");
       const metadata = Object.fromEntries(
         ["id", "project", "scene_id", "occurrence_id", "version", "signature", "reviewEpoch", "initial"].map(key => [key, row[key]])
       );
-      const refs = [];
+      if (decision.referenceBase) metadata.referenceBase = decision.referenceBase;
+      let refs = [...savedReferences(decision)];
       for (const entry of selected) {
         if (!entry.ref) {
           metadata.name = entry.file.name;
@@ -191,10 +244,11 @@
           entry.ref = answer.reference;
         }
         if (referenceFiles.get(id) !== selected) throw new Error("The selected references changed during transfer. Save the current draft again.");
+        refs = refs.filter(ref => ref.label !== entry.label);
         refs.push({...entry.ref, label: entry.label});
       }
       decision.reference = null;
-      decision.references = refs;
+      decision.references = refs.sort((a,b) => Number(a.label.slice(1)) - Number(b.label.slice(1)));
       decision.referenceSaved = false;
       referencePreviews.set(id, selected.map(entry => ({ref: entry.ref.ref, url: entry.url})));
       referenceFiles.delete(id);
@@ -1013,7 +1067,10 @@
       const status = panel.querySelector("[data-graphics-status]");
       const readiness = panel.querySelector("[data-graphics-readiness]");
       const requests = panel.querySelector("[data-graphics-requests]");
-      if (comment) comment.value = d.comment;
+      if (comment) {
+        comment.value = d.comment;
+        comment.readOnly = !!row.activeReferences && row.current === false;
+      }
       if (shared) shared.checked = d.scope === "shared";
       if (readiness) readiness.textContent = readinessText(row);
       if (requests) requests.textContent = requestText(row);
@@ -1025,6 +1082,9 @@
       if (approve) approve.hidden = row.initial === true;
       const change = panel.querySelector('[data-graphics-decision="changes"]');
       if (change) change.textContent = row.initial ? "Prepare first version" : "Needs changes";
+      if (change && row.activeReferences) change.disabled = row.current === false;
+      const edit = panel.querySelector("[data-graphics-edit]");
+      if (edit) edit.hidden = row.current === false;
       referencePreview(panel, row);
       if (status && !panel.dataset.asking) status.textContent = "";
     }
@@ -1065,19 +1125,28 @@
         if (referenceSaving) return;
         const files = Array.from(imageInput.files || []);
         if (!files.length) return;
-        if (files.length > 8 || files.reduce((sum, file) => sum + file.size, 0) > 134217728) {
+        const replaceLabel = panel.dataset.replaceReference;
+        delete panel.dataset.replaceReference;
+        imageInput.multiple = true;
+        const retained = savedReferences(graphicsDecisions[boundId]);
+        const previous = referenceFiles.get(boundId) || [];
+        const used = new Set([...retained, ...previous].map(entry => entry.label));
+        if ((replaceLabel && files.length !== 1) || used.size + (replaceLabel ? 0 : files.length) > 8 ||
+            files.reduce((sum, file) => sum + file.size, 0) + retained.filter(ref => ref.label !== replaceLabel && !previous.some(e => e.label === ref.label)).reduce((sum, ref) => sum + ref.bytes, 0) + previous.filter(e => e.label !== replaceLabel).reduce((sum, e) => sum + e.file.size, 0) > 134217728) {
           status.textContent = "Choose at most 8 references and 128 MiB in total.";
           return;
         }
-        const entries = files.map((file, index) => ({file, label: "R" + (index + 1), kind: /\.mp4$/i.test(file.name) || file.type === "video/mp4" ? "video" : "image"}));
+        const entries = files.map(file => {
+          const label = replaceLabel || Array.from({length: 8}, (_, i) => "R" + (i + 1)).find(label => !used.has(label));
+          used.add(label);
+          return {file, label, kind: /\.mp4$/i.test(file.name) || file.type === "video/mp4" ? "video" : "image"};
+        });
         if (entries.some(entry => entry.file.size > (entry.kind === "video" ? 67108864 : 16777216))) {
           status.textContent = "Each PNG/JPEG may be at most 16 MiB; each MP4/H.264 at most 64 MiB.";
           return;
         }
-        releasePreviews(referenceFiles.get(boundId));
-        releasePreviews(referencePreviews.get(boundId));
-        referencePreviews.delete(boundId);
-        referenceFiles.set(boundId, entries.map(entry => ({...entry, url: URL.createObjectURL(entry.file)})));
+        releasePreviews(previous.filter(entry => entry.label === replaceLabel));
+        referenceFiles.set(boundId, [...previous.filter(entry => entry.label !== replaceLabel), ...entries.map(entry => ({...entry, url: URL.createObjectURL(entry.file)}))]);
         graphicsDecisions[boundId].referenceSaved = false;
         referencePreview(panel, selectedRow());
         status.textContent = referenceSelectionNote;
@@ -1101,6 +1170,15 @@
       else if (tooLong) status.textContent = "Keep the comment within 8000 characters.";
       else if (pending) status.textContent = "";
     }
+    const edit = panel.querySelector("[data-graphics-edit]");
+    if (edit) edit.onclick = () => {
+      pending = "changes";
+      panel.dataset.asking = "1";
+      reveal(true);
+      if (confirm) confirm.hidden = false;
+      checkComment();
+      comment?.focus();
+    };
     toggle &&
       (toggle.onclick = () => {
         pending = null;
@@ -1269,6 +1347,38 @@
     delete payload.references;
     if (decision.state === "changes" && decision.reference) payload.reference = decision.reference;
     if (decision.state === "changes" && decision.references) payload.references = decision.references;
+    if (decision.state === "changes" && decision.referenceBase && row.current !== false) {
+      const unchanged = row.referenceBase && decision.comment === row.comment && decision.scope === row.scope &&
+        JSON.stringify(savedReferences(decision)) === JSON.stringify(row.references || []);
+      payload.referenceBase = unchanged ? row.referenceBase : decision.referenceBase;
+      payload.references = savedReferences(decision);
+      delete payload.reference;
+      if (!unchanged) {
+        delete payload.reference_change;
+        delete payload.reference_application;
+        delete payload.shared_request_id;
+      }
+      const unchangedLegacy = row.state === "changes" && !row.reference_change && decision.comment === row.comment &&
+        decision.scope === row.scope && JSON.stringify(savedReferences(decision)) === JSON.stringify(row.activeReferences?.references || []);
+      if (unchangedLegacy) {
+        delete payload.referenceBase;
+        delete payload.references;
+        if (row.references) payload.references = row.references;
+        if (row.reference) payload.reference = row.reference;
+      }
+    }
+    if (row.activeReferences && row.current === false && decision.state === "changes") {
+      payload.state = "pending";
+      delete payload.reference;
+      delete payload.references;
+      delete payload.referenceBase;
+      delete payload.reference_change;
+      delete payload.reference_application;
+      delete payload.shared_request_id;
+    }
+    if (row.activeReferences && row.state === "approved" && decision.state === row.state && decision.comment === row.comment) {
+      payload.state = "pending";
+    }
     return payload;
   }
   function exportReview() {

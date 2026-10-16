@@ -1461,7 +1461,7 @@
           "choices": null,
           "default": null,
           "dest": "analysis",
-          "help": "Actual analysis of a legacy single-image request",
+          "help": "Actual still-image analysis, or effective instructions reusing intact earlier analyses",
           "nargs": null,
           "option_strings": [
             "--analysis"
@@ -1593,6 +1593,60 @@
             "--frames"
           ],
           "required": false
+        }
+      ]
+    },
+    "graphics-reference-scope": {
+      "help": "Freeze concrete shared reference targets and per-scene instructions; never render",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "request",
+          "help": "Saved shared reference request id",
+          "nargs": null,
+          "option_strings": [
+            "--request"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "file",
+          "help": "JSON resolution and concrete targets with occurrence_id, references and instruction",
+          "nargs": null,
+          "option_strings": [
+            "--file"
+          ],
+          "required": true
         }
       ]
     },

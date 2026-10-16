@@ -28,6 +28,7 @@ MAX_REVIEW_BYTES = 2_000_000
 MAX_FILES = 8
 MAX_REQUEST_BYTES = 128 * 1024 * 1024
 CONTEXT_SCHEMA = 2
+ACTIVE_CONTEXT_SCHEMA = 3
 INTERVAL_TOLERANCE = 0.02
 REF_RE = re.compile(r"graphics-data/references/([0-9a-f]{64})\.(png|jpg|mp4)\Z")
 
@@ -94,7 +95,14 @@ def references(record):
     if not fields:
         return []
     values = fields["references"]
-    if not isinstance(values, list) or not 1 <= len(values) <= MAX_FILES:
+    minimum = (
+        0
+        if "reference_change" in record
+        or "referenceBase" in record
+        or record.get("schema_version") == ACTIVE_CONTEXT_SCHEMA
+        else 1
+    )
+    if not isinstance(values, list) or not minimum <= len(values) <= MAX_FILES:
         raise ValueError("A reference request needs 1–8 attachments.")
     labels = set()
     for ref in values:
@@ -133,6 +141,11 @@ def checked_image(root, ref):
 
 def validate_context(context):
     if context is None:
+        return
+    if isinstance(context, dict) and context.get("schema_version") == ACTIVE_CONTEXT_SCHEMA:
+        from .graphics_reference_context import validate_context as validate_active_context
+
+        validate_active_context(context)
         return
     if isinstance(context, dict) and context.get("schema_version") == CONTEXT_SCHEMA:
         _validate_plural_context(context)
@@ -211,6 +224,18 @@ def context_matches(request, assignment):
     context = assignment.get("reference_context") or {}
     if not reference_fields(request):
         return True
+    if request.get("reference_change") and context.get("active_state_sha256") != request["reference_change"]["result"]:
+        return False
+    shared_id = request.get("shared_request_id") or (
+        request["id"] if request.get("reference_change") and request.get("scope") == "shared" else None
+    )
+    if shared_id and (context.get("shared_scope") or {}).get("request_id") != shared_id:
+        return False
+    if (
+        request.get("reference_application")
+        and (context.get("shared_scope") or {}).get("application") != request["reference_application"]
+    ):
+        return False
     if (
         context.get("request_id") != request["id"]
         or context.get("prompt") != request["text"]
@@ -254,7 +279,15 @@ def initial_rows(graphics, project):
                 "comment": latest.get("text", ""),
                 **({"requestId": latest["id"]} if latest else {}),
                 **reference_fields(latest),
-                "scope": "scene",
+                **(
+                    {
+                        key: latest[key]
+                        for key in ("reference_change", "reference_application", "shared_request_id")
+                        if key in latest
+                    }
+                ),
+                **({"referenceBase": latest["reference_change"]["base"]} if latest.get("reference_change") else {}),
+                "scope": latest.get("scope", "scene"),
                 "requests": requests,
                 "context": {"narration": occ.get("narration"), "timing": occ.get("timing")},
             }
@@ -320,7 +353,7 @@ def _probe(path, extension):
     return width, height
 
 
-def upload(directory, stream, length, metadata):  # noqa: C901, PLR0915 - serialized bounded transfer, decode and atomic content-addressed publication.
+def upload(directory, stream, length, metadata):  # noqa: C901, PLR0912, PLR0915 - serialized bounded transfer, target/base checks, decode and atomic publication.
     """Bounded raw media transfer; no request, analysis or manifest mutation."""
     kind = metadata.get("kind", "image")
     if kind not in ("image", "video") or not 0 < length <= (MAX_VIDEO_BYTES if kind == "video" else MAX_IMAGE_BYTES):
@@ -331,6 +364,11 @@ def upload(directory, stream, length, metadata):  # noqa: C901, PLR0915 - serial
         if ledger.pending.exists():
             raise ValueError("A project write is pending. Finish it with the CLI before saving references.")
         target(ledger, metadata)
+        if "referenceBase" in metadata:
+            from .graphics_reference_context import active
+
+            if active(ledger.data["graphics"], metadata["occurrence_id"])[0] != metadata["referenceBase"]:
+                raise ValueError("Active references changed. Reopen the scene before uploading this draft.")
         name = metadata.get("name")
         if not isinstance(name, str) or not name.strip() or len(name) > MAX_NAME or re.search(r"[\x00-\x1f\x7f]", name):
             raise ValueError("Invalid reference display name.")
@@ -404,7 +442,11 @@ def save_review(directory, data, save):
     graphics_rows = data.get("graphics")
     if not isinstance(graphics_rows, list):
         return save(directory, data)
-    rows = [row for row in graphics_rows if isinstance(row, dict) and (reference_fields(row) or row.get("initial"))]
+    rows = [
+        row
+        for row in graphics_rows
+        if isinstance(row, dict) and (reference_fields(row) or row.get("initial") or "referenceBase" in row)
+    ]
     if not rows:
         return save(directory, data)
     with project_lock(Path(directory).parent):
@@ -420,6 +462,11 @@ def save_review(directory, data, save):
         if ledger.pending.exists():
             raise ValueError("A project write is pending; finish it before saving references.")
         for row in rows:
+            if "referenceBase" in row and row.get("state") == "changes":
+                from .graphics_reference_context import check_row
+
+                check_row(ledger, row, replay=True)
+                continue
             if row.get("state") == "pending" and not reference_fields(row):
                 continue
             if (
@@ -540,6 +587,10 @@ def apply_command(ledger, args):
     g = _g()
     graphics = ledger.data.get("graphics") or {}
     req = g._find_request(graphics, args.request)
+    if req.get("reference_change"):
+        from .graphics_reference_context import apply_command as apply_active
+
+        return apply_active(ledger, args)
     if not reference_fields(req) or req.get("state") == "processed":
         raise ValueError("Select an unprocessed saved reference request.")
     checked_references(ledger.root, req)

@@ -1711,6 +1711,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         "graphics-request-complete",
         "graphics-reference-apply",
         "graphics-reference-inspect",
+        "graphics-reference-scope",
         "graphics-facts",
         "graphics-fact-resolve",
         "graphics-audio",
@@ -1738,6 +1739,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             timing_resolve_command,
         )
         from .graphics_continuation import checkpoint_command, continue_command, handoff_command
+        from .graphics_reference_context import scope_command as reference_scope_command
         from .graphics_references import apply_command as reference_apply_command
         from .graphics_references import inspect_command as reference_inspect_command
         from .graphics_scenes import content_command
@@ -1757,6 +1759,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
             "graphics-request-complete": request_complete_command,
             "graphics-reference-apply": reference_apply_command,
             "graphics-reference-inspect": reference_inspect_command,
+            "graphics-reference-scope": reference_scope_command,
             "graphics-facts": facts_command,
             "graphics-fact-resolve": fact_resolve_command,
             "graphics-audio": audio_command,

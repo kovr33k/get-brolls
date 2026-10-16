@@ -950,7 +950,8 @@ class GraphicsStoryboardUiTests(unittest.TestCase):
                 "The count later claims thirty units." in page,
                 "current unrendered narration missing",
             )
-            self.assertIn("Apply this change to all graphics (shared)", page)
+            self.assertIn("Apply to other scenes as described in the prompt", page)
+            self.assertNotIn("Apply this change to all graphics (shared)", page)
             self.assertIn('data-decision="rejected"', page)
             self.assertNotIn('data-graphics-decision="rejected"', page)
             css = (ROOT / "assets" / "storyboard.css").read_text(encoding="utf-8")
