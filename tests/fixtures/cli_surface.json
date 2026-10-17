@@ -78,6 +78,343 @@
         }
       ]
     },
+    "ai-approve": {
+      "help": "Record an explicit human decision on one saved AI still; generation is not approval",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "version",
+          "help": "Saved AI still version id from status.ai or the Storyboard",
+          "nargs": null,
+          "option_strings": [
+            "--version"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "by",
+          "help": "Name of the person who reviewed this exact still",
+          "nargs": null,
+          "option_strings": [
+            "--by"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "approved",
+            "changes",
+            "rejected"
+          ],
+          "default": null,
+          "dest": "decision",
+          "help": "Explicit human decision for the displayed still; selecting a description is not approval",
+          "nargs": null,
+          "option_strings": [
+            "--decision"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "comment",
+          "help": "Optional review comment bound to this exact version",
+          "nargs": null,
+          "option_strings": [
+            "--comment"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "signature",
+          "help": "Displayed version signature; refuse if the still changed",
+          "nargs": null,
+          "option_strings": [
+            "--signature"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "ai-generate-still": {
+      "help": "Create one durable GPT-subscription still job from the selected economy scene after explicit launch",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "beat",
+          "help": "AI beat id whose selected alternative will generate one still",
+          "nargs": null,
+          "option_strings": [
+            "--beat"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "request_id",
+          "help": "Stable request identity for this launch; a repeated identical click reuses the saved job",
+          "nargs": null,
+          "option_strings": [
+            "--request-id"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "expected",
+          "help": "Saved beat fingerprint; refuse if the scenario or style changed",
+          "nargs": null,
+          "option_strings": [
+            "--expected"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "ai-plan": {
+      "help": "Register original-scenario routing and three textual AI alternatives; does not generate media",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "file",
+          "help": "JSON object with original scenario, agreed AI visual style and routed narrative beats",
+          "nargs": null,
+          "option_strings": [
+            "--file"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "ai-resume": {
+      "help": "Resume a saved AI still job without silently resubmitting an unknown outcome",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "job",
+          "help": "Saved AI job id; unknown submissions are not sent again",
+          "nargs": null,
+          "option_strings": [
+            "--job"
+          ],
+          "required": true
+        }
+      ]
+    },
+    "ai-select": {
+      "help": "Save an AI beat's selected alternative, comment and comparison mode; does not generate",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "beat",
+          "help": "AI beat id from ai-plan",
+          "nargs": null,
+          "option_strings": [
+            "--beat"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "alternative",
+          "help": "One of the three saved scene alternative ids",
+          "nargs": null,
+          "option_strings": [
+            "--alternative"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "comment",
+          "help": "Optional direction for the selected alternative; does not launch generation",
+          "nargs": null,
+          "option_strings": [
+            "--comment"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "economy",
+            "images"
+          ],
+          "default": null,
+          "dest": "mode",
+          "help": "Scene comparison mode; economy is the default and the only still-launch route",
+          "nargs": null,
+          "option_strings": [
+            "--mode"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "expected",
+          "help": "Saved beat fingerprint; refuse if the scenario or style changed",
+          "nargs": null,
+          "option_strings": [
+            "--expected"
+          ],
+          "required": false
+        }
+      ]
+    },
     "approve": {
       "help": "Registrar aprovação humana já recebida para o intervalo atual",
       "options": [

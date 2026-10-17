@@ -513,6 +513,7 @@ def render(ledger, *, ready_only=False):
                 "narration": None,
             }
         )
+    from .ai import storyboard_section as ai_storyboard_section
     from .graphics import storyboard_section as graphics_storyboard_section
     from .ledger import atomic_write
     from .narration import storyboard_section as narration_storyboard_section
@@ -526,7 +527,8 @@ def render(ledger, *, ready_only=False):
                 story_items,
                 extra_html=_search_preface(ledger, compact=ready_only)
                 + graphics_storyboard_section(ledger)
-                + narration_storyboard_section(ledger),
+                + narration_storyboard_section(ledger)
+                + ai_storyboard_section(ledger),
             ),
             ledger,
             records,

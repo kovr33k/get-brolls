@@ -517,6 +517,15 @@ def _has_preview(c):
     return any((c.get("preview") or {}).get(key) for key in PREVIEW_ARTIFACTS)
 
 
+def _has_ai_choices(data):
+    ai = data.get("ai")
+    return (
+        isinstance(ai, dict)
+        and bool(ai.get("plan"))
+        and any(isinstance(beat, dict) and beat.get("active") for beat in (ai.get("beats") or {}).values())
+    )
+
+
 def rules_from_flags(template, mode, responsible, declaration, video_format=None):
     """Reescreve só o bloco ```json do modelo, preservando toda a prosa do arquivo."""
     blocks = re.findall(r"```json\s*\n(.*?)\n```", template, re.DOTALL)
@@ -1355,6 +1364,7 @@ def _flow_next(ledger, rules):
 
 def status_report(ledger, rules=None, rules_error=None, queue=None):
     """Onde o projeto está, por etapa. Somente leitura: não grava nada."""
+    from .ai import public_status as ai_status
     from .fragment_search import progress
     from .graphics import graphics_status
     from .narration import narration_status
@@ -1398,7 +1408,11 @@ def status_report(ledger, rules=None, rules_error=None, queue=None):
             )
         ),
         # Mesmo aviso de `review`: a página existe mas não tem o que revisar.
-        "warnings": ([EMPTY_STORYBOARD] if review_page.is_file() and not counts["previews"] else []),
+        "warnings": (
+            [EMPTY_STORYBOARD]
+            if review_page.is_file() and not counts["previews"] and not _has_ai_choices(ledger.data)
+            else []
+        ),
         # `None` enquanto não houver um brief válido para contar (ausente ou inválido).
         "brief": (
             None
@@ -1448,6 +1462,7 @@ def status_report(ledger, rules=None, rules_error=None, queue=None):
         "queue": queue,
         "graphics": graphics_status(ledger.data, ledger.root),
         "narration": narration_status(ledger.data, ledger.root),
+        "ai": ai_status(ledger.data, ledger.root),
         "review_page": str(review_page) if review_page.is_file() else None,
         "journal": {
             **status_journal(ledger.root),
@@ -1718,7 +1733,23 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         "graphics-background",
         "narration-match",
         "graphics-timing-resolve",
+        "ai-plan",
+        "ai-select",
+        "ai-generate-still",
+        "ai-approve",
+        "ai-resume",
     ):
+        if cmd.startswith("ai-"):
+            from . import ai as ai_commands
+
+            return {
+                "ai-plan": ai_commands.plan_command,
+                "ai-select": ai_commands.select_command,
+                "ai-generate-still": ai_commands.generate_still_command,
+                "ai-approve": ai_commands.approve_command,
+                "ai-resume": ai_commands.resume_command,
+            }[cmd](ledger, args)
+
         from .graphics import (
             approve_command,
             assign_command,
@@ -2151,7 +2182,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         return result
     if cmd == "review":
         page = render(ledger, ready_only=args.ready_only)
-        if not any(_has_preview(c) for c in ledger.data["items"]):
+        if not any(_has_preview(c) for c in ledger.data["items"]) and not _has_ai_choices(ledger.data):
             # Publicar uma página sem nada para decidir manda a pessoa abrir uma URL
             # à toa. O aviso aparece aqui e em `status`, no mesmo código.
             record_warning("EMPTY_STORYBOARD", EMPTY_STORYBOARD)

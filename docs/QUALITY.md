@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-15
+updated: 2026-10-16
 tags: [get-brolls, quality, qa, evidence]
 ---
 
@@ -51,6 +51,10 @@ The initial full local Windows run exercised **1,616 tests with 32 skips** and f
 A fresh local post-merge run on `973e7c7` passed **1,617 tests in 609.309 seconds with 32 skips**, with no failures or errors. Global lint, formatting, types, version/mirror, relative links, Bash/PowerShell/JavaScript syntax and whitespace checks also passed. The tested code and dependency files remained unchanged throughout verification. This establishes local technical verification; required PR Windows CI remains a production-publication gate.
 
 Actual local-browser observations cover native file selection, transfer/save and reopened prompts/thumbnails for a planned scene and a complete v1, distinct selected/saved feedback, and mobile layout without horizontal overflow at a 375-pixel viewport. Node regressions additionally cover version-bound image drafts and upload/save refusals without a misleading JSON-media fallback. The reference is independently frozen and excluded from composition media and the editable-delivery binary allowlist. Tests use synthetic files and the fixture renderer; no paid analysis or production render was launched. Reference-matching quality and integrated human visual acceptance remain separate, with final acceptance in [#79](https://github.com/kovr33k/get-brolls/issues/79).
+
+## AI stills — 2026-10-16 (issue #83)
+
+Local public-workflow coverage for economy scene choice and one GPT-subscription still uses a synthetic `codex app-server` transport, synthetic PNG/JPEG and the authenticated loopback Storyboard. That establishes routing, three alternatives, frozen jobs, duplicate request identity, unknown-submit refusal, decoded hashes and exact-still review. It does not establish ChatGPT account entitlement, actual `savedPath` media from a live login, image quality or Resolve acceptance. Those remain a separately authorized pilot.
 
 ## What each evidence layer establishes
 

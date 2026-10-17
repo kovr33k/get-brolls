@@ -7,7 +7,7 @@ metadata:
   type: "skill"
   status: "current"
   created: "2026-09-15"
-  updated: "2026-10-15"
+  updated: "2026-10-16"
   tags: "b-roll, youtube, instagram, tiktok, storyboard"
 ---
 
@@ -119,6 +119,8 @@ Registre as condições com `permit` (`--evidence`, `--preset` ou `--declared-by
 Gráficos numéricos opcionais são registros explícitos do projeto, nunca candidatos inventados. `search`, `help` e `status` funcionam sem o runtime Remotion. Diagnóstico: `graphics-doctor` (e `--prepare-browser` só quando for preparar o Chromium local). `--scene` é a identidade da cena; `--template numeric-stat` é a composição. Estilo proposto e render local: [Graphics](${CLAUDE_PLUGIN_ROOT}/docs/GUIDE.md#graphics). Um render completo não é aprovação humana nem entrega.
 
 Para produzir ou continuar motion graphics, ou processar revisões e imagens de referência salvas no Storyboard, leia primeiro [Sequential graphics production](${CLAUDE_PLUGIN_ROOT}/references/graphics-workflow.md). Trabalhe uma ocorrência por vez no contexto gerenciador; o CLI preserva arquivos, instruções, versões e contadores. A política de agentes e as instruções explícitas da pessoa continuam valendo.
+
+Quando um beat do cenário original for roteado para AI, registre o plano com `ai-plan`, ofereça três descrições distintas no Storyboard em modo economy e só então peça um still com Generate still / `ai-generate-still`. Selecionar uma descrição não aprova a imagem. Vídeo por assinatura GPT não está disponível. O detalhe operacional, incluindo job duplicado e submit incerto, está em [AI stills](${CLAUDE_PLUGIN_ROOT}/docs/GUIDE.md#ai-stills). Geração real na conta continua um gate separado.
 
 ## Quando não há fonte
 

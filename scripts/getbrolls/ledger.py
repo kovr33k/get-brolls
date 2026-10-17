@@ -98,6 +98,7 @@ def validate_manifest(data):  # noqa: C901, PLR0912 - existing size; validator w
         raise ValueError(
             "manifest.json inválido ou incompatível. Preserve o arquivo e restaure uma cópia válida; nenhum dado foi reiniciado."
         ) from None
+    from .ai_state import validate_ai
     from .fragment_search import validate_plans
     from .graphics import validate_graphics
     from .narration import validate_narration
@@ -105,6 +106,7 @@ def validate_manifest(data):  # noqa: C901, PLR0912 - existing size; validator w
     validate_plans(data)
     validate_graphics(data)
     validate_narration(data)
+    validate_ai(data)
     return data
 
 

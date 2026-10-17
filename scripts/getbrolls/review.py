@@ -59,6 +59,7 @@ def project_id(ledger):
 
 
 def enhance(page, ledger, records):
+    from .ai import review_records as ai_review_records
     from .graphics import alignment_review_records, graphics_review_records
     from .narration import narration_review_records
 
@@ -73,6 +74,7 @@ def enhance(page, ledger, records):
                 "graphics": graphics_review_records(ledger, ident),
                 "alignment": alignment_review_records(ledger, ident),
                 "narration": narration_review_records(ledger),
+                "ai": ai_review_records(ledger, ident),
             },
             ensure_ascii=False,
         )
@@ -173,9 +175,14 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
         raise ValueError(
             "O arquivo de escolhas está vazio. Volte à página, decida os trechos e clique em “Salvar decisões”."
         )
+    if "ai" in data and not isinstance(data.get("ai"), list):
+        raise ValueError(
+            "O arquivo de escolhas está vazio. Volte à página, decida os trechos e clique em “Salvar decisões”."
+        )
     graphics_rows = data.get("graphics", [])
     alignment_rows = data.get("alignment", [])
-    if not items and not graphics_rows and not alignment_rows:
+    ai_rows = data.get("ai", [])
+    if not items and not graphics_rows and not alignment_rows and not ai_rows:
         raise ValueError(
             "O arquivo de escolhas está vazio. Volte à página, decida os trechos e clique em “Salvar decisões”."
         )
@@ -187,6 +194,7 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
         candidates=len(items),
         graphics=len(graphics_rows),
         alignment=len(alignment_rows),
+        ai=len(ai_rows),
     )
     changes = []
     skipped = []
@@ -345,12 +353,20 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
     skipped.extend(alignment_skipped)
     if alignment_working is not None:
         graphics_working = alignment_working
+    from .ai import apply_review_import as apply_ai_review_import
+
+    had_ai = "ai" in ledger.data
+    previous_ai = copy.deepcopy(ledger.data.get("ai"))
+    ai_applied, ai_skipped, ai_unchanged = apply_ai_review_import(ledger, ai_rows, by=by)
+    skipped.extend(ai_skipped)
     if (
         not changes
         and not graphics_applied
         and not graphics_unchanged
         and not alignment_applied
         and not alignment_unchanged
+        and not ai_applied
+        and not ai_unchanged
     ):
         # Nada aplicado: o comando falha e diz, item a item, o que impediu cada um.
         raise ValueError("Nenhuma decisão pôde ser importada. " + " ".join(entry["detail"] for entry in skipped))
@@ -371,6 +387,10 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
                 ledger.data["graphics"] = previous_graphics
             else:
                 ledger.data.pop("graphics", None)
+            if had_ai:
+                ledger.data["ai"] = previous_ai
+            else:
+                ledger.data.pop("ai", None)
         raise
     try:
         for cid, review_state in item_log:
@@ -405,11 +425,12 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
     except Exception:  # noqa: BLE001, S110 - logging must never break a command
         pass
     return {
-        "imported": len(changes) + len(graphics_applied) + len(alignment_applied),
+        "imported": len(changes) + len(graphics_applied) + len(alignment_applied) + len(ai_applied),
         "skipped": skipped,
-        "unchanged": graphics_unchanged + alignment_unchanged,
+        "unchanged": graphics_unchanged + alignment_unchanged + ai_unchanged,
         "graphics_imported": len(graphics_applied),
         "alignment_imported": len(alignment_applied),
+        "ai_imported": len(ai_applied),
         "by": by,
         "file": str(path),
         "review": str(ledger.root / "review.html"),

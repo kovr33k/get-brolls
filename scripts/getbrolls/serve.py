@@ -31,6 +31,8 @@ DEFAULT_PORT = 8767
 # Cabeçalho do token de sessão: sem ele (ou com o token errado) o POST é recusado.
 TOKEN_HEADER = "X-GetBrolls-Token"  # noqa: S105 - header name, not a secret value
 SAVE_PATH = "/__save"
+AI_PATH = "/__ai"
+AI_STATE_PATH = "/__ai/state"
 # Identidade do servidor: quem pergunta descobre se o PID do arquivo ainda é nosso.
 PING_PATH = "/__ping"
 # Mesmo teto do `import-review`: um board legítimo não passa disso.
@@ -258,7 +260,7 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         from .graphics_references import UPLOAD_PATH
 
         route = self.path.split("?")[0]
-        if route not in (SAVE_PATH, UPLOAD_PATH):
+        if route not in (SAVE_PATH, UPLOAD_PATH, AI_PATH):
             self._refuse(404, "Endereço desconhecido.")
             return
         token = self.headers.get(TOKEN_HEADER) or ""
@@ -270,6 +272,9 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             return
         if route == UPLOAD_PATH:
             self._upload_reference()
+            return
+        if route == AI_PATH:
+            self._ai_mutate()
             return
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -309,6 +314,84 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _json_body(self, limit):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            self._refuse(400, "Tamanho do corpo inválido.")
+            return None
+        if length <= 0 or length > limit:
+            left = min(length, limit * 4)
+            while left > 0:
+                chunk = self.rfile.read(min(65536, left))
+                if not chunk:
+                    break
+                left -= len(chunk)
+            self._refuse(413, "Corpo grande demais para um arquivo de decisões.")
+            return None
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._refuse(400, "O corpo precisa ser JSON.")
+            return None
+        if not isinstance(data, dict):
+            self._refuse(400, "O corpo precisa ser um objeto JSON.")
+            return None
+        return data
+
+    def _write_json(self, payload, status=200):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _ai_mutate(self):
+        data = self._json_body(MAX_SAVE_BYTES)
+        if data is None:
+            return
+        from .ai import handle_generate, handle_review, handle_select
+        from .ai_state import sanitize_public_text
+
+        project = Path(self.directory).parent
+        action = data.get("action")
+        try:
+            if action == "generate":
+                result = handle_generate(project, data)
+            elif action == "select":
+                result = handle_select(project, data)
+            elif action == "review":
+                result = handle_review(project, data)
+            else:
+                raise ValueError("Choose select, generate or review for this AI request.")
+        except (ValueError, OSError, KeyError) as exc:
+            self._refuse(400, sanitize_public_text(str(exc)))
+            return
+        self._write_json(result)
+
+    def _ai_state_head(self):
+        import io
+
+        token = self.headers.get(TOKEN_HEADER) or ""
+        expected = cast("_ExclusiveServer", self.server).save_token
+        if not expected or not token.isascii() or not hmac.compare_digest(token, expected):
+            return self._head_error(403, "Token da sessão ausente ou inválido.")
+        from .ai import handle_state
+        from .ai_state import sanitize_public_text
+
+        try:
+            payload = handle_state(Path(self.directory).parent)
+        except (ValueError, OSError) as exc:
+            return self._head_error(400, sanitize_public_text(str(exc)))
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        return io.BytesIO(body)
 
     def _upload_reference(self):
         from .graphics_references import MAX_IMAGE_BYTES, NAME_HEADER, upload
@@ -352,6 +435,8 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             return io.BytesIO(body)
+        if self.path.split("?")[0] == AI_STATE_PATH:
+            return self._ai_state_head()
         if self.path.split("?")[0] == PING_PATH:
             # Identidade do servidor: é assim que `status`/`stop` sabem que o PID
             # gravado ainda é deste servidor, e não de um processo que reusou o número.
@@ -529,6 +614,8 @@ def _inject_token(page, token):
         + ',"token":'
         + json.dumps(token)
         + ',"referenceUrl":"/__graphics-reference","referenceMaxBytes":16777216'
+        + ',"aiUrl":'
+        + json.dumps(AI_PATH)
         + "};</script>"
     )
     if "</head>" in page:

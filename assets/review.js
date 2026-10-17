@@ -5,10 +5,13 @@
   const items = Array.isArray(data.items) ? data.items : [];
   const graphicsRows = Array.isArray(data.graphics) ? data.graphics : [];
   const alignmentRows = Array.isArray(data.alignment) ? data.alignment : [];
-  if (!items.length && !graphicsRows.length && !alignmentRows.length) return;
+  const aiRows = Array.isArray(data.ai) ? data.ai : [];
+  const hasAiBoard = !!document.querySelector(".ai-board");
+  if (!items.length && !graphicsRows.length && !alignmentRows.length && !aiRows.length && !hasAiBoard) return;
   const key = "getbrolls-v2:" + data.project;
   const graphicsKey = "getbrolls-v2-graphics:" + data.project;
   const alignmentKey = "getbrolls-v2-alignment:" + data.project;
+  const aiKey = "getbrolls-v2-ai:" + data.project;
   const STATES = ["pending", "approved", "changes", "rejected", "alternative"];
   const GRAPHICS_STATES = ["pending", "approved", "changes"];
   const GRAPHICS_MAX_COMMENT = 8000;
@@ -41,6 +44,20 @@
   } catch {
     available = false;
   }
+  let savedAi = {};
+  if (hasAiBoard || aiRows.length) {
+    try {
+      savedAi = JSON.parse(localStorage.getItem(aiKey) || "{}");
+      if (!savedAi || typeof savedAi !== "object" || Array.isArray(savedAi)) savedAi = {};
+    } catch {
+      available = false;
+      savedAi = {};
+    }
+  }
+  const aiDrafts = {};
+  const aiLaunched = new Set();
+  const aiSelectTimers = new Map();
+  let aiPollTimer = 0;
   const decisions = {};
   for (const item of items) {
     const old = saved[item.id];
@@ -260,8 +277,16 @@
     };
   });
 
+  function aiDisplayedStill(card) {
+    return !!card
+      && aiAttr(card, "data-ai-stale") !== "true"
+      && !!aiAttr(card, "data-ai-version")
+      && !!aiAttr(card, "data-ai-signature");
+  }
   function counts() {
-    const all = reviewTargets.map(target => target.decision);
+    const all = reviewTargets
+      .filter((target) => !target.aiCard || aiDisplayedStill(target.aiCard))
+      .map((target) => target.decision);
     const n = (s) => all.filter((d) => d.state === s).length;
     return { approved: n("approved"), pending: n("pending"), other: all.length - n("approved") - n("pending") };
   }
@@ -280,11 +305,676 @@
     const next = document.querySelector("#next-pending");
     if (next) next.disabled = c.pending === 0;
   }
+  const AI_IN_FLIGHT = new Set(["queued", "running", "remote_pending", "downloading"]);
+  function aiCards() {
+    return [...document.querySelectorAll(".ai-card")];
+  }
+  function aiSaveConfig() {
+    return window.GETBROLLS_SAVE || null;
+  }
+  function aiLive() {
+    const save = aiSaveConfig();
+    return !!(save && save.aiUrl && save.token && save.header);
+  }
+  function aiAttr(node, name) {
+    if (!node) return "";
+    if (typeof node.getAttribute === "function") {
+      const value = node.getAttribute(name);
+      if (value != null && value !== "") return value;
+    }
+    const key = name.replace(/^data-/, "").replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    return node.dataset && node.dataset[key] ? node.dataset[key] : "";
+  }
+  function aiMode(card) {
+    const control = card.querySelector("select");
+    const value = control && control.value ? control.value : aiAttr(card, "data-ai-mode");
+    return value === "images" ? "images" : "economy";
+  }
+  function aiSelected(card) {
+    const chosen = [...card.querySelectorAll("[data-ai-alternative]")].find((radio) => radio.checked);
+    if (!chosen) return "";
+    return chosen.value || aiAttr(chosen, "value");
+  }
+  function aiNonce(draft, alternative, comment) {
+    const raw = ["still", draft.beat, draft.fingerprint, alternative, comment, "economy"].join("\u001f");
+    let hash = 2166136261;
+    for (let i = 0; i < raw.length; i++) {
+      hash ^= raw.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return "still-" + (hash >>> 0).toString(16);
+  }
+  function aiSetCurrent(card) {
+    aiCards().forEach((other) => {
+      if (other === card) other.setAttribute("data-ai-current", "true");
+      else if (typeof other.removeAttribute === "function") other.removeAttribute("data-ai-current");
+    });
+  }
+  function aiKnownDecision(value) {
+    return value === "approved" || value === "changes" || value === "rejected" ? value : "";
+  }
+  function aiLockModes(card) {
+    card.querySelectorAll("option").forEach((option) => {
+      const value = option.value || aiAttr(option, "value");
+      if (value === "images") option.disabled = true;
+    });
+    const video = card.querySelector("[data-ai-video]");
+    if (video) video.disabled = true;
+    const stale = aiAttr(card, "data-ai-stale") === "true";
+    const generate = card.querySelector("[data-ai-generate]");
+    if (generate) generate.disabled = stale || !aiLive() || aiMode(card) !== "economy";
+    const hasStill = !!aiAttr(card, "data-ai-version");
+    card.querySelectorAll("[data-ai-decision]").forEach((button) => {
+      button.disabled = stale || !hasStill;
+    });
+  }
+  function aiNote(card, name, text) {
+    let note = card.querySelector("[" + name + "]");
+    if (!note) {
+      note = document.createElement("p");
+      note.setAttribute(name, "");
+      card.append(note);
+    }
+    note.textContent = text;
+  }
+  function aiPaintDecision(card, draft) {
+    let label = card.querySelector("[data-ai-decision-label]");
+    if (!label) {
+      label = document.createElement("p");
+      label.className = "ai-decision";
+      label.setAttribute("data-ai-decision-label", "");
+      card.append(label);
+    }
+    const name = LABELS[draft.state] || LABELS.pending;
+    const unsaved = draft.state !== "pending" && (draft.save === "pending" || draft.save === "failed");
+    label.textContent = unsaved ? name + " · not saved" : name;
+  }
+  function aiShowStill(card, version) {
+    const figure = card.querySelector("[data-ai-result]");
+    if (!figure || !version || !version.id || !version.signature) return;
+    let image = figure.querySelector("img");
+    if (!image) {
+      image = document.createElement("img");
+      figure.append(image);
+    }
+    if (version.path) {
+      image.setAttribute("src", version.path);
+      image.src = version.path;
+    }
+    image.alt = "Generated illustration";
+    image.setAttribute("alt", "Generated illustration");
+    let caption = figure.querySelector("figcaption");
+    if (!caption) {
+      caption = document.createElement("figcaption");
+      figure.append(caption);
+    }
+    caption.textContent = "Generated illustration";
+    card.setAttribute("data-ai-version", version.id);
+    card.setAttribute("data-ai-signature", version.signature);
+    if (version.approval) card.setAttribute("data-ai-approval", version.approval);
+    const review = card.querySelector(".ai-review");
+    if (review) review.hidden = false;
+    aiLockModes(card);
+  }
+  function aiShowDiagnostics(card, job, version) {
+    const details = card.querySelector(".ai-details");
+    if (!details) return;
+    let node = details.querySelector("[data-ai-diagnostics]");
+    if (!node) {
+      node = document.createElement("p");
+      node.setAttribute("data-ai-diagnostics", "");
+      details.append(node);
+    }
+    const parts = [];
+    if (job && typeof job === "object") {
+      parts.push("Job " + (job.id || "none") + " · state " + (job.state || "idle"));
+      if (job.error) parts.push(String(job.error));
+    }
+    if (version && version.width && version.height) {
+      parts.push(version.width + "×" + version.height + " " + (version.codec || ""));
+    }
+    parts.push("Generated illustration, not documentary evidence. Generation is not approval.");
+    node.textContent = parts.join(" · ");
+  }
+  function aiRemember(draft) {
+    return {
+      beat: draft.beat,
+      fingerprint: draft.fingerprint,
+      selected: draft.selected,
+      selectedDirty: draft.selectedDirty === true,
+      comment: draft.comment,
+      commentDirty: draft.commentDirty === true,
+      mode: draft.mode,
+      modeDirty: draft.modeDirty === true,
+      job: draft.job || "",
+      version: draft.version || "",
+      signature: draft.signature || "",
+      state: draft.state,
+      save: draft.save || "",
+      versions: draft.versions || {},
+    };
+  }
+  function aiContextMatch(stored, fingerprint, version, signature) {
+    if (!stored || stored.fingerprint !== fingerprint) return false;
+    if (aiKnownDecision(stored.state)) {
+      return !!version && !!signature && stored.version === version && stored.signature === signature;
+    }
+    return (stored.version || "") === (version || "") && (stored.signature || "") === (signature || "");
+  }
+  function aiLoadDraft(card) {
+    const beat = aiAttr(card, "data-ai-beat");
+    const signature = aiAttr(card, "data-ai-signature");
+    const version = aiAttr(card, "data-ai-version");
+    const fingerprint = aiAttr(card, "data-ai-fingerprint");
+    const commentBox = card.querySelector("[data-ai-comment]");
+    const stored = savedAi[beat];
+    const row = aiRows.find((item) => (
+      item &&
+      item.beat === beat &&
+      item.fingerprint === fingerprint &&
+      (item.version || "") === version &&
+      (item.signature || "") === signature
+    ));
+    const serverDecision = aiKnownDecision(aiAttr(card, "data-ai-approval")) || aiKnownDecision(row && (row.decision || row.state));
+    const draft = {
+      beat,
+      fingerprint,
+      selected: aiSelected(card),
+      selectedDirty: false,
+      comment: commentBox && typeof commentBox.value === "string" ? commentBox.value : "",
+      commentDirty: false,
+      mode: aiMode(card),
+      modeDirty: false,
+      job: aiAttr(card, "data-ai-job"),
+      version,
+      signature,
+      state: serverDecision || "pending",
+      save: "",
+      versions: stored && stored.fingerprint === fingerprint && stored.versions && typeof stored.versions === "object" ? stored.versions : {},
+      epoch: 0,
+      saveEpoch: 0,
+      offered: null,
+    };
+    if (aiContextMatch(stored, fingerprint, version, signature)) {
+      if (typeof stored.comment === "string" && commentBox) {
+        commentBox.value = stored.comment;
+        draft.comment = stored.comment;
+        draft.commentDirty = stored.commentDirty === true;
+      }
+      if (stored.selectedDirty === true && typeof stored.selected === "string") {
+        card.querySelectorAll("[data-ai-alternative]").forEach((radio) => {
+          const value = radio.value || aiAttr(radio, "value");
+          radio.checked = value === stored.selected;
+        });
+        draft.selected = stored.selected;
+        draft.selectedDirty = true;
+      }
+      const localDecision = aiKnownDecision(stored.state);
+      if (localDecision) {
+        draft.state = localDecision;
+        draft.version = stored.version;
+        draft.signature = stored.signature;
+        draft.job = stored.job || draft.job;
+        const exactServer = serverDecision === localDecision && stored.version === version && stored.signature === signature && !!version && !!signature;
+        if (exactServer || stored.save === "saved" || stored.save === "local" || !stored.save) {
+          draft.save = stored.save === "local" && !exactServer ? "local" : "";
+        } else if (stored.save === "failed") {
+          draft.save = "failed";
+        } else {
+          draft.save = "pending";
+        }
+      }
+    }
+    if (version && signature && aiKnownDecision(draft.state)) {
+      const identity = version + "\u001f" + signature;
+      if (!draft.versions[identity]) {
+        const exactRow = row && aiKnownDecision(row.decision || row.state) === draft.state;
+        draft.versions[identity] = {
+          version, signature, state: draft.state, job: draft.job, save: draft.save,
+          comment: exactRow && typeof row.comment === "string" ? row.comment : draft.comment,
+          selected: exactRow && typeof row.selected === "string" ? row.selected : draft.selected,
+        };
+      }
+    }
+    return draft;
+  }
+  function aiScheduleSelect(card) {
+    const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+    if (!draft || !aiLive() || typeof setInterval !== "function" || typeof clearInterval !== "function") return;
+    draft.epoch += 1;
+    const epoch = draft.epoch;
+    const previous = aiSelectTimers.get(draft.beat);
+    if (previous) clearInterval(previous);
+    // The export path keeps the only setTimeout. Debounce with an interval instead.
+    const timer = setInterval(() => {
+      clearInterval(timer);
+      aiSelectTimers.delete(draft.beat);
+      if (draft.epoch !== epoch) return;
+      aiPostSelect(card, epoch);
+    }, 400);
+    aiSelectTimers.set(draft.beat, timer);
+  }
+  function aiPostSelect(card, epoch) {
+    const save = aiSaveConfig();
+    const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+    if (!save || !draft || draft.epoch !== epoch || !aiLive()) return;
+    const payload = { action: "select", beat: draft.beat, expected: draft.fingerprint };
+    if (draft.selectedDirty) payload.alternative = aiSelected(card);
+    if (draft.commentDirty) payload.comment = draft.comment;
+    if (draft.modeDirty && aiMode(card) === "economy") payload.mode = "economy";
+    fetch(save.aiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [save.header]: save.token },
+      body: JSON.stringify(payload),
+    })
+      .then((response) => Promise.resolve()
+        .then(() => response.json())
+        .then((body) => ({ ok: response.ok, body }))
+        .catch(() => ({ ok: response.ok, body: {} })))
+      .then((result) => {
+        if (!draft || draft.epoch !== epoch) return;
+        if (!result.ok) aiNote(card, "data-ai-save", "The scene choice was not saved.");
+        else aiNote(card, "data-ai-save", "");
+      })
+      .catch(() => {
+        if (!draft || draft.epoch !== epoch) return;
+        aiNote(card, "data-ai-save", "The scene choice was not saved.");
+      });
+  }
+  function aiGenerate(card) {
+    const button = card.querySelector("[data-ai-generate]");
+    const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+    if (!button || button.disabled || !draft || !aiLive() || aiMode(card) !== "economy") return;
+    const alternative = aiSelected(card);
+    const commentBox = card.querySelector("[data-ai-comment]");
+    const comment = commentBox && typeof commentBox.value === "string" ? commentBox.value : draft.comment;
+    if (!alternative) return;
+    const nonce = aiNonce(draft, alternative, comment);
+    if (aiLaunched.has(nonce)) return;
+    aiLaunched.add(nonce);
+    draft.comment = comment;
+    const save = aiSaveConfig();
+    fetch(save.aiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [save.header]: save.token },
+      body: JSON.stringify({
+        action: "generate",
+        beat: draft.beat,
+        expected: draft.fingerprint,
+        alternative,
+        comment,
+        nonce,
+        requestId: nonce,
+      }),
+    })
+      .then((response) => Promise.resolve()
+        .then(() => response.json())
+        .then((body) => ({ ok: response.ok, body }))
+        .catch(() => ({ ok: response.ok, body: {} })))
+      .then((result) => {
+        const job = result.ok && result.body ? result.body.job : null;
+        const terminal = job && ["failed", "unknown", "quota", "auth"].includes(job.state);
+        if (!result.ok || !job || terminal) {
+          if (!job || !terminal) aiLaunched.delete(nonce);
+          const progress = card.querySelector("[data-ai-progress]");
+          if (progress) progress.textContent = (job && (job.error || job.state)) || (result.body && result.body.error) || "Could not start still generation.";
+          if (job) aiShowDiagnostics(card, job, null);
+          return;
+        }
+        const displayed = aiAttr(card, "data-ai-version");
+        if (!displayed && draft.state === "pending" && job.id) {
+          card.setAttribute("data-ai-job", job.id);
+          draft.job = job.id;
+        }
+        if (job.state) card.setAttribute("data-ai-state", job.state);
+        const progress = card.querySelector("[data-ai-progress]");
+        if (progress) progress.textContent = job.error || job.state || "";
+        aiShowDiagnostics(card, job, null);
+        if (job.state === "complete") aiPoll();
+        aiEnsurePoll();
+      })
+      .catch(() => {
+        aiLaunched.delete(nonce);
+        const progress = card.querySelector("[data-ai-progress]");
+        if (progress) progress.textContent = "Could not start still generation.";
+      });
+  }
+  function aiApplyState(body) {
+    const beats = Array.isArray(body && body.beats) ? body.beats : [];
+    aiCards().forEach((card) => {
+      const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+      if (!draft) return;
+      const beat = beats.find((row) => row && row.id === aiAttr(card, "data-ai-beat"));
+      if (!beat || beat.active === false) {
+        const inactiveJob = beat && beat.job && typeof beat.job === "object" ? beat.job : null;
+        if (inactiveJob) {
+          if (inactiveJob.state) card.setAttribute("data-ai-state", inactiveJob.state);
+          const inactiveProgress = card.querySelector("[data-ai-progress]");
+          if (inactiveProgress) inactiveProgress.textContent = inactiveJob.error || inactiveJob.state || "";
+        }
+        aiMarkStale(card);
+        return;
+      }
+      const job = beat.job && typeof beat.job === "object" ? beat.job : null;
+      if (job) {
+        if (job.state) card.setAttribute("data-ai-state", job.state);
+        const progress = card.querySelector("[data-ai-progress]");
+        if (progress) progress.textContent = job.error || job.state || "";
+      }
+      if (beat.fingerprint !== draft.fingerprint) {
+        aiMarkStale(card);
+        return;
+      }
+      if (aiAttr(card, "data-ai-stale") === "true") {
+        card.setAttribute("data-ai-stale", "false");
+        aiNote(card, "data-ai-stale-note", "");
+        aiLockModes(card);
+      }
+      const displayed = aiAttr(card, "data-ai-version");
+      if (job && !displayed && draft.state === "pending" && job.id) {
+        card.setAttribute("data-ai-job", job.id);
+        draft.job = job.id;
+      }
+      const incoming = beat.version && typeof beat.version === "object" ? beat.version : null;
+      const displayedSignature = aiAttr(card, "data-ai-signature");
+      const sameStill = incoming && displayed && incoming.id === displayed && incoming.signature === displayedSignature;
+      const firstStill = incoming && incoming.id && incoming.signature && !displayed && draft.state === "pending";
+      if (firstStill || sameStill) {
+        aiShowStill(card, incoming);
+        if (firstStill) {
+          draft.version = incoming.id;
+          draft.signature = incoming.signature;
+          draft.job = incoming.job || (job && job.id) || draft.job;
+          const serverDecision = aiKnownDecision(incoming.approval);
+          if (serverDecision) draft.state = serverDecision;
+        }
+        aiHideOffer(card);
+      } else if (incoming && incoming.id && incoming.signature && displayed && (incoming.id !== displayed || incoming.signature !== displayedSignature)) {
+        draft.offered = {
+          id: incoming.id,
+          signature: incoming.signature,
+          path: incoming.path || "",
+          approval: incoming.approval || "",
+          job: incoming.job || (job && job.id) || "",
+          width: incoming.width,
+          height: incoming.height,
+          codec: incoming.codec,
+        };
+        aiShowOffer(card);
+      }
+      const shown = firstStill || sameStill ? incoming : null;
+      aiShowDiagnostics(card, job, shown || (displayed ? { id: displayed, signature: displayedSignature } : null));
+      aiPaintDecision(card, draft);
+    });
+    aiEnsurePoll();
+    paintGallery();
+  }
+  function aiMarkStale(card) {
+    card.setAttribute("data-ai-stale", "true");
+    aiNote(card, "data-ai-stale-note", "This scene changed. The current still and unsent text were kept.");
+    aiHideOffer(card);
+    aiLockModes(card);
+  }
+  function aiHideOffer(card) {
+    const button = card.querySelector("[data-ai-new-result]");
+    if (button) button.hidden = true;
+  }
+  function aiShowOffer(card) {
+    let button = card.querySelector("[data-ai-new-result]");
+    if (!button) {
+      button = document.createElement("button");
+      button.setAttribute("type", "button");
+      button.setAttribute("data-ai-new-result", "");
+      button.addEventListener("click", () => aiUseOffered(card));
+      card.append(button);
+    }
+    button.hidden = false;
+    button.textContent = "Show the new still";
+  }
+  function aiStoreDisplayed(draft, card, refreshContext) {
+    if (!draft.version || !draft.signature) return;
+    draft.versions = draft.versions || {};
+    const key = draft.version + "\u001f" + draft.signature;
+    const prior = draft.versions[key] && typeof draft.versions[key] === "object" ? draft.versions[key] : {};
+    const source = card || aiCards().find((item) => aiAttr(item, "data-ai-beat") === draft.beat);
+    const commentBox = source && source.querySelector("[data-ai-comment]");
+    const liveComment = commentBox && typeof commentBox.value === "string" ? commentBox.value : draft.comment || "";
+    const liveSelected = source ? (aiSelected(source) || draft.selected || "") : (draft.selected || "");
+    const freeze = !refreshContext && typeof prior.comment === "string" && !!aiKnownDecision(prior.state);
+    draft.versions[key] = {
+      version: draft.version,
+      signature: draft.signature,
+      state: draft.state,
+      job: draft.job || "",
+      save: draft.save || "",
+      comment: freeze ? prior.comment : liveComment,
+      selected: freeze && typeof prior.selected === "string" ? prior.selected : liveSelected,
+    };
+  }
+  function aiUseOffered(card) {
+    const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+    const offer = draft && draft.offered;
+    if (!draft || !offer || !offer.id || !offer.signature || aiAttr(card, "data-ai-stale") === "true") return;
+    aiStoreDisplayed(draft, card);
+    aiShowStill(card, offer);
+    const prior = (draft.versions || {})[offer.id + "\u001f" + offer.signature];
+    draft.version = offer.id;
+    draft.signature = offer.signature;
+    draft.job = offer.job || "";
+    draft.state = prior && aiKnownDecision(prior.state) ? prior.state : aiKnownDecision(offer.approval) || "pending";
+    if (prior && prior.save === "failed") draft.save = "failed";
+    else if (prior && prior.save === "pending") draft.save = "pending";
+    else if (prior && prior.save === "local") draft.save = "local";
+    else draft.save = "";
+    card.setAttribute("data-ai-approval", draft.state);
+    draft.offered = null;
+    aiHideOffer(card);
+    aiPaintDecision(card, draft);
+    persist();
+  }
+  function aiPoll() {
+    if (!aiLive()) return;
+    const save = aiSaveConfig();
+    fetch(String(save.aiUrl).replace(/\/$/, "") + "/state", {
+      method: "GET",
+      headers: { [save.header]: save.token },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.json();
+      })
+      .then((body) => aiApplyState(body))
+      .catch(() => {});
+  }
+  function aiEnsurePoll() {
+    if (typeof setInterval !== "function" || typeof clearInterval !== "function") return;
+    const needs = aiLive() && aiCards().some((card) => AI_IN_FLIGHT.has(aiAttr(card, "data-ai-state")));
+    if (!needs) {
+      if (aiPollTimer) clearInterval(aiPollTimer);
+      aiPollTimer = 0;
+      return;
+    }
+    if (aiPollTimer) return;
+    aiPollTimer = setInterval(aiPoll, 1000);
+  }
+  function aiDecide(card, decision) {
+    const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+    const version = aiAttr(card, "data-ai-version");
+    const signature = aiAttr(card, "data-ai-signature");
+    if (!draft || !version || !signature || !LABELS[decision] || decision === "pending") return;
+    if (aiAttr(card, "data-ai-stale") === "true") return;
+    draft.state = decision;
+    draft.version = version;
+    draft.signature = signature;
+    card.setAttribute("data-ai-approval", decision);
+    draft.save = aiLive() ? "pending" : "local";
+    draft.saveEpoch += 1;
+    const ticket = draft.saveEpoch;
+    aiStoreDisplayed(draft, card, true);
+    aiPaintDecision(card, draft);
+    persist();
+    if (!aiLive()) return;
+    const save = aiSaveConfig();
+    const commentBox = card.querySelector("[data-ai-comment]");
+    fetch(save.aiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [save.header]: save.token },
+      body: JSON.stringify({
+        action: "review",
+        beat: draft.beat,
+        version,
+        signature,
+        decision,
+        by: "Storyboard",
+        comment: commentBox && typeof commentBox.value === "string" ? commentBox.value : draft.comment,
+      }),
+    })
+      .then((response) => Promise.resolve()
+        .then(() => response.json())
+        .then((body) => ({ ok: response.ok, body }))
+        .catch(() => ({ ok: response.ok, body: {} })))
+      .then((result) => {
+        if (draft.saveEpoch !== ticket || draft.version !== version || draft.signature !== signature) return;
+        draft.save = result.ok ? "saved" : "failed";
+        aiStoreDisplayed(draft, card);
+        aiPaintDecision(card, draft);
+        persist();
+      })
+      .catch(() => {
+        if (draft.saveEpoch !== ticket || draft.version !== version || draft.signature !== signature) return;
+        draft.save = "failed";
+        aiStoreDisplayed(draft, card);
+        aiPaintDecision(card, draft);
+        persist();
+      });
+  }
+  function mountAi() {
+    const cards = aiCards();
+    if (!cards.length && !aiRows.length) return;
+    cards.forEach((card) => {
+      if (card.dataset.aiWired === "1") return;
+      card.setAttribute("data-ai-wired", "1");
+      const beat = aiAttr(card, "data-ai-beat");
+      if (!beat) return;
+      const draft = aiLoadDraft(card);
+      aiDrafts[beat] = draft;
+      if (!reviewTargets.some((target) => target.aiCard === card)) reviewTargets.push({ decision: draft, aiCard: card });
+      aiLockModes(card);
+      aiPaintDecision(card, draft);
+      if (draft.version) {
+        const review = card.querySelector(".ai-review");
+        if (review) review.hidden = false;
+      }
+      card.addEventListener("click", () => aiSetCurrent(card));
+      card.querySelectorAll("[data-ai-alternative]").forEach((radio) => {
+        radio.addEventListener("change", () => {
+          if (radio.checked) {
+            card.querySelectorAll("[data-ai-alternative]").forEach((other) => {
+              if (other !== radio) other.checked = false;
+            });
+          }
+          draft.selected = aiSelected(card);
+          draft.selectedDirty = true;
+          aiSetCurrent(card);
+          persist();
+          aiScheduleSelect(card);
+        });
+      });
+      const comment = card.querySelector("[data-ai-comment]");
+      if (comment) {
+        comment.addEventListener("input", () => {
+          draft.comment = comment.value;
+          draft.commentDirty = true;
+          aiSetCurrent(card);
+          persist();
+          aiScheduleSelect(card);
+        });
+      }
+      const mode = card.querySelector("select");
+      if (mode) {
+        mode.addEventListener("change", () => {
+          card.querySelectorAll("option").forEach((option) => {
+            if ((option.value || aiAttr(option, "value")) === "images") option.disabled = true;
+          });
+          if (mode.value === "images") mode.value = "economy";
+          draft.mode = "economy";
+          draft.modeDirty = true;
+          aiLockModes(card);
+          aiSetCurrent(card);
+          persist();
+          aiScheduleSelect(card);
+        });
+      }
+      const generate = card.querySelector("[data-ai-generate]");
+      if (generate) generate.addEventListener("click", () => aiGenerate(card));
+      card.querySelectorAll("[data-ai-decision]").forEach((button) => {
+        button.addEventListener("click", () => aiDecide(card, aiAttr(button, "data-ai-decision")));
+      });
+    });
+    aiEnsurePoll();
+    paintGallery();
+  }
+  function aiVersionRow(card, draft, entry, historical) {
+    const commentBox = card.querySelector("[data-ai-comment]");
+    const state = entry.state || "pending";
+    const liveComment = commentBox && typeof commentBox.value === "string" ? commentBox.value : draft.comment || "";
+    const liveSelected = aiSelected(card) || draft.selected || "";
+    return {
+      id: "ai:" + draft.beat,
+      project: data.project,
+      beat: draft.beat,
+      fingerprint: draft.fingerprint || aiAttr(card, "data-ai-fingerprint"),
+      selected: historical && typeof entry.selected === "string" ? entry.selected : liveSelected,
+      comment: historical && typeof entry.comment === "string" ? entry.comment : liveComment,
+      mode: draft.mode === "images" ? "images" : "economy",
+      job: entry.job || null,
+      version: entry.version || "",
+      signature: entry.signature || "",
+      state,
+      decision: state,
+    };
+  }
+  function exportAiRows() {
+    const cards = aiCards();
+    if (!cards.length) return aiRows.map((row) => ({ ...row }));
+    const fromCards = [];
+    cards.forEach((card) => {
+      const beat = aiAttr(card, "data-ai-beat");
+      const draft = aiDrafts[beat] || { beat, versions: {} };
+      const decided = draft.state && draft.state !== "pending";
+      const bound = decided && (draft.versions || {})[draft.version + "\u001f" + draft.signature];
+      const displayed = aiVersionRow(card, draft, {
+        version: decided && draft.version ? draft.version : aiAttr(card, "data-ai-version") || draft.version || "",
+        signature: decided && draft.signature ? draft.signature : aiAttr(card, "data-ai-signature") || draft.signature || "",
+        state: draft.state || "pending",
+        job: aiAttr(card, "data-ai-job") || draft.job || "",
+        ...(bound ? { comment: bound.comment, selected: bound.selected } : {}),
+      }, !!decided);
+      fromCards.push(displayed);
+      const seen = new Set([displayed.version]);
+      Object.values(draft.versions || {}).forEach((entry) => {
+        if (!entry || !entry.version || seen.has(entry.version)) return;
+        seen.add(entry.version);
+        fromCards.push(aiVersionRow(card, draft, entry, true));
+      });
+    });
+    const used = new Set(fromCards.map((row) => row.beat + "\u001f" + row.version));
+    const leftovers = aiRows.filter((row) => row && !used.has((row.beat || "") + "\u001f" + (row.version || "")));
+    return [...fromCards, ...leftovers.map((row) => ({ ...row }))];
+  }
   function persist() {
     try {
       if (items.length) localStorage.setItem(key, JSON.stringify(decisions));
       if (graphicsRows.length) localStorage.setItem(graphicsKey, JSON.stringify(graphicsDecisions));
       if (alignmentRows.length) localStorage.setItem(alignmentKey, JSON.stringify(alignmentDecisions));
+      if (aiCards().length || aiRows.length) {
+        const stored = {};
+        aiCards().forEach((card) => {
+          const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+          if (draft) stored[draft.beat] = aiRemember(draft);
+        });
+        localStorage.setItem(aiKey, JSON.stringify(stored));
+      }
     } catch {
       available = false;
     }
@@ -539,7 +1229,11 @@
           const i = (start + step) % n;
           const target = reviewTargets[i];
           if (target.decision.state !== "pending") continue;
-          if (target.row) {
+          if (target.aiCard) {
+            if (!aiDisplayedStill(target.aiCard)) continue;
+            aiSetCurrent(target.aiCard);
+            target.aiCard.scrollIntoView?.({ block: "start" });
+          } else if (target.row) {
             if (!goToPendingGraphics(target.row)) continue;
           } else {
             window.getbrollsGo?.(target.index);
@@ -1161,6 +1855,7 @@
     mountPanel();
     mountGraphics();
     bindGraphicsNavigation();
+    mountAi();
     wireSummary();
   }
   if (viewer) new MutationObserver(mount).observe(viewer, { childList: true });
@@ -1295,6 +1990,7 @@
       }
       result.alignment = alignmentRows.map(exportAlignmentRow);
     }
+    if (aiCards().length || aiRows.length) result.ai = exportAiRows();
     const save = window.GETBROLLS_SAVE;
     if (save && save.url && save.token) {
       // Servido por `gb.py serve`: as decisões vão direto para dentro do projeto,
@@ -1433,7 +2129,7 @@
   const printDisclosureState = new Map();
   window.addEventListener("beforeprint", () => {
     buildPrintNotes();
-    document.querySelectorAll("details.graphics-details, details.narration-details, details.graphics-passage").forEach((detail) => {
+    document.querySelectorAll("details.graphics-details, details.narration-details, details.graphics-passage, details.ai-details").forEach((detail) => {
       if (!printDisclosureState.has(detail)) printDisclosureState.set(detail, detail.open);
       detail.open = true;
     });

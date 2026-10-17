@@ -75,6 +75,11 @@ SUMMARIES = {
     "graphics-background": "Attach confined project video or photograph background to one graphics occurrence from bounded --file JSON",
     "narration-match": "Match assigned graphics passages to a completed narration analysis without retranscribing",
     "graphics-timing-resolve": "Record an explicit candidate confirmation or bounded time override for one occurrence; does not retranscribe",
+    "ai-plan": "Register original-scenario routing and three textual AI alternatives; does not generate media",
+    "ai-select": "Save an AI beat's selected alternative, comment and comparison mode; does not generate",
+    "ai-generate-still": "Create one durable GPT-subscription still job from the selected economy scene after explicit launch",
+    "ai-approve": "Record an explicit human decision on one saved AI still; generation is not approval",
+    "ai-resume": "Resume a saved AI still job without silently resubmitting an unknown outcome",
 }
 
 # Subcomandos que `execute()` (commands.py) de fato leva até
@@ -191,6 +196,11 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         "graphics-background",
         "narration-match",
         "graphics-timing-resolve",
+        "ai-plan",
+        "ai-select",
+        "ai-generate-still",
+        "ai-approve",
+        "ai-resume",
     ):
         p = sub.add_parser(name, help=SUMMARIES[name], description=SUMMARIES[name])
         p.add_argument(
@@ -198,7 +208,12 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             required=True,
             help="Pasta do projeto que guarda brolls/, fora da instalação da skill",
         )
-        if name != "status" and not name.startswith("graphics-") and not name.startswith("narration-"):
+        if (
+            name != "status"
+            and not name.startswith("graphics-")
+            and not name.startswith("narration-")
+            and not name.startswith("ai-")
+        ):
             # Mudar o formato-alvo derruba aprovações humanas; qualquer comando que
             # sincronize formato precisa deste sim explícito antes de apagá-las. Mas
             # `execute()` só chega a `sync_formats` (commands.py) depois de passar
@@ -947,6 +962,54 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 required=True,
                 help="Exact human correction statement already received; does not invent timing approval",
             )
+        if name == "ai-plan":
+            p.add_argument(
+                "--file",
+                required=True,
+                help="JSON object with original scenario, agreed AI visual style and routed narrative beats",
+            )
+        if name == "ai-select":
+            p.add_argument("--beat", required=True, help="AI beat id from ai-plan")
+            p.add_argument("--alternative", help="One of the three saved scene alternative ids")
+            p.add_argument(
+                "--comment",
+                help="Optional direction for the selected alternative; does not launch generation",
+            )
+            p.add_argument(
+                "--mode",
+                choices=["economy", "images"],
+                help="Scene comparison mode; economy is the default and the only still-launch route",
+            )
+            p.add_argument("--expected", help="Saved beat fingerprint; refuse if the scenario or style changed")
+        if name == "ai-generate-still":
+            p.add_argument(
+                "--beat",
+                required=True,
+                help="AI beat id whose selected alternative will generate one still",
+            )
+            p.add_argument(
+                "--request-id",
+                required=True,
+                help="Stable request identity for this launch; a repeated identical click reuses the saved job",
+            )
+            p.add_argument("--expected", help="Saved beat fingerprint; refuse if the scenario or style changed")
+        if name == "ai-approve":
+            p.add_argument(
+                "--version",
+                required=True,
+                help="Saved AI still version id from status.ai or the Storyboard",
+            )
+            p.add_argument("--by", required=True, help="Name of the person who reviewed this exact still")
+            p.add_argument(
+                "--decision",
+                required=True,
+                choices=["approved", "changes", "rejected"],
+                help="Explicit human decision for the displayed still; selecting a description is not approval",
+            )
+            p.add_argument("--comment", help="Optional review comment bound to this exact version")
+            p.add_argument("--signature", help="Displayed version signature; refuse if the still changed")
+        if name == "ai-resume":
+            p.add_argument("--job", required=True, help="Saved AI job id; unknown submissions are not sent again")
     return parser
 
 
@@ -1007,6 +1070,10 @@ def main(argv=None):
         started = time.monotonic()
         try:
             result = audited(args, lambda parsed: with_summary(parsed.command, execute(parsed)))
+            if isinstance(result, dict) and result.get("ai_dispatch"):
+                from .ai import dispatch_after_audit
+
+                result = dispatch_after_audit(result)
         except OperationError as exc:
             logs.event(
                 log,

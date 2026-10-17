@@ -2,8 +2,8 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-15
-tags: [get-brolls, guide, installation, providers, storyboard, graphics]
+updated: 2026-10-16
+tags: [get-brolls, guide, installation, providers, storyboard, graphics, ai]
 ---
 
 # Guia completo — Get B-rolls
@@ -25,6 +25,7 @@ Este é o manual operacional único do **GET B-ROLLS — ENGENHEIRO DE VÍDEO**:
 - [Instagram](#instagram--navegadorplaywright-dois-streams-e-mp4)
 - [Graphics](#graphics)
 - [Narration analysis](#narration-analysis)
+- [AI stills](#ai-stills)
 - [Storyboard](#storyboard)
 - [Apêndice — utilitários legados](#apêndice--utilitários-legados)
 
@@ -1232,6 +1233,20 @@ Storyboard offers play/seek of those bounded candidate and override previews wit
 Private audio lives under `brolls/narration/private/audio/` and is denied by the review server allowlist (`previews/` and `clips/` only). Result artifacts are project-relative under `brolls/narration/results/`.
 
 Storage paths are checked against the resolved project root and refuse symlinks or junctions. Before a new attempt writes a snapshot or submits audio, it checks the planned snapshot, result, receipt and temporary siblings. Occupied result/receipt or temporary files are preserved and block the attempt before any provider request. An identical existing snapshot can be reused. Existing invalid narration history is reported without replacing it.
+
+## AI stills
+
+The managing agent records original-scenario routing with `ai-plan --file JSON --project PROJECT`. Beat text must occur in the original scenario. Each AI beat needs a visual purpose and exactly three distinct textual scene alternatives. Economy mode is the default: descriptions first, then one still after an explicit launch. Changing comparison mode does not lower quality or switch billing. Three-image comparison and GPT subscription video are not available in this route.
+
+`ai-select` stores the chosen alternative, an optional comment and the comparison mode. Opening the Storyboard, typing a comment or selecting a description does not call a provider. Unfinished choices on other beats do not block a selected beat.
+
+`ai-generate-still --beat ID --request-id NONCE --project PROJECT` freezes the selected scene, comment and agreed style, then starts one native ChatGPT subscription still through `codex app-server` JSON-RPC (`initialize`, `account/read`, `modelProvider/capabilities/read`, `thread/start`, `turn/start`). Completion requires a local `imageGeneration` item with `savedPath` and a decodable project copy plus original hash. A text answer, process exit or remote handle is not a still. Missing ChatGPT login, `imageGeneration: false` or `usageLimitExceeded` stay visible and never fall back to OpenRouter or API keys. A repeated identical `--request-id` reuses the saved job; changed inputs cannot reuse it. An unknown submit is recorded and `ai-resume` does not send it again.
+
+`ai-approve` and the Storyboard review buttons bind the decision to the exact displayed still (bytes and signature). Selecting a description or a successful generation does not approve the image. Generated stills are identified as generated, not documentary evidence.
+
+The authenticated local Storyboard posts `/__ai` for select/generate/review and polls `/__ai/state` without reload, keeping the selected beat and unsent comment. Live actions are disabled on a portable HTML file. `status.ai` is read-only: no recovery, tree creation or exclusive lock. Diagnostics stay in the card's Details panel.
+
+Public tests use a synthetic native-transport fixture and synthetic PNG/JPEG. That is not live ChatGPT entitlement, image quality or Resolve acceptance. Do not run `codex login`/`logout` or paid image jobs from this workflow until a separately authorized pilot.
 
 ## Storyboard
 
