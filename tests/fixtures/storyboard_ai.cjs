@@ -1474,6 +1474,16 @@ async function drain() {
   assert.equal(videoBody.music, false);
   assert.equal(videoBody.atmosphere, false);
   assert.equal(videoBody.effects, false);
+  narration.world.state.beats[0].timing.identity = "replacement-recording-same-seconds";
+  narration.world.state.beats[0].video.context_current = false;
+  narration.advance(1000);
+  await drain();
+  assert.match(narrationCard.querySelector("[data-ai-video-meta]").textContent, /not current/);
+  narrationCard.querySelector("[data-ai-video]").click();
+  await drain();
+  assert.equal(posted(narration.world, "video").length, 2);
+  assert.notEqual(posted(narration.world, "video")[1].body.requestId, videoBody.requestId,
+    "Replacing recording/analysis identity needs a new launch even when seconds match");
   assert.equal(posted(narration.world, "generate").length, 0);
   assert.equal(posted(narration.world, "review").length, 0);
   const videoNote = narrationCard.querySelector("[data-ai-video-comment]");

@@ -22,6 +22,9 @@ from .ai_state import (
     IN_FLIGHT,
     MAX_PROMPT,
     _agreed_style,
+    _image_route,
+    _native_image_output,
+    _session_id,
     attach_result,
     beat_for,
     checked_version,
@@ -277,6 +280,7 @@ def _public_timing(ledger, beat):
         "preview_error": preview_error,
         "recording_id": timing.get("recording_id"),
         "analysis_id": timing.get("analysis_id"),
+        "identity": fingerprint(checked.get("narration")) if resolved else None,
         "still": still.get("id") if still else None,
     }
 
@@ -342,6 +346,25 @@ def _latest_video(versions, beat):
         ):
             found = version
     return found
+
+
+def _video_context_current(ledger, version):
+    from .ai_timing import checked_video_input
+
+    job = (ledger.data.get("ai") or {}).get("jobs", {}).get(version.get("job"))
+    try:
+        if not job:
+            return False
+        checked_video_input(ledger, job["request"])
+        return True
+    except (ValueError, OSError, KeyError, TypeError):
+        return False
+
+
+def _public_video(ledger, version):
+    if not version:
+        return None
+    return {**public_version(version), "context_current": _video_context_current(ledger, version)}
 
 
 def _latest_video_job(jobs, beat):
@@ -469,7 +492,7 @@ def public_board(ledger):
                 "version": public_version(version) if version else None,
                 "slots": _group_slots(ai, beat),
                 "timing": _public_timing(ledger, beat),
-                "video": public_version(video) if video else None,
+                "video": _public_video(ledger, video),
                 "video_job": public_job(video_job) if video_job else None,
                 "video_ready": _video_ready(ledger, beat, versions),
                 "reference": _reference_card(ledger, beat, still_id) if still_id else None,
@@ -482,6 +505,7 @@ def public_board(ledger):
         "versions": [public_version(row) for row in versions.values() if isinstance(row, dict)],
         "style": ((ai.get("style") or {}).get("prompt") if isinstance(ai.get("style"), dict) else None),
         "native_video": _native_video_status(ai),
+        "still_provider": ai.get("still_provider") or {"route": "gpt-subscription", "model": None},
         "shared_references": _shared_reference_cards(ledger),
     }
 
@@ -540,8 +564,6 @@ def _still_payload(args):
         payload["route"] = route
     if model:
         payload["model"] = model
-    if route == "grok-subscription" and not model:
-        raise ValueError("Name the native model to freeze. The launch will not choose one.")
     return payload
 
 
@@ -672,10 +694,8 @@ def resume_command(ledger, args):
         ledger.save("ai-resume-unknown")
         return {"job": public_job(job), "resubmitted": False}
     if (
-        _recorded_artifact(job)
-        and (job.get("remote") or {}).get("artifact_sha256")
-        and job.get("state") in {"remote_pending", "downloading", "unknown", "failed"}
-    ):
+        (_recorded_artifact(job) and (job.get("remote") or {}).get("artifact_sha256")) or _grok_retrievable(job)
+    ) and job.get("state") in {"remote_pending", "downloading", "unknown", "failed"}:
         return {
             "job": public_job(job),
             "resubmitted": False,
@@ -736,6 +756,12 @@ def handle_review(project, data):
     payload.setdefault("by", payload.get("by") or "Storyboard")
     with project_lock(project):
         return review(Ledger(project), payload)
+
+
+def handle_resume(project, data):
+    with project_lock(project):
+        result = resume_command(Ledger(project), argparse.Namespace(job=data.get("job")))
+    return dispatch_after_audit(result)
 
 
 def _refresh_jobs(project, job_ids):
@@ -872,7 +898,7 @@ def _freeze_shown_reference(ledger, beat, nonce, _target, shown):
     return _frozen_summary(freeze_inputs(ledger, payload))
 
 
-def _freeze_apply_references(ledger, beat, nonce, target):
+def _freeze_apply_references(ledger, beat, nonce, target, route="gpt-subscription"):
     from .ai_references import freeze_shared_guidance, show_reference
 
     rows = []
@@ -886,7 +912,7 @@ def _freeze_apply_references(ledger, beat, nonce, target):
     rows.sort(key=lambda row: row.get("context_id") or "")
     return [
         *[_freeze_shown_reference(ledger, beat, nonce, target, shown) for shown in rows],
-        *freeze_shared_guidance(ledger, beat, nonce, "gpt-subscription", exclude={row["context_id"] for row in rows}),
+        *freeze_shared_guidance(ledger, beat, nonce, route, exclude={row["context_id"] for row in rows}),
     ]
 
 
@@ -1009,7 +1035,10 @@ def _launch_apply(ledger, data, nonce, operation):
     scope, scope_instruction = _apply_scope(data)
     target = _apply_target(ledger, beat, data.get("still"))
     _reject_apply_conflict(ledger, beat, target, nonce)
-    summaries = _freeze_apply_references(ledger, beat, nonce, target)
+    route, model = _image_route(data, allow_openrouter=False, setup=(ledger.data.get("ai") or {}).get("still_provider"))
+    if route == "grok-subscription" and operation == "inspect":
+        raise ValueError("Grok has no verified analysis-only image route. No generation was submitted.")
+    summaries = _freeze_apply_references(ledger, beat, nonce, target, route)
     if "reference" in data and (
         not isinstance(data["reference"], str) or data["reference"] not in {ref.get("context_id") for ref in summaries}
     ):
@@ -1033,7 +1062,7 @@ def _launch_apply(ledger, data, nonce, operation):
         "beat": beat["id"],
         "inputs": beat["fingerprint"],
         "kind": "image",
-        "route": "gpt-subscription",
+        "route": route,
         "operation": operation,
         "alternative": selected,
         "description": alternative["description"],
@@ -1051,6 +1080,13 @@ def _launch_apply(ledger, data, nonce, operation):
         request["scope_instruction"] = scope_instruction
     if target:
         request["target"] = target
+    if model:
+        request.update(_native_image_output(ledger))
+        request.update(
+            model=model,
+            tool="image_edit" if target or summaries else "image_gen",
+            session_id=_session_id(nonce, request["style_fingerprint"]),
+        )
     prior = set((ledger.data.get("ai") or {}).get("jobs") or {})
     job = new_job(ledger, request, nonce)
     created = job["id"] not in prior
@@ -1065,8 +1101,8 @@ def handle_apply(project, data):
     operation = data.get("operation", "apply")
     if not isinstance(operation, str) or operation not in {"apply", "inspect"}:
         raise ValueError("Apply inspects or generates. It does not take an edit or regenerate selector.")
-    if data.get("route") not in (None, "gpt-subscription"):
-        raise ValueError("Apply uses the GPT subscription image route. Other routes were not submitted.")
+    if data.get("route") not in (None, "gpt-subscription", "grok-subscription"):
+        raise ValueError("Apply requires a supported subscription image route. No paid route was submitted.")
     nonce = text(data.get("requestId") or data.get("request_id") or data.get("nonce"), "Request identity", 160)
     with project_lock(project):
         ledger = Ledger(project)
@@ -1530,16 +1566,19 @@ def _video_decision_label(state):
     )
 
 
-def _video_markup(video):
+def _video_markup(video, *, context_current=True):
     if not isinstance(video, dict):
         return '<div class="ai-video-review" data-ai-video-review hidden></div>'
     approval = _mapping(video.get("approval"))
     comment = approval.get("comment") if isinstance(approval.get("comment"), str) else ""
     short = " Duration is shorter than the recorded interval." if video.get("coverage") == "short" else ""
     native = "Native 480p/720p is not native Full HD." if video.get("native_full_hd") is False else ""
+    stale = (
+        " Narration or the approved input changed; this retained clip is not current." if not context_current else ""
+    )
     meta = (
         f"{_esc(video.get('width'))}×{_esc(video.get('height'))} {_esc(video.get('resolution') or '')} · "
-        f"{_esc(video.get('duration_s'))}s · audio {_esc(video.get('audio'))}.{_esc(short)} {_esc(native)}"
+        f"{_esc(video.get('duration_s'))}s · audio {_esc(video.get('audio'))}.{_esc(short)} {_esc(native)}{_esc(stale)}"
     )
     return (
         f'<div class="ai-video-review" data-ai-video-review data-ai-video-version="{_esc(video.get("id"))}"'
@@ -1625,6 +1664,8 @@ def _beat_card(beat, job, version, board):
         )
         review_hidden = ""
     native = _native_video_status(ledger.data.get("ai") if ledger is not None else None)
+    provider = ((ledger.data.get("ai") or {}).get("still_provider") or {}) if ledger is not None else {}
+    provider_label = "Grok subscription" if provider.get("route") == "grok-subscription" else "GPT subscription"
     details = _details(beat, job, version, native)
     ready_attr = ' data-ai-video-ready="true"' if video_ready else ""
     video_job = board.get("video_job")
@@ -1652,6 +1693,7 @@ def _beat_card(beat, job, version, board):
         f'<option value="images"{images_selected}>Generate three stills</option>'
         "</select></label>"
         f'<button type="button" data-ai-generate>{generate_label}</button>'
+        f"<span data-ai-still-provider>Stills: {_esc(provider_label)}</span>"
         '<button type="button" data-ai-video' + ("" if video_ready else " disabled") + ">Generate video</button>"
         f"<p data-ai-video-setup>{_esc(native.get('message'))} "
         "480p and 720p are not native Full HD. A short clip does not cover the recorded interval. "
@@ -1667,7 +1709,7 @@ def _beat_card(beat, job, version, board):
         '<button type="button" data-ai-decision="changes">Request changes</button>'
         '<button type="button" data-ai-decision="rejected">Reject</button>'
         "</div>"
-        f"{_video_markup(video)}"
+        f"{_video_markup(video, context_current=_video_context_current(ledger, video) if ledger is not None and video else True)}"
         f'<details class="ai-details"><summary>Details</summary>{details}</details>'
         "</article>"
     )
@@ -1872,7 +1914,7 @@ def _merge_remote(job, remote):
     if not isinstance(remote, dict):
         return
     info = dict(job.get("remote") or {})
-    for key in ("threadId", "turnId", "tool", "sessionId", "model"):
+    for key in ("threadId", "turnId", "tool", "sessionId", "model", "requestId", "transport"):
         value = remote.get(key)
         if (
             isinstance(value, str)
@@ -2466,17 +2508,12 @@ def _produce_worker(project, job_id):  # noqa: C901 - Dispatch retains separate 
             {"state": "failed", "message": "The GPT subscription route launches stills only.", "code": "unsupported"},
         )
         return
-    if _visual_request(request) and route != "gpt-subscription":
-        _store_terminal(
-            project,
-            job_id,
-            {
-                "state": "failed",
-                "message": "Apply uses the GPT subscription image route. Other routes were not submitted.",
-                "code": "unsupported",
-            },
-        )
-        return
+    if route == "grok-subscription":
+        try:
+            beat_for(_ledger, request.get("beat"), request.get("inputs"))
+        except ValueError as exc:
+            _store_terminal(project, job_id, {"state": "failed", "message": str(exc), "code": "stale"})
+            return
     workdir = _job_dir(_brolls_root(project), job_id)
     workdir.mkdir(parents=True, exist_ok=True)
 
@@ -2503,13 +2540,26 @@ def _produce_worker(project, job_id):  # noqa: C901 - Dispatch retains separate 
     _finish_outcome(project, job, outcome)
 
 
+def _grok_retrievable(job):
+    remote = job.get("remote") or {}
+    request = job.get("request") or {}
+    return (
+        request.get("route") == "grok-subscription"
+        and request.get("kind") == "video"
+        and remote.get("transport") == "oauth-imagine"
+        and bool(remote.get("requestId"))
+    )
+
+
 def _retrieve_job(project, job_id):
     with project_lock(project):
         ledger = Ledger(project)
         job = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         if not job or job.get("state") == "complete":
             return None
-        if not _recorded_artifact(job) or not (job.get("remote") or {}).get("artifact_sha256"):
+        if not _grok_retrievable(job) and (
+            not _recorded_artifact(job) or not (job.get("remote") or {}).get("artifact_sha256")
+        ):
             return None
         return job
 
@@ -2517,6 +2567,14 @@ def _retrieve_job(project, job_id):
 def _retrieve_worker(project, job_id):
     job = _retrieve_job(project, job_id)
     if job is None:
+        return
+    if _grok_retrievable(job) and not (job.get("remote") or {}).get("artifact_sha256"):
+        from .ai_grok import retrieve
+
+        workdir = _job_dir(_brolls_root(project), job_id)
+        workdir.mkdir(parents=True, exist_ok=True)
+        outcome = retrieve(job, workdir, timeout=float(os.environ.get("GETBROLLS_AI_TIMEOUT") or TIMEOUT_S))
+        _finish_outcome(project, job, outcome)
         return
     try:
         brolls = _brolls_root(project)
@@ -2591,6 +2649,7 @@ def _finish_outcome(project, job, outcome):  # noqa: C901, PLR0911 - Terminal in
                 current["remote"]["artifact"] = original.relative_to(workdir).as_posix()
                 current["remote"]["artifact_sha256"] = original_hash
                 current["state"] = "downloading"
+                current["submit_outcome"] = "accepted"
                 ledger.save("ai-result-received")
             if (job.get("request") or {}).get("kind") == "video":
                 version = _ingest_video(brolls, job, original)
@@ -2633,7 +2692,11 @@ def _store_terminal(project, job_id, fields):
             return
         state_name = fields["state"]
         job["state"] = state_name
-        job["submit_outcome"] = "unknown" if state_name == "unknown" else job.get("submit_outcome") or "accepted"
+        job["submit_outcome"] = (
+            "unknown"
+            if state_name == "unknown" and not _grok_retrievable(job)
+            else job.get("submit_outcome") or "accepted"
+        )
         job["error"] = _error_payload(fields.get("message"), fields.get("code"))
         _merge_remote(job, fields.get("remote"))
         unexpected = fields.get("unexpected_media")
@@ -2808,7 +2871,11 @@ def _probe_clip(path):
     )
     data = json.loads(raw)
     streams = data.get("streams") or []
-    videos = [row for row in streams if row.get("codec_type") == "video"]
+    videos = [
+        row
+        for row in streams
+        if row.get("codec_type") == "video" and not (row.get("disposition") or {}).get("attached_pic")
+    ]
     if len(videos) != 1:
         raise ValueError("AI video must contain exactly one video stream.")
     stream = videos[0]

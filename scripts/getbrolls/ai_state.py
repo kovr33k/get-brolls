@@ -358,9 +358,23 @@ def import_plan(ledger, payload):
             working.pop("native_video", None)
         else:
             working["native_video"] = chosen
+    _import_still_provider(working, payload)
     ledger.data["ai"] = working
     ledger.save("ai-plan")
     return {"beats": len(routing), "ai_beats": len(active), "default_mode": "economy"}
+
+
+def _import_still_provider(working, payload):
+    if "still_provider" not in payload:
+        return
+    provider = payload.get("still_provider")
+    if provider is None:
+        working.pop("still_provider", None)
+    elif isinstance(provider, dict):
+        route, model = _image_route(provider, allow_openrouter=False)
+        working["still_provider"] = {"route": route, "model": model}
+    else:
+        raise ValueError("Still provider setup must name a subscription route.")
 
 
 def _register_beat(working, entry, record, style):
@@ -569,14 +583,21 @@ def _launch_comment(beat, payload):
     return comment
 
 
-def _image_route(payload, *, allow_openrouter):
-    route = payload.get("route") or "gpt-subscription"
+def _image_route(payload, *, allow_openrouter, setup=None):
+    setup = setup if isinstance(setup, dict) else {}
+    route = payload.get("route") or setup.get("route") or "gpt-subscription"
     allowed = ROUTES if allow_openrouter else SUBSCRIPTION_ROUTES
     if route not in allowed:
         raise ValueError("Unsupported AI still route.")
     model = None
     if route == "grok-subscription":
-        model = text(payload.get("model"), "Native model", 200)
+        model = text(
+            payload.get("model") or (setup.get("model") if setup.get("route") == route else None), "Native model", 200
+        )
+        from .ai_grok import IMAGE_MODEL
+
+        if model != IMAGE_MODEL:
+            raise ValueError("This native Grok image model is unverified. No model was substituted.")
     elif payload.get("model") not in (None, ""):
         raise ValueError("This still route does not take a separate native model.")
     return route, model
@@ -591,6 +612,15 @@ def _ordinary_references(ledger, beat, nonce, route):
     from .ai_references import freeze_ordinary_guidance
 
     return freeze_ordinary_guidance(ledger, beat, nonce, route)
+
+
+def _native_image_output(ledger):
+    from .ai_timing import _profile
+
+    profile = _profile(ledger)
+    width, height = profile.get("width", 1920), profile.get("height", 1080)
+    divisor = math.gcd(width, height)
+    return {"aspect_ratio": f"{width // divisor}:{height // divisor}", "resolution": "1k"}
 
 
 def _guided_prompt(prompt, references):
@@ -624,7 +654,9 @@ def launch_still(ledger, payload, nonce):
         raise ValueError("Select a scene alternative before generating a still.")
     alternative = next(row for row in beat["alternatives"] if row["id"] == selected)
     style, style_prompt, quality = _agreed_style(ledger)
-    route, model = _image_route(payload, allow_openrouter=False)
+    route, model = _image_route(
+        payload, allow_openrouter=False, setup=(ledger.data.get("ai") or {}).get("still_provider")
+    )
     comment = _launch_comment(beat, payload)
     nonce = text(nonce, "Request identity", 160)
     references = _ordinary_references(ledger, beat, nonce, route)
@@ -648,8 +680,9 @@ def launch_still(ledger, payload, nonce):
     if references:
         request["references"] = references
     if model:
+        request.update(_native_image_output(ledger))
         request["model"] = model
-        request["tool"] = "image_gen"
+        request["tool"] = "image_edit" if references else "image_gen"
         request["session_id"] = _session_id(nonce, request["style_fingerprint"])
     return new_job(ledger, request, nonce)
 
@@ -702,8 +735,9 @@ def _comparison_request(beat, row, scope, binding):
     if references:
         request["references"] = references
     if model:
+        request.update({key: scope[key] for key in ("aspect_ratio", "resolution") if key in scope})
         request["model"] = model
-        request["tool"] = "image_gen"
+        request["tool"] = "image_edit" if references else "image_gen"
         request["session_id"] = _session_id(f"{binding['nonce']}:{row['id']}", binding["group_id"])
     return request
 
@@ -771,11 +805,15 @@ def launch_comparison(ledger, payload, nonce):
             "Switch to images mode before the explicit three-still launch. Economy mode generates one still."
         )
     nonce = text(nonce, "Request identity", GROUP_NONCE_LIMIT)
-    route, model = _image_route(payload, allow_openrouter=True)
+    route, model = _image_route(
+        payload, allow_openrouter=True, setup=(ledger.data.get("ai") or {}).get("still_provider")
+    )
     agreed = _agreed_style(ledger)
     comment = _launch_comment(beat, payload)
     references = _ordinary_references(ledger, beat, nonce, route)
     scope = _comparison_scope(beat, agreed, comment, (route, model), references)
+    if model:
+        scope.update(_native_image_output(ledger))
     saved = _saved_comparison(state(ledger.data), nonce, fingerprint(scope))
     if saved:
         return saved

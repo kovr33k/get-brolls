@@ -86,8 +86,8 @@ _STILL_BOUND = (
     "Use Apply for that retained result. The guidance and draft were preserved."
 )
 _UNSUPPORTED_ROUTE = (
-    "Active reference guidance is only available on the GPT subscription image route. "
-    "Grok and OpenRouter were not called and no other model was substituted. Nothing was submitted."
+    "Active reference guidance requires a supported subscription image route. "
+    "OpenRouter was not called and no other model was substituted. Nothing was submitted."
 )
 _STALE_GUIDANCE = "This reference is stale for the current beat. Nothing was submitted. The guidance was preserved."
 _MISSING_INTERVAL = "Video guidance is missing the requested interval. Nothing was submitted. The opening was not used."
@@ -345,7 +345,7 @@ def freeze_ordinary_guidance(ledger, beat, nonce, route):
     """Freeze active beat-level guidance for an ordinary launch. No job is created.
 
     An empty list means this beat has no active guidance. Still-bound guidance is
-    refused instead of guessing a retained result. Grok and OpenRouter are refused
+    refused instead of guessing a retained result. Unsupported routes are refused
     before a provider call. The caller holds the project lock.
     """
     if not isinstance(beat, dict):
@@ -361,7 +361,7 @@ def freeze_ordinary_guidance(ledger, beat, nonce, route):
         raise ValueError(_STILL_BOUND)
     if active.get("beat") != beat.get("id") or active.get("fingerprint") != beat.get("fingerprint"):
         raise ValueError(_STALE_GUIDANCE)
-    if route != "gpt-subscription":
+    if route not in {"gpt-subscription", "grok-subscription"}:
         raise ValueError(_UNSUPPORTED_ROUTE)
     _require_launch_video(store, active)
     identity = "frz-" + fingerprint({"nonce": nonce, "context": active["id"]})[:40]
@@ -389,7 +389,7 @@ def freeze_shared_guidance(ledger, beat, nonce, route, *, exclude=()):
     """Freeze shared style without attaching it to another beat or approving media."""
     beat_for(ledger, beat.get("id"), beat.get("fingerprint"))
     rows = shared_guidance(ledger, exclude=exclude)
-    if rows and route != "gpt-subscription":
+    if rows and route not in {"gpt-subscription", "grok-subscription"}:
         raise ValueError(_UNSUPPORTED_ROUTE)
     result = []
     for row in rows:

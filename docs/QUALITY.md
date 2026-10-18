@@ -98,7 +98,17 @@ The acceptance scope was explicitly amended to remove an additional human video-
 
 Required [Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/38971486563) passed for executable revision `7e54263`: **1,635 tests, 26 skips, no failures, 1,245.798 seconds**, plus the maintained tooling checks, with a matching verification tree. The final documentation-only PR revision still requires its own required check before integration. Separate AI-generation changes are outside this evidence.
 
+## Grok OAuth media — 2026-10-18 (issue #86)
+
+The implemented route follows the fixed Imagine side-call contract in [official grok-build source](https://github.com/xai-org/grok-build/tree/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8/crates/codegen/xai-grok-tools/src/implementations/grok_build). It reads only the installed client's retained xAI OIDC account and actual client version. It does not run a reasoning CLI turn or assert installed streaming-json/ToolOutput parity. Static keys, alternate endpoints, silent model substitution and generation retries are excluded.
+
+One explicitly authorized live image POST returned an original JPEG, 1280×720, through `grok-imagine-image-quality`. After explicit approval of those exact bytes, one video POST through `grok-imagine-video-1.5` returned an MP4: 736×400, 24 fps, 6.041667 seconds, H.264 with AAC audio and an embedded JPEG cover. The cover exposed and reproduced a decoder-validation bug; the corrected validator recovered the retained original without another provider call. Image and video received separate explicit technical approvals. The narration waveform/alignment for this exercise was an identified synthetic timing fixture, not production speech or transcription evidence. These dimensions are below Full HD; there is no Resolve or complete-module acceptance.
+
+Synthetic authenticated Storyboard/CLI coverage exercises the actual OAuth media adapter with mocked HTTP responses: artifact decoding and invalid output, exact first-frame bytes, independent review, missing input, duplicate identities, unknown submit, retained remote identity and retrieval without another POST. Reference-led stills and exact Apply transfer actual frozen PNG/JPEG or requested video-interval frames, with source/sent hashes; spatial/format compression preserves originals. Direct transfer does not claim a separate native analysis or mark guidance inspected. Live reference matching, additional model/profile combinations, complete sequences and delivery remain outside this bounded evidence.
+
 ## AI stills — 2026-10-16 (issue #83)
+
+This dated entry describes the earlier GPT/refusal implementation. Its Grok transport limits are superseded by the 2026-10-18 entry above.
 
 Local public-workflow coverage for economy scene choice and one GPT-subscription still uses a synthetic `codex app-server` transport, synthetic PNG/JPEG and the authenticated loopback Storyboard. That establishes routing, three alternatives, frozen jobs, duplicate request identity, unknown-submit refusal, decoded hashes and exact-still review. It does not establish ChatGPT account entitlement, actual `savedPath` media from a live login, image quality or Resolve acceptance. Those remain a separately authorized pilot.
 

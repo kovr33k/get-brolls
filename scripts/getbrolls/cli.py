@@ -79,7 +79,7 @@ SUMMARIES = {
     "graphics-timing-resolve": "Record an explicit candidate confirmation or bounded time override for one occurrence; does not retranscribe",
     "ai-plan": "Register original-scenario routing and three textual AI alternatives; does not generate media",
     "ai-select": "Save an AI beat's selected alternative, comment and comparison mode; does not generate",
-    "ai-generate-still": "Create one durable GPT-subscription still job from the selected economy scene after explicit launch",
+    "ai-generate-still": "Create one durable subscription still job from the selected economy scene after explicit launch",
     "ai-generate-comparison": "Create three durable GPT-subscription still jobs, one per saved treatment, after an explicit three-output launch",
     "ai-approve": "Record an explicit human decision on one saved AI still; generation is not approval",
     "ai-timing": "Match one AI beat to a completed narration analysis; does not transcribe or generate",
@@ -1021,6 +1021,12 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
             p.add_argument("--expected", help="Saved beat fingerprint; refuse if the scenario or style changed")
         if name == "ai-generate-still":
+            p.add_argument(
+                "--route",
+                choices=["gpt-subscription", "grok-subscription"],
+                help="Subscription still route; defaults to project setup or GPT",
+            )
+            p.add_argument("--model", help="Explicit native image model for the Grok OAuth route")
             p.add_argument(
                 "--beat",
                 required=True,

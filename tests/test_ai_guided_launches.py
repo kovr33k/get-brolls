@@ -504,13 +504,13 @@ class GuidedLaunchTests(unittest.TestCase):
         self.assertEqual({}, self._ai()["jobs"])
         self.assertEqual(0, self._turn_count())
 
-        with self.assertRaisesRegex(ValueError, "Grok and OpenRouter were not called"):
+        with self.assertRaisesRegex(ValueError, "native Grok image model is unverified"):
             handle_generate(
                 self.project,
                 {"beat": "beat-1", "requestId": "grok-still", "route": "grok-subscription", "model": "fixture-model"},
             )
         self._mode("images")
-        with self.assertRaisesRegex(ValueError, "Grok and OpenRouter were not called"):
+        with self.assertRaisesRegex(ValueError, "native Grok image model is unverified"):
             handle_generate(
                 self.project,
                 {
@@ -526,7 +526,7 @@ class GuidedLaunchTests(unittest.TestCase):
                 self.project,
                 {"beat": "beat-1", "requestId": "paid-http", "route": "openrouter", "outputs": 3},
             )
-        with project_lock(self.project), self.assertRaisesRegex(ValueError, "Grok and OpenRouter were not called"):
+        with project_lock(self.project), self.assertRaisesRegex(ValueError, "OpenRouter was not called"):
             launch_comparison(
                 Ledger(self.project),
                 {"beat": "beat-1", "outputs": 3, "route": "openrouter"},

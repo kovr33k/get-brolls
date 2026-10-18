@@ -239,7 +239,7 @@
       ]
     },
     "ai-generate-still": {
-      "help": "Create one durable GPT-subscription still job from the selected economy scene after explicit launch",
+      "help": "Create one durable subscription still job from the selected economy scene after explicit launch",
       "options": [
         {
           "action": "_HelpAction",
@@ -265,6 +265,33 @@
             "--project"
           ],
           "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": [
+            "gpt-subscription",
+            "grok-subscription"
+          ],
+          "default": null,
+          "dest": "route",
+          "help": "Subscription still route; defaults to project setup or GPT",
+          "nargs": null,
+          "option_strings": [
+            "--route"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "model",
+          "help": "Explicit native image model for the Grok OAuth route",
+          "nargs": null,
+          "option_strings": [
+            "--model"
+          ],
+          "required": false
         },
         {
           "action": "_StoreAction",

@@ -75,6 +75,7 @@ def resolve_timing(ledger, beat_id, analysis_id, review):
         profile=profile,
     )
     timing["match"] = updated
+    timing["identity"] = fingerprint(_narration_identity(analysis, recording))
     timing["readiness"] = {"resolved": ready["resolved"], "reasons": list(ready["reasons"])}
     timing["profile"] = {"fps": profile.get("fps"), "frame_rounding": profile.get("frame_rounding")}
     preview, error, record = _maybe_preview(
@@ -97,6 +98,8 @@ def launch_video(ledger, payload, nonce):
         raise ValueError("The video launch must name the approved still and frozen native tool.")
     beat = beat_for(ledger, payload.get("beat"), payload.get("expected") or payload.get("inputs"))
     version, _path = checked_version(ledger, payload.get("version"), approved=True, kind="image")
+    if version.get("beat") != beat["id"]:
+        raise ValueError("The approved still belongs to a different beat.")
     timing = beat.get("timing")
     if not isinstance(timing, dict):
         raise ValueError("Resolve the recorded narration interval before generating video.")
@@ -147,6 +150,7 @@ def launch_video(ledger, payload, nonce):
             "end_frame": interval.get("end_frame"),
         },
         "profile": {"fps": profile.get("fps"), "frame_rounding": profile.get("frame_rounding")},
+        "narration": ready["narration"],
         "sound": sound,
         "motion": motion,
         "requested_duration_s": requested,
@@ -160,6 +164,30 @@ def launch_video(ledger, payload, nonce):
         "session_id": str(uuid.UUID(fingerprint({"nonce": nonce, "still": version["sha256"]})[:32])),
     }
     return new_job(ledger, request, nonce)
+
+
+def checked_video_input(ledger, request):
+    """Recheck the frozen still and narration interval immediately before dispatch."""
+    beat = beat_for(ledger, request.get("beat"), request.get("inputs"))
+    still = request.get("still") or {}
+    version, path = checked_version(ledger, still.get("id"), approved=True, kind="image")
+    if (
+        version.get("beat") != beat["id"]
+        or version.get("sha256") != still.get("sha256")
+        or version_signature(version) != still.get("signature")
+    ):
+        raise ValueError("The frozen approved first frame changed before video submission.")
+    ready = current_readiness(ledger, beat, beat.get("timing"))
+    timing = ready.get("timing") or {}
+    interval = {key: timing.get(key) for key in ("start_s", "end_s", "start_frame", "end_frame")}
+    if not ready.get("resolved") or interval != request.get("interval"):
+        raise ValueError("The frozen narration interval changed before video submission.")
+    if ready.get("narration") != request.get("narration"):
+        raise ValueError("The frozen recording or analysis identity changed before video submission.")
+    profile = _profile(ledger)
+    if {key: profile.get(key) for key in ("fps", "frame_rounding")} != request.get("profile"):
+        raise ValueError("The video profile changed before submission.")
+    return path
 
 
 def explicit_native_video(raw):
@@ -205,8 +233,8 @@ def public_native_video(ai):
     return {
         **setup,
         "message": (
-            "Native Grok video is unverified for this installation. Generate video freezes this model and tool, "
-            "then fails closed. It does not send a request or start from a new still."
+            "Grok OAuth video uses the exact approved first frame. Account media entitlement remains unverified "
+            "until a real result is retained. Unsupported models fail before submission; no API-key fallback."
         ),
     }
 
@@ -272,6 +300,7 @@ def public_timing(timing):
         "preview_error": error,
         "recording_id": timing.get("recording_id"),
         "analysis_id": timing.get("analysis_id"),
+        "identity": timing.get("identity"),
         "still": still.get("id") if still else None,
     }
 
@@ -314,6 +343,7 @@ def _bind(ledger, beat, analysis_id, *, still):
     )
     return {
         "analysis_id": analysis.get("id"),
+        "identity": fingerprint(_narration_identity(analysis, recording)),
         "recording_id": recording.get("id"),
         "recording_sha256": recording.get("sha256"),
         "recording_duration_s": recording.get("duration_s"),
@@ -341,13 +371,25 @@ def _recheck(ledger, beat, timing):
 
     analysis, recording, _match_result, _snapshot = _intact(ledger, timing.get("analysis_id"))
     profile = _profile(ledger)
-    return alignment_readiness(
+    ready = alignment_readiness(
         timing.get("match"),
         analysis={"id": analysis.get("id"), "result": analysis.get("result")},
         recording=_recording(recording),
         passage=_passage(beat),
         profile=profile,
     )
+    ready["narration"] = _narration_identity(analysis, recording)
+    return ready
+
+
+def _narration_identity(analysis, recording):
+    return {
+        "analysis_id": analysis.get("id"),
+        "analysis_sha256": (analysis.get("result") or {}).get("artifact_sha256"),
+        "recording_id": recording.get("id"),
+        "recording_sha256": recording.get("sha256"),
+        "input_fingerprint": analysis.get("input_fingerprint"),
+    }
 
 
 def _intact(ledger, analysis_id):

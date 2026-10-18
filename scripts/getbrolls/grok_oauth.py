@@ -87,7 +87,7 @@ def _post(url, body, headers, *, form=False):
     return result
 
 
-def _account():
+def _account(*, verify_model=True):
     try:
         root = Path.home() / ".grok"
         path = root / "auth.json"
@@ -116,7 +116,7 @@ def _account():
         raise ProviderError(
             "Retained Grok OIDC selection/expiry is missing, ambiguous or invalid. Use its local login."
         ) from None
-    if model not in VERIFIED_MODELS:
+    if verify_model and model not in VERIFIED_MODELS:
         raise ProviderError(
             "The selected Grok model/tool pair is unverified. No model substitution or API-key fallback."
         )

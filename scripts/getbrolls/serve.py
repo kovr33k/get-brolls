@@ -402,6 +402,7 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             handle_apply,
             handle_generate,
             handle_reference_remove,
+            handle_resume,
             handle_review,
             handle_select,
             handle_timing,
@@ -421,12 +422,13 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             "video": handle_video,
             "apply": handle_apply,
             "reference-remove": handle_reference_remove,
+            "resume": handle_resume,
         }
         try:
             handler = handlers.get(action) if isinstance(action, str) else None
             if handler is None:
                 raise ValueError(
-                    "Choose select, generate, review, timing, resolve, video, apply or reference-remove "
+                    "Choose select, generate, review, timing, resolve, video, apply, reference-remove or resume "
                     "for this AI request."
                 )
             result = handler(project, data)
