@@ -1478,7 +1478,7 @@ async function drain() {
   narration.world.state.beats[0].video.context_current = false;
   narration.advance(1000);
   await drain();
-  assert.match(narrationCard.querySelector("[data-ai-video-meta]").textContent, /not current/);
+  assert.match(narrationCard.querySelector("[data-ai-video-meta]").textContent, /not verified against the current narration/);
   narrationCard.querySelector("[data-ai-video]").click();
   await drain();
   assert.equal(posted(narration.world, "video").length, 2);

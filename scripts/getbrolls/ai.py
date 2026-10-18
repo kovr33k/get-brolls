@@ -1574,7 +1574,9 @@ def _video_markup(video, *, context_current=True):
     short = " Duration is shorter than the recorded interval." if video.get("coverage") == "short" else ""
     native = "Native 480p/720p is not native Full HD." if video.get("native_full_hd") is False else ""
     stale = (
-        " Narration or the approved input changed; this retained clip is not current." if not context_current else ""
+        " This retained clip is not verified against the current narration and approved input."
+        if not context_current
+        else ""
     )
     meta = (
         f"{_esc(video.get('width'))}×{_esc(video.get('height'))} {_esc(video.get('resolution') or '')} · "

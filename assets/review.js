@@ -958,7 +958,7 @@
     }
     const short = video.coverage === "short" ? " Duration is shorter than the recorded interval." : "";
     const native = video.native_full_hd === false ? " Native 480p/720p is not native Full HD." : "";
-    const stale = video.context_current === false ? " Narration or the approved input changed; this retained clip is not current." : "";
+    const stale = video.context_current === false ? " This retained clip is not verified against the current narration and approved input." : "";
     meta.textContent = (video.width || "") + "×" + (video.height || "") + " " + (video.resolution || "")
       + " · " + (video.duration_s == null ? "" : video.duration_s) + "s · audio " + video.audio + "." + short + native + stale;
     let media = box.querySelector("video");

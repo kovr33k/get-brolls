@@ -233,8 +233,8 @@ def public_native_video(ai):
     return {
         **setup,
         "message": (
-            "Grok OAuth video uses the exact approved first frame. Account media entitlement remains unverified "
-            "until a real result is retained. Unsupported models fail before submission; no API-key fallback."
+            "Grok OAuth video uses the exact approved first frame and saved narration interval. "
+            "Account access and quota are checked at launch. Unsupported models fail before submission; no API-key fallback."
         ),
     }
 
