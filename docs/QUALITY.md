@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-16
+updated: 2026-10-18
 tags: [get-brolls, quality, qa, evidence]
 ---
 
@@ -88,7 +88,15 @@ An actual local-browser fault harness disconnected the first successful save res
 
 The [reference acceptance checkpoint](GRAPHICS-REFERENCES-ACCEPTANCE.md) maps all 55 stories and 13 parent criteria to automated, browser/native and human evidence. A fresh synthetic project retains three unapproved native Full-HD previews: image-guided initial production, an exact-version mixed-reference revision with the actual blue original **3–5-second** background, and a text-only descendant retaining both references and original data/narration. All three are H.264, 30 fps and two seconds, strictly decoded and measured. Their originals, prompts, analysis limitations, temporal sheet and old-version hashes are retained outside distribution.
 
-The still is an authored geometric palette/layout sketch; the selected video interval is flat blue without audio or fine motion. This demonstrates the stated source-clock/inclusion and retained-direction behavior, not general cinematic style matching. There is no recorded VO in this packet. The existing audio/paired-media and bounded Resolve evidence retains its original scope. Human visual assessment of these actual previews remains pending, as does the final integration decision. Required PR Windows checks apply to the revision being integrated; separate AI-module work is not represented as an already tested combined release.
+The still is an authored geometric palette/layout sketch; the selected video interval is flat blue without audio or fine motion. This demonstrates the stated source-clock/inclusion and retained-direction behavior, not general cinematic style matching. There is no recorded VO in this packet. The existing audio/paired-media and bounded Resolve evidence retains its original scope. These synthetic previews remain technical evidence without human visual approval. The later real-project assessment and amended acceptance gate are recorded below; final integration remains separate. Required PR Windows checks apply to the revision being integrated; separate AI-module work is not represented as an already tested combined release.
+
+## Reference visual acceptance and amended scope — 2026-10-18 (2.16.0 candidate)
+
+A separate real project received exact-version chat approvals for an image-guided draft v2 and a text-only revision v3. The follow-up retained the original image/analysis basis, narration text and earlier version bytes/history. Both native H.264 previews are 1920×1080, 30 fps and ten seconds; strict decoding and measurements passed. Their timing remains estimated without recorded VO. Private prompts, sources, approval statements and media are retained outside distribution. These approvals concern the displayed drafts, without a factual audit, final delivery or new Resolve observation.
+
+The acceptance scope was explicitly amended to remove an additional human video-reference demonstration. Video upload/persistence, requested intervals, actual inclusion, retained direction, shared scope and recovery remain covered by the existing automated/browser/native evidence. General cinematic video-style correspondence is not claimed as human-accepted. The [checkpoint](GRAPHICS-REFERENCES-ACCEPTANCE.md) preserves this boundary for all 55 stories and 13 criteria.
+
+Required [Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/38971486563) passed for executable revision `7e54263`: **1,635 tests, 26 skips, no failures, 1,245.798 seconds**, plus the maintained tooling checks, with a matching verification tree. The final documentation-only PR revision still requires its own required check before integration. Separate AI-generation changes are outside this evidence.
 
 ## What each evidence layer establishes
 
