@@ -3,7 +3,7 @@ name: get-brolls
 description: 'Coleta, pré-visualiza e entrega B-rolls com revisão humana e origem registrada. Use quando alguém pedir b-roll, vídeos de apoio, imagens de apoio, cutaways, inserts, footage, "um corte do X falando Y", um print da tela de um site ou de uma notícia, ou material para ilustrar um vídeo, Reel ou aula — buscando em YouTube, Instagram, TikTok, Wikimedia Commons, NASA, Archive.org ou bancos (Pexels, Pixabay), gerando prévias para revisão humana e entregando os trechos com origem e condições de uso. Also in English: collect B-roll, cutaways, inserts, supporting footage, stock video, screen grabs. Não serve para editar, montar ou renderizar o vídeo final. Not for editing or rendering the finished video.'
 license: MIT
 metadata:
-  version: "2.14.0"
+  version: "2.16.0"
   type: "skill"
   status: "current"
   created: "2026-09-15"
@@ -118,7 +118,7 @@ Registre as condições com `permit` (`--evidence`, `--preset` ou `--declared-by
 
 Gráficos numéricos opcionais são registros explícitos do projeto, nunca candidatos inventados. `search`, `help` e `status` funcionam sem o runtime Remotion. Diagnóstico: `graphics-doctor` (e `--prepare-browser` só quando for preparar o Chromium local). `--scene` é a identidade da cena; `--template numeric-stat` é a composição. Estilo proposto e render local: [Graphics](${CLAUDE_PLUGIN_ROOT}/docs/GUIDE.md#graphics). Um render completo não é aprovação humana nem entrega.
 
-Para produzir ou continuar motion graphics, ou processar revisões e imagens de referência salvas no Storyboard, leia primeiro [Sequential graphics production](${CLAUDE_PLUGIN_ROOT}/references/graphics-workflow.md). Trabalhe uma ocorrência por vez no contexto gerenciador; o CLI preserva arquivos, instruções, versões e contadores. A política de agentes e as instruções explícitas da pessoa continuam valendo.
+Para produzir ou continuar motion graphics, ou processar revisões com imagens/vídeos de referência salvos no Storyboard, leia primeiro [Sequential graphics production](${CLAUDE_PLUGIN_ROOT}/references/graphics-workflow.md). Trabalhe uma ocorrência por vez no contexto gerenciador; o CLI preserva arquivos, instruções, intervalos analisados, versões e contadores. A política de agentes e as instruções explícitas da pessoa continuam valendo.
 
 Quando um beat do cenário original for roteado para AI, registre o plano com `ai-plan` e ofereça três descrições distintas. O modo economy continua o padrão: Generate still / `ai-generate-still` pede um still. O modo images não gera sozinho; Generate three stills / `ai-generate-comparison` pede explicitamente os três stills. Selecionar uma descrição ou um still não aprova a imagem nem apaga os outros. `ai-timing` casa a narração já gravada e mostra o trecho reconhecido com início e fim; a prévia curta só entra se o arquivo, o hash e a duração conferem. `ai-generate-video` pede o vídeo só depois do still aprovado e do intervalo resolvido. No Storyboard, o modelo e a ferramenta vêm do `native_video` gravado no plano; não invente modelo nem troque para API paga. O fluxo público é sintético. O adaptador nativo de mídia Grok continua sem transporte e sem capacidade verificada. O detalhe operacional, incluindo job duplicado e submit incerto, está em [AI stills](${CLAUDE_PLUGIN_ROOT}/docs/GUIDE.md#ai-stills). Geração real na conta continua um gate separado.
 

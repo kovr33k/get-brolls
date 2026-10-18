@@ -19,6 +19,7 @@ import re
 import secrets
 import subprocess
 import sys
+import tempfile
 import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -255,7 +256,7 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         origin = self.headers.get("Origin")
         return not (origin and origin != f"http://{host}")
 
-    def do_POST(self):  # noqa: C901, PLR0911, PLR0912 - Shared authentication precedes distinct save, AI and bounded-upload routes.
+    def do_POST(self):
         if not self._local_request():
             self._refuse(403, "Pedido de outra origem; este servidor só atende esta máquina.")
             return
@@ -281,6 +282,14 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         if route == AI_PATH:
             self._ai_mutate()
             return
+        self._save_decisions()
+
+    def _save_decisions(self):  # noqa: C901, PLR0911 - bounded HTTP body/JSON validation has explicit refusal responses before publication.
+        self.connection.settimeout(15)
+        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length", [])) > 1:
+            self.close_connection = True
+            self._refuse(400, "Send a bounded Content-Length decision body, without Transfer-Encoding.")
+            return
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -290,14 +299,27 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             # Drena o excesso (com teto) antes de responder: sem isso o cliente
             # levaria um cano quebrado no lugar do 413 que explica o problema.
             left = min(length, MAX_SAVE_BYTES * 4)
-            while left > 0:
-                chunk = self.rfile.read(min(65536, left))
-                if not chunk:
-                    break
-                left -= len(chunk)
+            self.close_connection = True
+            try:
+                while left > 0:
+                    chunk = self.rfile.read(min(65536, left))
+                    if not chunk:
+                        break
+                    left -= len(chunk)
+            except OSError:
+                pass  # A stalled oversized body remains a bounded refusal.
             self._refuse(413, "Corpo grande demais para um arquivo de decisões.")
             return
-        raw = self.rfile.read(length)
+        try:
+            raw = self.rfile.read(length)
+        except OSError:
+            self.close_connection = True
+            self._refuse(408, "Decision transfer interrupted; preserve the draft and retry.")
+            return
+        if len(raw) != length:
+            self.close_connection = True
+            self._refuse(400, "Incomplete decision transfer; no submission was published. Retry the same draft.")
+            return
         try:
             data = json.loads(raw.decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
@@ -320,7 +342,12 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _json_body(self, limit):
+    def _json_body(self, limit):  # noqa: C901, PLR0911 - Each framing, size, transfer and JSON refusal stops before AI mutation.
+        self.connection.settimeout(15)
+        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length", [])) > 1:
+            self.close_connection = True
+            self._refuse(400, "Send a bounded Content-Length AI body, without Transfer-Encoding.")
+            return None
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -328,14 +355,27 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             return None
         if length <= 0 or length > limit:
             left = min(length, limit * 4)
-            while left > 0:
-                chunk = self.rfile.read(min(65536, left))
-                if not chunk:
-                    break
-                left -= len(chunk)
+            self.close_connection = True
+            try:
+                while left > 0:
+                    chunk = self.rfile.read(min(65536, left))
+                    if not chunk:
+                        break
+                    left -= len(chunk)
+            except OSError:
+                pass  # An interrupted oversized body remains a bounded refusal.
             self._refuse(413, "Corpo grande demais para um arquivo de decisões.")
             return None
-        raw = self.rfile.read(length)
+        try:
+            raw = self.rfile.read(length)
+        except OSError:
+            self.close_connection = True
+            self._refuse(408, "AI transfer interrupted; preserve the draft and retry.")
+            return None
+        if len(raw) != length:
+            self.close_connection = True
+            self._refuse(400, "Incomplete AI transfer; no action was applied. Retry the same draft.")
+            return None
         try:
             data = json.loads(raw.decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
@@ -417,21 +457,24 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         return io.BytesIO(body)
 
     def _upload_reference(self):
-        from .graphics_references import MAX_IMAGE_BYTES, NAME_HEADER, upload
+        from .graphics_references import MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, NAME_HEADER, upload
 
         self.connection.settimeout(15)
         try:
+            if len(self.headers.get_all("Content-Length", [])) > 1:
+                raise ValueError("Supply exactly one Content-Length for the reference transfer.")
             length = int(self.headers.get("Content-Length") or 0)
-            if not 0 < length <= MAX_IMAGE_BYTES or self.headers.get("Transfer-Encoding"):
-                self.close_connection = True
-                self._refuse(413, "Supply one PNG/JPEG image up to 16 MiB.")
-                return
             raw = self.headers.get(NAME_HEADER, "")
             if len(raw) > MAX_REFERENCE_HEADER:
                 raise ValueError("Reference metadata is too large.")
-            metadata = json.loads(unquote(raw, errors="strict"))
+            metadata = json.loads(unquote(raw, errors="strict")) if raw else {}
             if not isinstance(metadata, dict):
                 raise ValueError("Reference metadata must identify the displayed scene.")
+            limit = MAX_VIDEO_BYTES if metadata.get("kind") == "video" else MAX_IMAGE_BYTES
+            if not 0 < length <= limit or self.headers.get("Transfer-Encoding"):
+                self.close_connection = True
+                self._refuse(413, "Supply PNG/JPEG up to 16 MiB or MP4/H.264 up to 64 MiB.")
+                return
             ref = upload(Path(self.directory), self.rfile, length, metadata)
         except (ValueError, OSError) as exc:
             self.close_connection = True
@@ -567,14 +610,11 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
                 path = served_image(
                     Path(self.directory), self.path.split("?")[0].removeprefix("/__graphics-reference/")
                 )
-                stream = path.open("rb")
             except (ValueError, OSError):
-                return self._head_error(404, "Unknown saved image reference.")
-            self.send_response(200)
-            self.send_header("Content-Type", "image/png" if path.suffix == ".png" else "image/jpeg")
-            self.send_header("Content-Length", str(path.stat().st_size))
-            self.end_headers()
-            return stream
+                return self._head_error(404, "Unknown saved media reference.")
+            if self._apply_byte_range(path):
+                return self._send_byte_range_response(path, alias=True)
+            return self._send_reference_file(path)
         # The token lives only in memory and pages served by this local session;
         # opening review.html directly from disk keeps the ordinary JSON download.
         if self.path.split("?")[0] in ("/review.html", "/"):
@@ -641,15 +681,33 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         self._accept_byte_ranges = True
         return super().send_head()
 
-    def _send_byte_range_response(self, path):
+    def _send_reference_file(self, path):
+        """Full response for an already admitted private media alias."""
+        try:
+            stream = Path(path).open("rb")  # noqa: SIM115 - the HTTP handler owns and closes the returned stream.
+            info = os.fstat(stream.fileno())
+        except OSError:
+            return self._head_error(404, "Unknown saved media reference.")
+        self.send_response(200)
+        self.send_header("Content-Type", self.guess_type(str(path)))
+        self.send_header("Content-Length", str(info.st_size))
+        self.send_header("Last-Modified", self.date_time_string(info.st_mtime))
+        self._accept_byte_ranges = True
+        self.end_headers()
+        return stream
+
+    def _send_byte_range_response(self, path, *, alias=False):
+        def full():
+            return self._send_reference_file(path) if alias else self._send_full_admitted_file()
+
         parsed = _parse_single_byte_range(self.headers.get("Range"))
         if parsed is None:
-            return self._send_full_admitted_file()
+            return full()
         target = Path(path)
         try:
             size = target.stat().st_size
         except OSError:
-            return self._send_full_admitted_file()
+            return full()
         selected = _satisfy_byte_range(parsed, size)
         if selected is None:
             return self._send_unsatisfiable_range(size)
@@ -666,11 +724,7 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         except (OSError, ValueError) as exc:
             if stream is not None:
                 stream.close()
-            return (
-                self._head_error(404, "Não encontrado.")
-                if isinstance(exc, ValueError)
-                else self._send_full_admitted_file()
-            )
+            return self._head_error(404, "Não encontrado.") if isinstance(exc, ValueError) else full()
         length = end - start + 1
         try:
             self.send_response(206)
@@ -721,7 +775,7 @@ def _inject_token(page, token):
         + json.dumps(TOKEN_HEADER)
         + ',"token":'
         + json.dumps(token)
-        + ',"referenceUrl":"/__graphics-reference","referenceMaxBytes":16777216'
+        + ',"referenceUrl":"/__graphics-reference","referenceMaxBytes":16777216,"referenceVideoMaxBytes":67108864,"referenceMaxFiles":8,"referenceTotalMaxBytes":134217728'
         + ',"aiUrl":'
         + json.dumps(AI_PATH)
         + ',"aiReferenceUrl":'
@@ -755,42 +809,59 @@ def _write_private_text(path, text):
         stream.write(text)
 
 
-def save_review(directory, data):
-    """Grava as decisões em `brolls/reviews/<timestamp>.json` e devolve o caminho.
+def save_review(directory, data, *, identity=None):
+    """Publish complete decision bytes under a clock name or validated content identity."""
+    from .graphics import _confine_planned
 
-    O nome sai do relógio (`%Y%m%d-%H%M%S`, com sufixo numérico em caso de empate):
-    nada do corpo enviado entra no caminho, então não há como escapar da pasta.
-    """
-    reviews = Path(directory) / REVIEWS_DIR
+    reviews = _confine_planned(Path(directory), Path(directory) / REVIEWS_DIR)
     if reviews.is_symlink():
         raise ValueError(
             f"{reviews} é um link simbólico; a pasta de decisões precisa ser uma pasta de verdade dentro do projeto."
         )
     reviews.mkdir(parents=True, exist_ok=True)
+    if identity is not None and (not isinstance(identity, str) or not re.fullmatch(r"[0-9a-f]{64}", identity)):
+        raise ValueError("Invalid immutable reference submission identity.")
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
-    # O_EXCL nunca segue um arquivo existente e O_NOFOLLOW recusa um link plantado
-    # no lugar do nome: a gravação cria o arquivo ou falha, jamais escreve através.
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    body = json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False).encode("utf-8")
+    if len(body) > MAX_SAVE_BYTES:
+        raise ValueError("The serialized decision file exceeds 2 MB; preserve the draft and reduce the submission.")
+    staged = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=reviews, prefix=".save-", suffix=".tmp", delete=False) as stream:
+            staged = Path(stream.name)
+            stream.write(body)
+            stream.flush()
+            os.fsync(stream.fileno())
+        return _publish_review(reviews, staged, stamp, identity)
+    finally:
+        if staged is not None:
+            staged.unlink(missing_ok=True)
+
+
+def _publish_review(reviews, staged, stamp, identity):
+    # A same-directory hard link publishes complete flushed bytes without
+    # replacing an occupied name or following a planted target link.
     extra = 0
     while True:
-        path = reviews / (f"{stamp}.json" if not extra else f"{stamp}-{extra}.json")
-        # `O_NOFOLLOW` não existe no Windows (vale 0 ali), então a recusa do link
-        # plantado é feita antes do `open`, com `lstat`, igual em todo sistema.
+        path = reviews / (
+            f"references-{identity}.json" if identity else f"{stamp}.json" if not extra else f"{stamp}-{extra}.json"
+        )
         if path.is_symlink():
             raise ValueError(
                 f"{path} é um link simbólico; apague esse link antes de salvar as "
                 "decisões — o arquivo tem que ficar dentro do projeto."
             )
         try:
-            handle = os.open(path, flags, 0o600)
+            os.link(staged, path)
         except FileExistsError:
             if path.is_symlink():
-                # Alguém plantou um link no nome que íamos usar: nada de escrever
-                # através dele, nem de escolher outro nome como se fosse normal.
                 raise ValueError(
                     f"{path} é um link simbólico; apague esse link antes de salvar as "
                     "decisões — o arquivo tem que ficar dentro do projeto."
+                ) from None
+            if identity:
+                raise ValueError(
+                    "Reference submission identity already exists. Preserve it and reconcile before retrying."
                 ) from None
             extra += 1
             if extra > 50:  # noqa: PLR2004 - cap on alternative-name attempts before giving up
@@ -801,8 +872,6 @@ def save_review(directory, data):
                 f"Não consegui gravar as decisões em {path}: {exc.strerror}. "
                 "Confira se não há um link simbólico no lugar do arquivo."
             ) from exc
-        with os.fdopen(handle, "wb") as stream:
-            stream.write(body)
         return path
 
 

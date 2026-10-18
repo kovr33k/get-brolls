@@ -1932,6 +1932,18 @@
             "--occurrence"
           ],
           "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "request",
+          "help": "Resume this exact saved reference request or its fixed shared targets, reusing intact completed results",
+          "nargs": null,
+          "option_strings": [
+            "--request"
+          ],
+          "required": false
         }
       ]
     },
@@ -2192,7 +2204,7 @@
       ]
     },
     "graphics-reference-apply": {
-      "help": "Bind an inspected saved image and its analysis to graphics authoring; never render",
+      "help": "Bind inspected saved references and actual analysis to graphics authoring; never render",
       "options": [
         {
           "action": "_HelpAction",
@@ -2224,7 +2236,7 @@
           "choices": null,
           "default": null,
           "dest": "request",
-          "help": "Saved image-reference request id",
+          "help": "Saved reference request id",
           "nargs": null,
           "option_strings": [
             "--request"
@@ -2236,10 +2248,190 @@
           "choices": null,
           "default": null,
           "dest": "analysis",
-          "help": "Actual adopted characteristics after inspecting the saved image",
+          "help": "Actual still-image analysis, or effective instructions reusing intact earlier analyses",
           "nargs": null,
           "option_strings": [
             "--analysis"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "file",
+          "help": "JSON analyses per reference label, plus optional explicit composition",
+          "nargs": null,
+          "option_strings": [
+            "--file"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "graphics-reference-inspect": {
+      "help": "Sample an explicitly resolved saved video interval for temporal inspection; never render",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "request",
+          "help": "Saved reference request id",
+          "nargs": null,
+          "option_strings": [
+            "--request"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "label",
+          "help": "Video reference label, for example R2",
+          "nargs": null,
+          "option_strings": [
+            "--label"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "wording",
+          "help": "Exact original interval or whole-clip wording from the prompt",
+          "nargs": null,
+          "option_strings": [
+            "--wording"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "whole",
+          "help": "Inspect the explicitly requested whole video",
+          "nargs": 0,
+          "option_strings": [
+            "--whole"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "start",
+          "help": "Resolved start in original source seconds",
+          "nargs": null,
+          "option_strings": [
+            "--start"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "end",
+          "help": "Resolved end in original source seconds",
+          "nargs": null,
+          "option_strings": [
+            "--end"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": 12,
+          "dest": "frames",
+          "help": "Temporal samples, 3–24 (default 12)",
+          "nargs": null,
+          "option_strings": [
+            "--frames"
+          ],
+          "required": false
+        }
+      ]
+    },
+    "graphics-reference-scope": {
+      "help": "Freeze concrete shared reference targets and per-scene instructions; never render",
+      "options": [
+        {
+          "action": "_HelpAction",
+          "choices": null,
+          "default": "==SUPPRESS==",
+          "dest": "help",
+          "help": "show this help message and exit",
+          "nargs": 0,
+          "option_strings": [
+            "--help",
+            "-h"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "project",
+          "help": "Pasta do projeto que guarda brolls/, fora da instalação da skill",
+          "nargs": null,
+          "option_strings": [
+            "--project"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "request",
+          "help": "Saved shared reference request id",
+          "nargs": null,
+          "option_strings": [
+            "--request"
+          ],
+          "required": true
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "file",
+          "help": "JSON resolution and concrete targets with occurrence_id, references and instruction",
+          "nargs": null,
+          "option_strings": [
+            "--file"
           ],
           "required": true
         }

@@ -49,6 +49,31 @@
           "type": "object",
           "additionalProperties": true
         },
+        "reference_states": {
+          "type": "object",
+          "description": "Immutable content-addressed active-reference revisions per occurrence; runtime checks state hashes, original instructions and request base/result bindings.",
+          "additionalProperties": {
+            "type": "object", "additionalProperties": false, "required": ["current", "revisions"],
+            "properties": {
+              "current": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "revisions": {"type": "object", "additionalProperties": {
+                "type": "object", "additionalProperties": false, "required": ["revision", "references", "instructions"],
+                "properties": {
+                  "revision": {"type": "integer", "minimum": 0},
+                  "references": {"type": "array", "maxItems": 8, "items": {"type": "object"}},
+                  "instructions": {"type": "array", "items": {"type": "object", "required": ["prompt", "scope", "bindings"]}}
+                }
+              }}
+            }
+          }
+        },
+        "reference_scopes": {
+          "type": "object",
+          "description": "Explicit fixed shared target snapshots and original per-target exceptions; runtime validates their canonical resolution fingerprint and request identities.",
+          "additionalProperties": {"type": "object", "required": ["resolution", "resolution_sha256", "targets"],
+            "properties": {"resolution": {"type": "string"}, "resolution_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "targets": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["occurrence_id", "request_id", "instruction", "reviewed_version", "content_sha256", "base"]}}}}
+        },
         "requests": {
           "type": "array",
           "items": {
@@ -69,7 +94,25 @@
               "project_id": {"type": "string", "minLength": 1},
               "scene_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
               "occurrence_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
-              "reviewed_version": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+              "reviewed_version": {"type": ["string", "null"], "pattern": "^v[1-9][0-9]*$"},
+              "kind": {"const": "authoring"},
+              "reference": {"type": "object", "description": "Legacy singular saved PNG/JPEG descriptor; runtime validates bytes and identity."},
+              "references": {
+                "type": "array", "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "required": ["label", "ref", "sha256", "name", "kind", "bytes", "width", "height"],
+                  "properties": {
+                    "label": {"type": "string", "pattern": "^R[1-8]$"},
+                    "kind": {"enum": ["image", "video"]}
+                  },
+                  "description": "Stable labelled descriptor. Runtime additionally validates unique labels, actual codec/measurements, source hashes and aggregate bounds."
+                }
+              },
+              "reference_change": {"type": "object", "additionalProperties": false, "required": ["base", "result"],
+                "properties": {"base": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "result": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+              "reference_application": {"type": "string", "minLength": 1, "maxLength": 8000},
+              "shared_request_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
               "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
               "text": {"type": "string", "minLength": 1, "maxLength": 8000},
               "scope": {"enum": ["scene", "shared"]},
@@ -96,6 +139,16 @@
               }
             },
             "allOf": [
+              {"if": {"required": ["reference_change"]}, "then": {"required": ["references"]}, "else": {"properties": {"references": {"minItems": 1}}}},
+              {"not": {"required": ["reference", "references"]}},
+              {
+                "if": {"properties": {"kind": {"const": "authoring"}}, "required": ["kind"]},
+                "then": {
+                  "properties": {"reviewed_version": {"type": "null"}},
+                  "anyOf": [{"required": ["reference"]}, {"required": ["references"]}]
+                },
+                "else": {"properties": {"reviewed_version": {"type": "string", "pattern": "^v[1-9][0-9]*$"}}}
+              },
               {
                 "if": {"properties": {"state": {"const": "processed"}}, "required": ["state"]},
                 "then": {

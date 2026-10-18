@@ -29,8 +29,11 @@
 @media print{.graphics-card.is-wired .graphics-version-details{display:block!important}.graphics-details>summary{display:none}}
 @media print{.graphics-board{border:0;padding:0}.graphics-card{background:transparent!important;color:#111!important;border:1px solid #777;break-inside:avoid}.graphics-card h3,.graphics-card p,.graphics-card li,.graphics-card blockquote,.graphics-card span{color:#111!important}.graphics-card blockquote{border-color:#777}.graphics-preview,.graphics-version-tools,.graphics-review-actions,.graphics-vo-preview,.graphics-alignment-preview,.graphics-alignment-correct,.graphics-media-toggles,.graphics-review-panel button,.graphics-review-panel textarea,.graphics-review-panel label,.graphics-compare-context,.empty-board{display:none!important}.graphics-card.is-wired .graphics-version{display:block!important}.graphics-version{border-color:#777;break-inside:avoid}}
 .graphics-reference-preview {display:flex;align-items:center;gap:12px;flex-wrap:wrap;overflow-wrap:anywhere}
-.graphics-reference-preview img {width:120px;height:80px;object-fit:contain;border-radius:6px}
+.graphics-reference-preview img,.graphics-reference-preview video {width:160px;height:100px;object-fit:contain;border-radius:6px}
+.graphics-reference-preview>div {display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:100%}
 .graphics-review-panel input[type="file"] {max-width:100%;width:100%}
+.graphics-review-panel [data-graphics-edit],.graphics-reference-preview button,.graphics-review-panel .confirm-review {background:#2b241a;color:#e6dccb;border-color:#6b5438}
+.graphics-review-panel [data-graphics-edit]:disabled,.graphics-reference-preview button:disabled,.graphics-review-panel .confirm-review:disabled {opacity:.55;cursor:not-allowed}
 @media print {.graphics-reference-preview,.graphics-review-panel .review-fields {display:none!important}}
 
 .ai-board{margin:0 0 28px;padding:0 0 8px}
