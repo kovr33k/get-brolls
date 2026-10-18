@@ -13,7 +13,7 @@ from .models import now
 REPAIR_LIMIT = 2
 
 
-def handoff_command(ledger, args):
+def handoff_command(ledger, args):  # noqa: C901 - one snapshot boundary checks the actual version, reference base and existing scene inputs.
     """Persist reconstructable inputs; the host owns actual delegation and its evidence."""
     from . import graphics as g
 
@@ -28,6 +28,8 @@ def handoff_command(ledger, args):
             raise ValueError("Revision request must identify this exact occurrence.")
         if request.get("processing") is not None or request.get("state") != "saved":
             raise ValueError("Revision request was already processed; do not replay it.")
+        if request.get("reference_change") and g._request_stale_reason(request, graphics):
+            raise ValueError("Active reference context changed; preserve the fixed request target.")
         if request.get("kind") == "authoring":
             if g._request_stale_reason(request, graphics):
                 raise ValueError("Initial reference assignment changed; preserve the original request.")
@@ -61,6 +63,20 @@ def handoff_command(ledger, args):
         "delegation_observed": False,
         "instruction": "One continuous occurrence only. Save work before the next assignment. Preserve original narration and meaning; return new scene ideas to the manager. Human questions pause this occurrence only. Use at most two scene-code repairs. A host-context label alone is not evidence of execution.",
     }
+    if occurrence["occurrence_id"] in graphics.get("reference_states", {}):
+        from .graphics_reference_context import active, scope_status
+        from .graphics_reference_recovery import work_status as reference_work_status
+        from .graphics_references import checked_references
+
+        sha, state = active(graphics, occurrence["occurrence_id"])
+        checked_references(ledger.root, {"references": state["references"], "reference_change": {}})
+        packet["active_references"] = {"sha256": sha, **state}
+        packet["reference_scopes"] = [
+            group
+            for group in scope_status(graphics, work=reference_work_status(ledger.root, graphics))
+            if group["source_occurrence_id"] == occurrence["occurrence_id"]
+            or any(t["occurrence_id"] == occurrence["occurrence_id"] for t in group["targets"])
+        ]
     ref = "graphics-data/handoff-" + occurrence["occurrence_id"] + "-" + uuid.uuid4().hex + ".json"
     path = g._confine_planned(ledger.root, ledger.root / ref)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -378,6 +394,10 @@ def _continue_one(ledger, occurrence):
 
 
 def continue_command(ledger, args):
+    if getattr(args, "request", None):
+        from .graphics_reference_recovery import continue_command as continue_reference_request
+
+        return continue_reference_request(ledger, args)
     graphics = ledger.data.get("graphics")
     if not isinstance(graphics, dict):
         raise ValueError("This project has no graphics assignments to continue.")

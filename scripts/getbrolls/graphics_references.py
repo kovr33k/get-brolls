@@ -28,6 +28,7 @@ MAX_REVIEW_BYTES = 2_000_000
 MAX_FILES = 8
 MAX_REQUEST_BYTES = 128 * 1024 * 1024
 CONTEXT_SCHEMA = 2
+ACTIVE_CONTEXT_SCHEMA = 3
 INTERVAL_TOLERANCE = 0.02
 REF_RE = re.compile(r"graphics-data/references/([0-9a-f]{64})\.(png|jpg|mp4)\Z")
 
@@ -94,7 +95,14 @@ def references(record):
     if not fields:
         return []
     values = fields["references"]
-    if not isinstance(values, list) or not 1 <= len(values) <= MAX_FILES:
+    minimum = (
+        0
+        if "reference_change" in record
+        or "referenceBase" in record
+        or record.get("schema_version") == ACTIVE_CONTEXT_SCHEMA
+        else 1
+    )
+    if not isinstance(values, list) or not minimum <= len(values) <= MAX_FILES:
         raise ValueError("A reference request needs 1–8 attachments.")
     labels = set()
     for ref in values:
@@ -133,6 +141,11 @@ def checked_image(root, ref):
 
 def validate_context(context):
     if context is None:
+        return
+    if isinstance(context, dict) and context.get("schema_version") == ACTIVE_CONTEXT_SCHEMA:
+        from .graphics_reference_context import validate_context as validate_active_context
+
+        validate_active_context(context)
         return
     if isinstance(context, dict) and context.get("schema_version") == CONTEXT_SCHEMA:
         _validate_plural_context(context)
@@ -211,6 +224,18 @@ def context_matches(request, assignment):
     context = assignment.get("reference_context") or {}
     if not reference_fields(request):
         return True
+    if request.get("reference_change") and context.get("active_state_sha256") != request["reference_change"]["result"]:
+        return False
+    shared_id = request.get("shared_request_id") or (
+        request["id"] if request.get("reference_change") and request.get("scope") == "shared" else None
+    )
+    if shared_id and (context.get("shared_scope") or {}).get("request_id") != shared_id:
+        return False
+    if (
+        request.get("reference_application")
+        and (context.get("shared_scope") or {}).get("application") != request["reference_application"]
+    ):
+        return False
     if (
         context.get("request_id") != request["id"]
         or context.get("prompt") != request["text"]
@@ -254,7 +279,15 @@ def initial_rows(graphics, project):
                 "comment": latest.get("text", ""),
                 **({"requestId": latest["id"]} if latest else {}),
                 **reference_fields(latest),
-                "scope": "scene",
+                **(
+                    {
+                        key: latest[key]
+                        for key in ("reference_change", "reference_application", "shared_request_id")
+                        if key in latest
+                    }
+                ),
+                **({"referenceBase": latest["reference_change"]["base"]} if latest.get("reference_change") else {}),
+                "scope": latest.get("scope", "scene"),
                 "requests": requests,
                 "context": {"narration": occ.get("narration"), "timing": occ.get("timing")},
             }
@@ -320,7 +353,7 @@ def _probe(path, extension):
     return width, height
 
 
-def upload(directory, stream, length, metadata):  # noqa: C901, PLR0915 - serialized bounded transfer, decode and atomic content-addressed publication.
+def upload(directory, stream, length, metadata):  # noqa: C901, PLR0912, PLR0915 - serialized bounded transfer, target/base checks, decode and atomic publication.
     """Bounded raw media transfer; no request, analysis or manifest mutation."""
     kind = metadata.get("kind", "image")
     if kind not in ("image", "video") or not 0 < length <= (MAX_VIDEO_BYTES if kind == "video" else MAX_IMAGE_BYTES):
@@ -331,6 +364,11 @@ def upload(directory, stream, length, metadata):  # noqa: C901, PLR0915 - serial
         if ledger.pending.exists():
             raise ValueError("A project write is pending. Finish it with the CLI before saving references.")
         target(ledger, metadata)
+        if "referenceBase" in metadata:
+            from .graphics_reference_context import active
+
+            if active(ledger.data["graphics"], metadata["occurrence_id"])[0] != metadata["referenceBase"]:
+                raise ValueError("Active references changed. Reopen the scene before uploading this draft.")
         name = metadata.get("name")
         if not isinstance(name, str) or not name.strip() or len(name) > MAX_NAME or re.search(r"[\x00-\x1f\x7f]", name):
             raise ValueError("Invalid reference display name.")
@@ -404,7 +442,11 @@ def save_review(directory, data, save):
     graphics_rows = data.get("graphics")
     if not isinstance(graphics_rows, list):
         return save(directory, data)
-    rows = [row for row in graphics_rows if isinstance(row, dict) and (reference_fields(row) or row.get("initial"))]
+    rows = [
+        row
+        for row in graphics_rows
+        if isinstance(row, dict) and (reference_fields(row) or row.get("initial") or "referenceBase" in row)
+    ]
     if not rows:
         return save(directory, data)
     with project_lock(Path(directory).parent):
@@ -419,26 +461,54 @@ def save_review(directory, data, save):
             raise ValueError("Reference review envelope belongs to another project or format.")
         if ledger.pending.exists():
             raise ValueError("A project write is pending; finish it before saving references.")
-        for row in rows:
-            if row.get("state") == "pending" and not reference_fields(row):
-                continue
-            if (
-                row.get("state") != "changes"
-                or not _g()._bounded_prose(row.get("comment"))
-                or row.get("scope", "scene") != "scene"
-            ):
-                raise ValueError("A saved reference needs a scene-local change request and a nonblank prompt.")
-            if not checked_references(directory, row):
-                raise ValueError("Save at least one reference with this authoring request.")
-            target(ledger, row)
+        existing = _existing_review(directory, data)
+        if existing:
+            for row in rows:
+                checked_references(directory, row)
+            return existing
+        _validate_review_rows(ledger, rows)
+        return save(directory, data, identity=_submission_identity(data))
 
-        return _existing_review(directory, data) or save(directory, data)
+
+def _validate_review_rows(ledger, rows):
+    for row in rows:
+        if "referenceBase" in row and row.get("state") == "changes":
+            from .graphics_reference_context import check_row
+
+            check_row(ledger, row, replay=True)
+            continue
+        if row.get("state") == "pending" and not reference_fields(row):
+            continue
+        if (
+            row.get("state") != "changes"
+            or not _g()._bounded_prose(row.get("comment"))
+            or row.get("scope", "scene") != "scene"
+        ):
+            raise ValueError("A saved reference needs a scene-local change request and a nonblank prompt.")
+        if not checked_references(ledger.root, row):
+            raise ValueError("Save at least one reference with this authoring request.")
+        target(ledger, row)
+
+
+def _submission_identity(data):
+    return _g()._payload_hash({k: v for k, v in data.items() if k != "exportedAt"})
 
 
 def _existing_review(directory, data):
     folder = _g()._confine_planned(directory, Path(directory) / "reviews")
     canonical = {k: v for k, v in data.items() if k != "exportedAt"}
-    for path in sorted(folder.glob("*.json"), reverse=True)[:32]:
+    stable = folder / ("references-" + _submission_identity(data) + ".json")
+    if stable.exists() or stable.is_symlink():
+        stable = _g()._confine_existing(
+            Path(directory), stable.relative_to(directory).as_posix(), prefixes=("reviews/",)
+        )
+        if stable.stat().st_size > MAX_REVIEW_BYTES:
+            raise ValueError("Saved submission changed; preserve it before retrying.")
+        previous = json.loads(stable.read_text(encoding="utf-8"))
+        if not isinstance(previous, dict) or {k: v for k, v in previous.items() if k != "exportedAt"} != canonical:
+            raise ValueError("Conflicting saved submission; nothing was overwritten.")
+        return stable
+    for path in sorted(folder.glob("[0-9]*.json"), reverse=True)[:32]:
         if path.is_symlink() or path.stat().st_size > MAX_REVIEW_BYTES:
             continue
         try:
@@ -450,7 +520,7 @@ def _existing_review(directory, data):
     return None
 
 
-def served_image(directory, filename):
+def served_image(directory, filename):  # noqa: C901 - manifest and durable/legacy submission claims share one narrow original-file alias.
     """Only originals claimed by this project's saved reviews/manifest are public."""
     refpath = "graphics-data/references/" + filename
     if not REF_RE.fullmatch(refpath):
@@ -458,11 +528,13 @@ def served_image(directory, filename):
     ledger = Ledger(Path(directory).parent, recover=False)
     records = list((ledger.data.get("graphics") or {}).get("requests") or [])
     folder = _g()._confine_planned(directory, Path(directory) / "reviews")
-    for path in sorted(folder.glob("*.json"), reverse=True)[:32]:
+    for path in [*folder.glob("references-*.json"), *sorted(folder.glob("[0-9]*.json"), reverse=True)[:32]]:
         if path.is_symlink() or path.stat().st_size > MAX_REVIEW_BYTES:
             continue
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
+            if path.name.startswith("references-") and path.stem != "references-" + _submission_identity(payload):
+                continue
             if payload.get("project") == ledger.data.get("project_id") and isinstance(payload.get("graphics"), list):
                 records.extend(payload.get("graphics", []))
         except (ValueError, OSError, AttributeError):
@@ -540,6 +612,10 @@ def apply_command(ledger, args):
     g = _g()
     graphics = ledger.data.get("graphics") or {}
     req = g._find_request(graphics, args.request)
+    if req.get("reference_change"):
+        from .graphics_reference_context import apply_command as apply_active
+
+        return apply_active(ledger, args)
     if not reference_fields(req) or req.get("state") == "processed":
         raise ValueError("Select an unprocessed saved reference request.")
     checked_references(ledger.root, req)

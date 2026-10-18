@@ -32,4 +32,6 @@
 .graphics-reference-preview img,.graphics-reference-preview video {width:160px;height:100px;object-fit:contain;border-radius:6px}
 .graphics-reference-preview>div {display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:100%}
 .graphics-review-panel input[type="file"] {max-width:100%;width:100%}
+.graphics-review-panel [data-graphics-edit],.graphics-reference-preview button,.graphics-review-panel .confirm-review {background:#2b241a;color:#e6dccb;border-color:#6b5438}
+.graphics-review-panel [data-graphics-edit]:disabled,.graphics-reference-preview button:disabled,.graphics-review-panel .confirm-review:disabled {opacity:.55;cursor:not-allowed}
 @media print {.graphics-reference-preview,.graphics-review-panel .review-fields {display:none!important}}

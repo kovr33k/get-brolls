@@ -19,6 +19,7 @@ import re
 import secrets
 import subprocess
 import sys
+import tempfile
 import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -251,7 +252,7 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         origin = self.headers.get("Origin")
         return not (origin and origin != f"http://{host}")
 
-    def do_POST(self):  # noqa: C901, PLR0911 - Shared local authentication precedes explicit JSON-save and bounded-image routes.
+    def do_POST(self):
         if not self._local_request():
             self._refuse(403, "Pedido de outra origem; este servidor só atende esta máquina.")
             return
@@ -271,6 +272,14 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         if route == UPLOAD_PATH:
             self._upload_reference()
             return
+        self._save_decisions()
+
+    def _save_decisions(self):  # noqa: C901, PLR0911 - bounded HTTP body/JSON validation has explicit refusal responses before publication.
+        self.connection.settimeout(15)
+        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length", [])) > 1:
+            self.close_connection = True
+            self._refuse(400, "Send a bounded Content-Length decision body, without Transfer-Encoding.")
+            return
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -280,14 +289,27 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             # Drena o excesso (com teto) antes de responder: sem isso o cliente
             # levaria um cano quebrado no lugar do 413 que explica o problema.
             left = min(length, MAX_SAVE_BYTES * 4)
-            while left > 0:
-                chunk = self.rfile.read(min(65536, left))
-                if not chunk:
-                    break
-                left -= len(chunk)
+            self.close_connection = True
+            try:
+                while left > 0:
+                    chunk = self.rfile.read(min(65536, left))
+                    if not chunk:
+                        break
+                    left -= len(chunk)
+            except OSError:
+                pass  # A stalled oversized body remains a bounded refusal.
             self._refuse(413, "Corpo grande demais para um arquivo de decisões.")
             return
-        raw = self.rfile.read(length)
+        try:
+            raw = self.rfile.read(length)
+        except OSError:
+            self.close_connection = True
+            self._refuse(408, "Decision transfer interrupted; preserve the draft and retry.")
+            return
+        if len(raw) != length:
+            self.close_connection = True
+            self._refuse(400, "Incomplete decision transfer; no submission was published. Retry the same draft.")
+            return
         try:
             data = json.loads(raw.decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
@@ -315,6 +337,8 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
 
         self.connection.settimeout(15)
         try:
+            if len(self.headers.get_all("Content-Length", [])) > 1:
+                raise ValueError("Supply exactly one Content-Length for the reference transfer.")
             length = int(self.headers.get("Content-Length") or 0)
             raw = self.headers.get(NAME_HEADER, "")
             if len(raw) > MAX_REFERENCE_HEADER:
@@ -570,42 +594,59 @@ def _write_private_text(path, text):
         stream.write(text)
 
 
-def save_review(directory, data):
-    """Grava as decisões em `brolls/reviews/<timestamp>.json` e devolve o caminho.
+def save_review(directory, data, *, identity=None):
+    """Publish complete decision bytes under a clock name or validated content identity."""
+    from .graphics import _confine_planned
 
-    O nome sai do relógio (`%Y%m%d-%H%M%S`, com sufixo numérico em caso de empate):
-    nada do corpo enviado entra no caminho, então não há como escapar da pasta.
-    """
-    reviews = Path(directory) / REVIEWS_DIR
+    reviews = _confine_planned(Path(directory), Path(directory) / REVIEWS_DIR)
     if reviews.is_symlink():
         raise ValueError(
             f"{reviews} é um link simbólico; a pasta de decisões precisa ser uma pasta de verdade dentro do projeto."
         )
     reviews.mkdir(parents=True, exist_ok=True)
+    if identity is not None and (not isinstance(identity, str) or not re.fullmatch(r"[0-9a-f]{64}", identity)):
+        raise ValueError("Invalid immutable reference submission identity.")
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
-    # O_EXCL nunca segue um arquivo existente e O_NOFOLLOW recusa um link plantado
-    # no lugar do nome: a gravação cria o arquivo ou falha, jamais escreve através.
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    body = json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False).encode("utf-8")
+    if len(body) > MAX_SAVE_BYTES:
+        raise ValueError("The serialized decision file exceeds 2 MB; preserve the draft and reduce the submission.")
+    staged = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=reviews, prefix=".save-", suffix=".tmp", delete=False) as stream:
+            staged = Path(stream.name)
+            stream.write(body)
+            stream.flush()
+            os.fsync(stream.fileno())
+        return _publish_review(reviews, staged, stamp, identity)
+    finally:
+        if staged is not None:
+            staged.unlink(missing_ok=True)
+
+
+def _publish_review(reviews, staged, stamp, identity):
+    # A same-directory hard link publishes complete flushed bytes without
+    # replacing an occupied name or following a planted target link.
     extra = 0
     while True:
-        path = reviews / (f"{stamp}.json" if not extra else f"{stamp}-{extra}.json")
-        # `O_NOFOLLOW` não existe no Windows (vale 0 ali), então a recusa do link
-        # plantado é feita antes do `open`, com `lstat`, igual em todo sistema.
+        path = reviews / (
+            f"references-{identity}.json" if identity else f"{stamp}.json" if not extra else f"{stamp}-{extra}.json"
+        )
         if path.is_symlink():
             raise ValueError(
                 f"{path} é um link simbólico; apague esse link antes de salvar as "
                 "decisões — o arquivo tem que ficar dentro do projeto."
             )
         try:
-            handle = os.open(path, flags, 0o600)
+            os.link(staged, path)
         except FileExistsError:
             if path.is_symlink():
-                # Alguém plantou um link no nome que íamos usar: nada de escrever
-                # através dele, nem de escolher outro nome como se fosse normal.
                 raise ValueError(
                     f"{path} é um link simbólico; apague esse link antes de salvar as "
                     "decisões — o arquivo tem que ficar dentro do projeto."
+                ) from None
+            if identity:
+                raise ValueError(
+                    "Reference submission identity already exists. Preserve it and reconcile before retrying."
                 ) from None
             extra += 1
             if extra > 50:  # noqa: PLR2004 - cap on alternative-name attempts before giving up
@@ -616,8 +657,6 @@ def save_review(directory, data):
                 f"Não consegui gravar as decisões em {path}: {exc.strerror}. "
                 "Confira se não há um link simbólico no lugar do arquivo."
             ) from exc
-        with os.fdopen(handle, "wb") as stream:
-            stream.write(body)
         return path
 
 

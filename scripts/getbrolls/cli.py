@@ -67,6 +67,7 @@ SUMMARIES = {
     "graphics-request-complete": "Record chat-authorized processing of a saved graphics revision request",
     "graphics-reference-apply": "Bind inspected saved references and actual analysis to graphics authoring; never render",
     "graphics-reference-inspect": "Sample an explicitly resolved saved video interval for temporal inspection; never render",
+    "graphics-reference-scope": "Freeze concrete shared reference targets and per-scene instructions; never render",
     "graphics-facts": "Attach researched displayed-fact evidence to one graphics occurrence from bounded --file JSON",
     "graphics-fact-resolve": "Record an already received editorial decision for one saved fact conflict; does not invent approval",
     "graphics-audio": "Attach confined sound cues and optional VO source clocks to one graphics occurrence from bounded --file JSON",
@@ -184,6 +185,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         "graphics-request-complete",
         "graphics-reference-apply",
         "graphics-reference-inspect",
+        "graphics-reference-scope",
         "graphics-facts",
         "graphics-fact-resolve",
         "graphics-audio",
@@ -793,9 +795,14 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 help="Consume one of at most two saved scene-code repair attempts after a failed render",
             )
         if name == "graphics-continue":
-            p.add_argument(
+            continuation = p.add_mutually_exclusive_group()
+            continuation.add_argument(
                 "--occurrence",
                 help="Continue only this occurrence; omit to inspect and continue all assignments sequentially",
+            )
+            continuation.add_argument(
+                "--request",
+                help="Resume this exact saved reference request or its fixed shared targets, reusing intact completed results",
             )
         if name == "graphics-checkpoint":
             p.add_argument(
@@ -840,7 +847,10 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         if name == "graphics-reference-apply":
             p.add_argument("--request", required=True, help="Saved reference request id")
             analysis = p.add_mutually_exclusive_group(required=True)
-            analysis.add_argument("--analysis", help="Actual analysis of a legacy single-image request")
+            analysis.add_argument(
+                "--analysis",
+                help="Actual still-image analysis, or effective instructions reusing intact earlier analyses",
+            )
             analysis.add_argument(
                 "--file", help="JSON analyses per reference label, plus optional explicit composition"
             )
@@ -854,6 +864,13 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             p.add_argument("--start", type=float, help="Resolved start in original source seconds")
             p.add_argument("--end", type=float, help="Resolved end in original source seconds")
             p.add_argument("--frames", type=int, default=12, help="Temporal samples, 3–24 (default 12)")
+        if name == "graphics-reference-scope":
+            p.add_argument("--request", required=True, help="Saved shared reference request id")
+            p.add_argument(
+                "--file",
+                required=True,
+                help="JSON resolution and concrete targets with occurrence_id, references and instruction",
+            )
         if name == "graphics-request-complete":
             p.add_argument("--request", required=True, help="Saved revision-request id from status.graphics or review")
             p.add_argument("--version", required=True, help="Complete descendant version produced for that request")

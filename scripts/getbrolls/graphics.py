@@ -406,6 +406,9 @@ def _validate_graphics_payload(graphics, project_id=None):
     for ver_id, version in versions.items():
         _validate_version(ver_id, version, graphics, seen_rev, project_id)
     _validate_requests(graphics, project_id)
+    from .graphics_reference_context import validate as validate_reference_states
+
+    validate_reference_states(graphics)
 
 
 def _validate_profile(profile):
@@ -1609,7 +1612,9 @@ def _validate_request_target(req, graphics, project_id):
     if not isinstance(occ, dict) or occ.get("scene_id") != req["scene_id"]:
         raise ValueError
     if req.get("kind") == "authoring":
-        if req.get("reviewed_version") is not None or not (req.get("reference") or req.get("references")):
+        if req.get("reviewed_version") is not None or not (
+            req.get("reference") or req.get("references") or req.get("reference_change")
+        ):
             raise ValueError
         return occ, None
     if not isinstance(req.get("reviewed_version"), str) or not VERSION_RE.fullmatch(req["reviewed_version"]):
@@ -1963,9 +1968,17 @@ def graphics_status(data, root=None):
         from .graphics_continuation import work_status
 
         item["work"] = work_status(root, occ)
+        from .graphics_reference_context import active
+
+        active_sha, active_state = active(graphics, occ["occurrence_id"])
+        item["active_references"] = {"sha256": active_sha, **active_state}
         if "timeline" in occ:
             item["timeline"] = copy.deepcopy(occ["timeline"])
         items.append(item)
+    from .graphics_reference_context import scope_status
+    from .graphics_reference_recovery import work_status as reference_work_status
+
+    reference_work = reference_work_status(root, graphics)
     return {
         "occurrences": len(graphics.get("occurrences") or {}),
         "pending": pending,
@@ -1974,6 +1987,9 @@ def graphics_status(data, root=None):
         "current_style_revision": graphics.get("current_style_revision"),
         "items": items,
         "requests": _public_requests(graphics),
+        "reference_scopes": scope_status(graphics, work=reference_work),
+        "reference_work": reference_work,
+        "reference_recovery_pending": root is not None and (Path(root) / ".pending-transaction.json").exists(),
         "delivery": graphics_delivery_progress(data, root),
     }
 
@@ -2964,6 +2980,8 @@ def _timing_repair_reasons(occurrence, frozen=None, *, root=None, version=None, 
 
 
 def _facts_audio_reasons(root, occurrence, frozen=None, version=None, items=None, data=None):  # noqa: PLR0913, PLR0917 - Current ledger, frozen version and candidate rights are independent readiness inputs.
+    if items is None and isinstance(data, dict):
+        items = data.get("items")
     reasons = []
     facts_required_block = False
     alignment_unresolved = False
@@ -3233,7 +3251,11 @@ def graphics_delivery_progress(data, root=None):
     }
 
 
-def _request_stale_reason(req, graphics):
+def _request_stale_reason(req, graphics):  # noqa: PLR0911 - explicit context, initial target and version/assignment refusal reasons.
+    from .graphics_reference_context import stale
+
+    if reason := stale(req, graphics):
+        return reason
     if req.get("kind") == "authoring":
         from .graphics_references import stale_initial
 
@@ -3280,7 +3302,21 @@ def _public_requests(graphics):
                 "text": req.get("text"),
                 "processing": req.get("processing"),
                 "reason": reason,
-                **({key: req[key] for key in ("kind", "reference", "references", "content_sha256") if key in req}),
+                **(
+                    {
+                        key: req[key]
+                        for key in (
+                            "kind",
+                            "reference",
+                            "references",
+                            "content_sha256",
+                            "reference_change",
+                            "reference_application",
+                            "shared_request_id",
+                        )
+                        if key in req
+                    }
+                ),
             }
         )
     return rows
@@ -3295,7 +3331,20 @@ def _request_identity(req):
         "content_sha256": req.get("content_sha256"),
         "text": req.get("text"),
         "scope": req.get("scope"),
-        **({key: req[key] for key in ("kind", "reference", "references") if key in req}),
+        **(
+            {
+                key: req[key]
+                for key in (
+                    "kind",
+                    "reference",
+                    "references",
+                    "reference_change",
+                    "reference_application",
+                    "shared_request_id",
+                )
+                if key in req
+            }
+        ),
     }
 
 
@@ -3434,11 +3483,26 @@ def graphics_review_records(ledger, project):
                     "requests": occ_requests,
                     "context": _review_frozen_context(version, root=ledger.root),
                     **({key: matched[key] for key in ("reference", "references") if matched and key in matched}),
+                    **(
+                        {
+                            key: matched[key]
+                            for key in ("reference_change", "reference_application", "shared_request_id")
+                            if matched and key in matched
+                        }
+                    ),
+                    **(
+                        {"referenceBase": matched["reference_change"]["base"]}
+                        if matched and matched.get("reference_change")
+                        else {}
+                    ),
                 }
             )
     from .graphics_references import initial_rows
 
     records.extend(initial_rows(graphics, project))
+    from .graphics_reference_context import decorate
+
+    decorate(graphics, records, root=ledger.root)
     return records
 
 
@@ -3673,6 +3737,7 @@ def _changes_scope(ctx, row, ident):
 
 
 def _request_payload(project_id, version, comment, scope, content, *, row=None):  # noqa: PLR0913 - Preserve the canonical legacy target fields and optional media identity.
+    from .graphics_reference_context import fields
     from .graphics_references import reference_fields
 
     return {
@@ -3684,6 +3749,7 @@ def _request_payload(project_id, version, comment, scope, content, *, row=None):
         "text": comment.strip(),
         "scope": scope,
         **reference_fields(row or {}),
+        **fields(row or {}),
     }
 
 
@@ -3812,6 +3878,7 @@ def _apply_graphics_changes(ctx, target):
     )
     ctx["working"].setdefault("requests", []).append(
         {
+            **payload,
             "id": request_id,
             "project_id": ctx["project_id"],
             "scene_id": version["scene_id"],
@@ -3915,9 +3982,14 @@ def _resolve_graphics_row(ctx, row):
     return {"ident": ident, "version": version, "content": content, "state": state, "comment": comment, "row": row}
 
 
-def _apply_one_graphics_row(ctx, row):  # noqa: PLR0911 - Initial targets and invalid references add explicit early refusals to legacy dispatch.
+def _apply_one_graphics_row(ctx, row):  # noqa: C901, PLR0911 - Bound active edits, initial targets and invalid references are explicit legacy dispatch boundaries.
     from .graphics_references import checked_references, import_initial, reference_fields
 
+    if isinstance(row, dict) and "referenceBase" in row and row.get("state") == "changes":
+        from .graphics_reference_context import import_row
+
+        import_row(ctx, row)
+        return
     if isinstance(row, dict) and row.get("initial") is True:
         import_initial(ctx, row)
         return
@@ -4322,10 +4394,23 @@ def request_complete_command(ledger, args):
     if not intact:
         raise ValueError("Recuso a conclusão: " + "; ".join(reasons) + ". O pedido permanece como estava.")
     processing = {"at": now(), "outcome": outcome.strip(), "resulting_version": args.version}
-    if _mark_request_processed(found, processing):
-        return {"request": found, "version": args.version, "idempotent": True}
-    ledger.save("graphics-request-complete")
-    return {"request": found, "version": args.version, "idempotent": False}
+    idempotent = _mark_request_processed(found, processing)
+    if not idempotent:
+        ledger.save("graphics-request-complete")
+    answer = {"request": found, "version": args.version, "idempotent": idempotent}
+    shared_id = found.get("shared_request_id") or (
+        found["id"] if found.get("reference_change") and found["scope"] == "shared" else None
+    )
+    if shared_id:
+        from .graphics_reference_context import scope_status
+        from .graphics_reference_recovery import work_status
+
+        answer["reference_scope"] = next(
+            group
+            for group in scope_status(graphics, work=work_status(ledger.root, graphics))
+            if group["request_id"] == shared_id
+        )
+    return answer
 
 
 def _graphics(ledger):
@@ -6874,6 +6959,7 @@ GRAPHICS_REVIEW_PANEL = (
     ' title="Describe the revision you want. Saving does not start an agent or render.">'
     "Needs changes</button>"
     "</div>"
+    '<button type="button" data-graphics-edit>Edit references / instructions</button>'
     '<div class="review-fields" hidden>'
     '<label>What to change<textarea data-graphics-comment rows="3" maxlength="8000"'
     ' placeholder="Describe the revision or approval statement…"></textarea></label>'
@@ -6882,7 +6968,7 @@ GRAPHICS_REVIEW_PANEL = (
     "Saving keeps it in the project; processing starts after your chat instruction.</small>"
     '<div class="graphics-reference-preview" data-graphics-reference-preview role="status"></div>'
     '<label class="graphics-shared-scope"><input type="checkbox" data-graphics-shared>'
-    " Apply this change to all graphics (shared)</label>"
+    " Apply to other scenes as described in the prompt</label>"
     '<button class="confirm-review" type="button" hidden>Confirm change request</button>'
     "</div>"
     '<p data-graphics-status class="feedback" role="status"></p>'
