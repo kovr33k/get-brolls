@@ -1580,6 +1580,7 @@ def _video_markup(video, *, context_current=True):
     )
     meta = (
         f"{_esc(video.get('width'))}×{_esc(video.get('height'))} {_esc(video.get('resolution') or '')} · "
+        f"{_esc(video.get('fps') if video.get('fps') is not None else 'unknown')} fps · "
         f"{_esc(video.get('duration_s'))}s · audio {_esc(video.get('audio'))}.{_esc(short)} {_esc(native)}{_esc(stale)}"
     )
     return (

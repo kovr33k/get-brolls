@@ -1424,6 +1424,7 @@ async function drain() {
         width: 854,
         height: 480,
         duration_s: 2,
+        fps: 24,
         audio: true,
         coverage: "short",
         native_full_hd: false,
@@ -1446,6 +1447,7 @@ async function drain() {
   const clipMedia = narrationCard.querySelector("[data-ai-video-review] video");
   assert.equal(clipMedia.autoplay, false);
   assert.equal(clipMedia.getAttribute("preload"), "metadata");
+  assert.match(narrationCard.querySelector("[data-ai-video-meta]").textContent, /24 fps/);
   assert.equal(narrationCard.querySelector("[data-ai-video-box] [data-ai-video-model]"), null);
   assert.equal(narrationCard.querySelector("[data-ai-video-tool]").value, "");
   narrationCard.querySelector("[data-ai-video]").click();
