@@ -17,10 +17,15 @@ from .runtime import redact, scrub_home
 IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}\Z")
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 ALTERNATIVE_COUNT = 3
+FULL_HD_WIDTH = 1920
+FULL_HD_HEIGHT = 1080
 MAX_BEATS = 1000
 MAX_PROMPT = 32000
 MODES = ("economy", "images")
 ROUTES = ("gpt-subscription", "grok-subscription", "openrouter")
+SUBSCRIPTION_ROUTES = ("gpt-subscription", "grok-subscription")
+SHARED_QUALITY = "agreed"
+GROUP_NONCE_LIMIT = 70
 JOB_STATES = (
     "awaiting_confirmation",
     "queued",
@@ -53,6 +58,13 @@ def text(value, label, limit=MAX_PROMPT):
     return value.strip()
 
 
+def quality_text(style):
+    """Economy and comparison share one agreed quality. A missing value stays the shared default."""
+    if not isinstance(style, dict) or style.get("quality") in (None, ""):
+        return SHARED_QUALITY
+    return text(style.get("quality"), "Agreed AI quality", 2000)
+
+
 def identifier(value, label="Identifier"):
     if not isinstance(value, str) or not IDENTIFIER.fullmatch(value):
         raise ValueError(f"{label} must contain 1-80 letters, numbers, underscores or hyphens.")
@@ -68,6 +80,7 @@ def empty_ai():
         "references": {},
         "jobs": {},
         "versions": {},
+        "groups": {},
     }
 
 
@@ -99,6 +112,8 @@ def _validate_beat(key, beat):
         raise ValueError("Invalid AI alternative selection.")
     if not isinstance(beat.get("references"), list) or not isinstance(beat.get("images"), dict):
         raise ValueError("Invalid AI beat references or retained images.")
+    if beat.get("timing") is not None and not isinstance(beat.get("timing"), dict):
+        raise ValueError("Invalid AI beat timing.")
 
 
 def _validate_job(key, job, ai):
@@ -125,6 +140,20 @@ def _validate_job(key, job, ai):
         raise ValueError("Invalid AI job submit outcome.")
     if outcome == "unknown" and job["state"] not in ("unknown", "failed", "complete"):
         raise ValueError("An unknown AI submit must stay unknown until it is reconciled.")
+    _validate_job_group(key, request, ai)
+
+
+def _validate_job_group(key, request, ai):
+    group_id = request.get("group")
+    if group_id is None:
+        return
+    identifier(group_id, "Group id")
+    raw_groups = ai.get("groups")
+    groups = raw_groups if isinstance(raw_groups, dict) else {}
+    group = groups.get(group_id)
+    members = group.get("jobs") if isinstance(group, dict) else None
+    if not isinstance(members, list) or key not in members:
+        raise ValueError("AI job is not a member of its comparison group.")
 
 
 def _validate_version(key, version, ai):  # noqa: C901 - identity, media path and approval checks stay together.
@@ -149,6 +178,73 @@ def _validate_version(key, version, ai):  # noqa: C901 - identity, media path an
         raise ValueError("Invalid AI version approval.")
     if approval["state"] == "approved" and approval.get("signature") != version_signature(version):
         raise ValueError("AI approved version changed.")
+    if version.get("kind") == "video":
+        _validate_video_version(version, path)
+
+
+def _validate_video_version(version, path):
+    if not path.startswith("clips/ai-"):
+        raise ValueError("Invalid AI video path.")
+    if version.get("native_full_hd") is not True:
+        return
+    width = version.get("width") or 0
+    height = version.get("height") or 0
+    if version.get("resolution") in {"480p", "720p"} or width < FULL_HD_WIDTH or height < FULL_HD_HEIGHT:
+        raise ValueError("Native 480p or 720p video is not native Full HD.")
+
+
+def _validate_groups(ai):
+    groups = ai.get("groups", None)
+    if groups is None:
+        return
+    if not isinstance(groups, dict):
+        raise ValueError("Invalid AI comparison groups.")
+    seen = set()
+    for key, group in groups.items():
+        jobs, alt_ids = _validate_group_scope(key, group)
+        _validate_group_members(ai, key, jobs, alt_ids, seen)
+
+
+def _validate_group_scope(key, group):
+    if not isinstance(group, dict) or group.get("id") != identifier(key, "Group id"):
+        raise ValueError("Invalid AI comparison group identity.")
+    jobs = group.get("jobs")
+    if not isinstance(jobs, list) or len(jobs) != ALTERNATIVE_COUNT or len(set(jobs)) != ALTERNATIVE_COUNT:
+        raise ValueError("A comparison group freezes exactly three still jobs.")
+    scope = group.get("scope")
+    if (
+        not isinstance(scope, dict)
+        or fingerprint(scope) != group.get("fingerprint")
+        or scope.get("outputs") != ALTERNATIVE_COUNT
+    ):
+        raise ValueError("Comparison group inputs changed after being frozen.")
+    text(group.get("nonce"), "Request identity", GROUP_NONCE_LIMIT)
+    return jobs, _group_alternatives(scope)
+
+
+def _group_alternatives(scope):
+    alternatives = scope.get("alternatives")
+    if not isinstance(alternatives, list) or len(alternatives) != ALTERNATIVE_COUNT:
+        raise ValueError("Comparison group scope is missing its three treatments.")
+    alt_ids = []
+    for row in alternatives:
+        if not isinstance(row, dict):
+            raise ValueError("Comparison group scope is missing its three treatments.")
+        alt_ids.append(identifier(row.get("id"), "Alternative id"))
+    if len(set(alt_ids)) != ALTERNATIVE_COUNT:
+        raise ValueError("Comparison group treatments must stay distinct.")
+    return alt_ids
+
+
+def _validate_group_members(ai, key, jobs, alt_ids, seen):
+    for job_id, alt_id in zip(jobs, alt_ids, strict=True):
+        job = ai["jobs"].get(job_id)
+        request = job.get("request") if isinstance(job, dict) else None
+        if not isinstance(request, dict) or request.get("group") != key or request.get("alternative") != alt_id:
+            raise ValueError("Comparison group does not match its frozen jobs.")
+        if job_id in seen:
+            raise ValueError("A still job cannot belong to two comparison groups.")
+        seen.add(job_id)
 
 
 def validate_ai(data):
@@ -166,6 +262,23 @@ def validate_ai(data):
         _validate_job(key, job, ai)
     for key, version in ai["versions"].items():
         _validate_version(key, version, ai)
+    _validate_native_video(ai)
+    _validate_groups(ai)
+
+
+def _validate_native_video(ai):
+    raw = ai.get("native_video", None)
+    if raw is None:
+        return
+    if not isinstance(raw, dict):
+        raise ValueError("Invalid native video setup.")
+    text(raw.get("model"), "Native model", 200)
+    if raw.get("tool") not in ("reference_to_video", "image_to_video"):
+        raise ValueError("Invalid native video tool.")
+    if raw.get("route") not in (None, "grok-subscription"):
+        raise ValueError("Native video setup cannot switch billing route.")
+    if raw.get("capability") not in (None, "unverified"):
+        raise ValueError("Native video capability is not established.")
 
 
 def beat_for(ledger, beat_id, expected=None):
@@ -237,6 +350,14 @@ def import_plan(ledger, payload):
         beat["active"] = key in active
     working["style"] = {"prompt": style, "fingerprint": fingerprint(style)}
     working["plan"] = {"scenario": scenario, "sha256": fingerprint(scenario), "routing": routing}
+    if "native_video" in payload:
+        from .ai_timing import explicit_native_video
+
+        chosen = explicit_native_video(payload.get("native_video"))
+        if chosen is None:
+            working.pop("native_video", None)
+        else:
+            working["native_video"] = chosen
     ledger.data["ai"] = working
     ledger.save("ai-plan")
     return {"beats": len(routing), "ai_beats": len(active), "default_mode": "economy"}
@@ -338,11 +459,30 @@ def confirm(ledger, job_ids, signatures, by):
             raise ValueError("This paid launch was already confirmed or started.")
         beat_for(ledger, job["request"]["beat"], job["request"]["inputs"])
         chosen.append(job)
+    _require_full_groups(ai, chosen)
     for job in chosen:
         job["confirmation"] = {"by": by, "at": now(), "fingerprint": job["fingerprint"]}
         job["state"] = "queued"
     ledger.save("ai-confirm-api")
     return {"jobs": [j["id"] for j in chosen]}
+
+
+def _require_full_groups(ai, chosen):
+    """A paid comparison confirms every frozen member or none. Ungrouped jobs stay single-job confirms."""
+    groups = ai.get("groups") if isinstance(ai.get("groups"), dict) else {}
+    chosen_ids = {job["id"] for job in chosen}
+    required = set()
+    for job in chosen:
+        group_id = (job.get("request") or {}).get("group")
+        if not group_id:
+            continue
+        group = groups.get(group_id)
+        members = group.get("jobs") if isinstance(group, dict) else None
+        if not isinstance(members, list) or job["id"] not in members:
+            raise ValueError("Paid comparison confirmation must name the full frozen set.")
+        required.update(members)
+    if required - chosen_ids:
+        raise ValueError("Paid comparison confirmation must name every still in the frozen set.")
 
 
 def version_signature(version):
@@ -390,55 +530,257 @@ def finite(value, label):
     return float(value)
 
 
-def still_prompt(beat, alternative, style_prompt):
+def still_prompt(beat, alternative, style_prompt, quality=SHARED_QUALITY):
     comment = str(beat.get("comment") or "").strip()
     parts = [
         "Generate exactly one still image with the image generation tool. Do not produce video.",
         "Agreed visual style: " + style_prompt,
+        "Agreed quality: " + quality,
         "Scene: " + alternative["description"],
         "Visual purpose: " + beat["purpose"],
         "Original scenario passage: " + beat["text"],
     ]
+    motion = str(alternative.get("motion") or "").strip()
+    if motion:
+        parts.append("Motion note: " + motion)
     if comment:
         parts.append("Editor comment: " + comment)
     parts.append("The still is generated illustration, not documentary evidence.")
     return "\n".join(parts)
 
 
+def _agreed_style(ledger):
+    style = (ledger.data.get("ai") or {}).get("style") or {}
+    if not isinstance(style, dict):
+        style = {}
+    style_prompt = text(style.get("prompt"), "Agreed AI visual style") if style.get("prompt") else ""
+    if not style_prompt:
+        raise ValueError("Agree an AI visual style before generating a still.")
+    return style, style_prompt, quality_text(style)
+
+
+def _launch_comment(beat, payload):
+    comment = beat.get("comment") or ""
+    if not isinstance(payload, dict) or payload.get("comment") is None:
+        return comment
+    comment = payload.get("comment")
+    if not isinstance(comment, str) or len(comment) > MAX_PROMPT or "\0" in comment:
+        raise ValueError("Scene comments must be text up to 32000 characters.")
+    return comment
+
+
+def _image_route(payload, *, allow_openrouter):
+    route = payload.get("route") or "gpt-subscription"
+    allowed = ROUTES if allow_openrouter else SUBSCRIPTION_ROUTES
+    if route not in allowed:
+        raise ValueError("Unsupported AI still route.")
+    model = None
+    if route == "grok-subscription":
+        model = text(payload.get("model"), "Native model", 200)
+    elif payload.get("model") not in (None, ""):
+        raise ValueError("This still route does not take a separate native model.")
+    return route, model
+
+
+def _session_id(nonce, material):
+    return str(uuid.UUID(fingerprint({"nonce": nonce, "material": material})[:32]))
+
+
+def _ordinary_references(ledger, beat, nonce, route):
+    """Beat-level guidance frozen into this launch. Empty when the beat has none."""
+    from .ai_references import freeze_ordinary_guidance
+
+    return freeze_ordinary_guidance(ledger, beat, nonce, route)
+
+
+def _guided_prompt(prompt, references):
+    if not references:
+        return prompt
+    from .ai_references import reference_prompt_lines
+
+    lines = reference_prompt_lines(references)
+    if not lines:
+        return prompt
+    return prompt + "\n" + "\n".join(lines)
+
+
+def _apply_comment(beat, payload, comment, selected=None):
+    if isinstance(payload, dict) and payload.get("comment") is not None:
+        beat["comment"] = comment
+    if selected is not None:
+        beat["selected"] = selected
+
+
 def launch_still(ledger, payload, nonce):
     beat = beat_for(ledger, payload.get("beat"), payload.get("expected") or payload.get("inputs"))
     if beat.get("mode") != "economy":
-        raise ValueError("Three-image comparison is not available yet. Economy mode generates one still.")
+        raise ValueError(
+            "Images mode generates three stills through an explicit three-output launch. "
+            "Economy mode generates one still."
+        )
     selected = payload.get("alternative") or beat.get("selected")
     ids = {row["id"] for row in beat["alternatives"]}
     if selected not in ids:
         raise ValueError("Select a scene alternative before generating a still.")
     alternative = next(row for row in beat["alternatives"] if row["id"] == selected)
-    style = (ledger.data.get("ai") or {}).get("style") or {}
-    style_prompt = text(style.get("prompt"), "Agreed AI visual style") if style.get("prompt") else ""
-    if not style_prompt:
-        raise ValueError("Agree an AI visual style before generating a still.")
-    comment = beat.get("comment") or ""
-    if payload.get("comment") is not None:
-        comment = payload.get("comment")
-        if not isinstance(comment, str) or len(comment) > MAX_PROMPT or "\0" in comment:
-            raise ValueError("Scene comments must be text up to 32000 characters.")
-        beat["comment"] = comment
-        beat["selected"] = selected
+    style, style_prompt, quality = _agreed_style(ledger)
+    route, model = _image_route(payload, allow_openrouter=False)
+    comment = _launch_comment(beat, payload)
+    nonce = text(nonce, "Request identity", 160)
+    references = _ordinary_references(ledger, beat, nonce, route)
+    _apply_comment(beat, payload, comment, selected)
     request = {
         "beat": beat["id"],
         "inputs": beat["fingerprint"],
         "kind": "image",
-        "route": "gpt-subscription",
+        "route": route,
         "alternative": selected,
         "description": alternative["description"],
         "comment": comment,
         "style": style_prompt,
         "style_fingerprint": style.get("fingerprint") or fingerprint(style_prompt),
+        "quality": quality,
         "mode": "economy",
-        "prompt": still_prompt(beat, alternative, style_prompt),
+        "prompt": _guided_prompt(
+            still_prompt({**beat, "comment": comment}, alternative, style_prompt, quality), references
+        ),
     }
+    if references:
+        request["references"] = references
+    if model:
+        request["model"] = model
+        request["tool"] = "image_gen"
+        request["session_id"] = _session_id(nonce, request["style_fingerprint"])
     return new_job(ledger, request, nonce)
+
+
+def _comparison_scope(beat, agreed, comment, provider, references=None):
+    route, model = provider
+    _style, style_prompt, quality = agreed
+    scope = {
+        "beat": beat["id"],
+        "inputs": beat["fingerprint"],
+        "mode": "images",
+        "outputs": ALTERNATIVE_COUNT,
+        "route": route,
+        "quality": quality,
+        "style": style_prompt,
+        "style_fingerprint": _style.get("fingerprint") or fingerprint(style_prompt),
+        "comment": comment,
+        "alternatives": [{"id": row["id"], "description": row["description"]} for row in beat["alternatives"]],
+    }
+    if references:
+        scope["references"] = references
+    if model:
+        scope["model"] = model
+        scope["tool"] = "image_gen"
+    return scope
+
+
+def _comparison_request(beat, row, scope, binding):
+    comment = scope["comment"]
+    quality = scope["quality"]
+    model = scope.get("model")
+    references = scope.get("references") if isinstance(scope.get("references"), list) else []
+    request = {
+        "beat": beat["id"],
+        "inputs": beat["fingerprint"],
+        "kind": "image",
+        "route": scope["route"],
+        "alternative": row["id"],
+        "description": row["description"],
+        "comment": comment,
+        "style": scope["style"],
+        "style_fingerprint": scope["style_fingerprint"],
+        "quality": quality,
+        "mode": "images",
+        "outputs": ALTERNATIVE_COUNT,
+        "group": binding["group_id"],
+        "slot": binding["slot"],
+        "prompt": _guided_prompt(still_prompt({**beat, "comment": comment}, row, scope["style"], quality), references),
+    }
+    if references:
+        request["references"] = references
+    if model:
+        request["model"] = model
+        request["tool"] = "image_gen"
+        request["session_id"] = _session_id(f"{binding['nonce']}:{row['id']}", binding["group_id"])
+    return request
+
+
+def _saved_comparison(ai, nonce, scope_fingerprint):
+    groups = ai.get("groups") or {}
+    prior = next((group for group in groups.values() if isinstance(group, dict) and group.get("nonce") == nonce), None)
+    if not prior:
+        return None
+    if prior.get("fingerprint") != scope_fingerprint:
+        raise ValueError("This request identity already belongs to different frozen inputs.")
+    jobs = []
+    for job_id in prior.get("jobs") or []:
+        job = ai["jobs"].get(job_id)
+        if not job:
+            raise ValueError("The saved comparison group is missing a still job.")
+        jobs.append(job)
+    return {"group": prior, "jobs": jobs}
+
+
+def _freeze_comparison(ledger, beat, scope, nonce):
+    ai = state(ledger.data)
+    groups = ai.setdefault("groups", {})
+    scope_fingerprint = fingerprint(scope)
+    group_id = "group-" + fingerprint({"nonce": nonce, "scope": scope_fingerprint})[:24]
+    before = set(ai["jobs"])
+    fresh = []
+    try:
+        jobs = []
+        for slot, row in enumerate(beat["alternatives"], 1):
+            request = _comparison_request(beat, row, scope, {"group_id": group_id, "slot": slot, "nonce": nonce})
+            job = new_job(ledger, request, f"{nonce}:{row['id']}")
+            if job["request"].get("group") != group_id:
+                raise ValueError("The comparison child does not match the frozen group.")
+            if job["id"] not in before:
+                fresh.append(job["id"])
+            jobs.append(job)
+        group = {
+            "id": group_id,
+            "nonce": nonce,
+            "fingerprint": scope_fingerprint,
+            "scope": scope,
+            "jobs": [job["id"] for job in jobs],
+        }
+        groups[group_id] = group
+    except Exception:
+        for job_id in fresh:
+            ai["jobs"].pop(job_id, None)
+        groups.pop(group_id, None)
+        raise
+    return {"group": group, "jobs": jobs}
+
+
+def launch_comparison(ledger, payload, nonce):
+    """Freeze exactly three still jobs. The caller must pass outputs=3; mode selection alone does not launch."""
+    if (
+        not isinstance(payload, dict)
+        or type(payload.get("outputs")) is not int
+        or payload.get("outputs") != ALTERNATIVE_COUNT
+    ):
+        raise ValueError("Three-image comparison launches exactly three stills.")
+    beat = beat_for(ledger, payload.get("beat"), payload.get("expected") or payload.get("inputs"))
+    if beat.get("mode") != "images":
+        raise ValueError(
+            "Switch to images mode before the explicit three-still launch. Economy mode generates one still."
+        )
+    nonce = text(nonce, "Request identity", GROUP_NONCE_LIMIT)
+    route, model = _image_route(payload, allow_openrouter=True)
+    agreed = _agreed_style(ledger)
+    comment = _launch_comment(beat, payload)
+    references = _ordinary_references(ledger, beat, nonce, route)
+    scope = _comparison_scope(beat, agreed, comment, (route, model), references)
+    saved = _saved_comparison(state(ledger.data), nonce, fingerprint(scope))
+    if saved:
+        return saved
+    _apply_comment(beat, payload, comment)
+    return _freeze_comparison(ledger, beat, scope, nonce)
 
 
 def mark_job(ledger, job_id, **fields):
@@ -504,7 +846,7 @@ def public_job(job):
     error = job.get("error")
     message = str(error.get("message") or error.get("code") or "") if isinstance(error, dict) else str(error or "")
     remote = job.get("remote") if isinstance(job.get("remote"), dict) else None
-    return {
+    public = {
         "id": job.get("id"),
         "state": job.get("state"),
         "submit_outcome": job.get("submit_outcome"),
@@ -516,10 +858,14 @@ def public_job(job):
         "error": sanitize_public_text(message) or None,
         "remote": {"threadId": remote.get("threadId")} if remote and remote.get("threadId") else None,
     }
+    for name in ("group", "slot", "mode"):
+        if name in request and request.get(name) is not None:
+            public[name] = request.get(name)
+    return public
 
 
 def public_version(version):
-    return {
+    row = {
         "id": version.get("id"),
         "beat": version.get("beat"),
         "kind": version.get("kind"),
@@ -532,4 +878,21 @@ def public_version(version):
         "job": version.get("job"),
         "signature": version_signature(version),
         "approval": (version.get("approval") or {}).get("state"),
+        "inputs": version.get("inputs"),
     }
+    if version.get("kind") != "video":
+        return row
+    approval = version.get("approval") if isinstance(version.get("approval"), dict) else {}
+    comment = approval.get("comment") if isinstance(approval.get("comment"), str) else ""
+    still = version.get("still") if isinstance(version.get("still"), dict) else {}
+    row.update(
+        comment=comment,
+        fps=version.get("fps"),
+        duration_s=version.get("duration_s"),
+        audio=version.get("audio"),
+        native_full_hd=version.get("native_full_hd"),
+        coverage=version.get("coverage"),
+        resolution=version.get("resolution"),
+        still={"id": still.get("id"), "sha256": still.get("sha256")},
+    )
+    return row

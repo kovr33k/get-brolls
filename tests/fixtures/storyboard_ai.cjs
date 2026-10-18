@@ -141,6 +141,16 @@ function stillNonce(beat, fingerprint, alternative, comment) {
   return "still-" + (hash >>> 0).toString(16);
 }
 
+function groupNonce(beat, fingerprint, ids, comment) {
+  const raw = [beat, fingerprint, ...ids, comment, "3"].join("\u001f");
+  let hash = 2166136261;
+  for (let index = 0; index < raw.length; index += 1) {
+    hash ^= raw.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return "group-" + (hash >>> 0).toString(16);
+}
+
 function aiCard({
   withStill = false,
   approval = "pending",
@@ -150,8 +160,9 @@ function aiCard({
   signature = "sig-1",
   job = "job-1",
   commentText = null,
+  alternatives = null,
 } = {}) {
-  const images = el("option", { value: "images", text: "Three-image comparison is not available yet" });
+  const images = el("option", { value: "images", text: "Generate three stills" });
   images.value = "images";
   const economy = el("option", { value: "economy", text: "Descriptions, then one still" });
   economy.value = "economy";
@@ -159,11 +170,13 @@ function aiCard({
   mode.value = "economy";
   const comment = el("textarea", { "data-ai-comment": "" });
   comment.value = commentText != null ? commentText : (withStill ? "Keep this still" : "");
-  const first = el("input", { type: "radio", "data-ai-alternative": "", value: "option-1" });
-  first.value = "option-1";
-  first.checked = true;
-  const second = el("input", { type: "radio", "data-ai-alternative": "", value: "option-2" });
-  second.value = "option-2";
+  const labels = alternatives || ["option-1", "option-2"];
+  const radios = labels.map((id, index) => {
+    const radio = el("input", { type: "radio", "data-ai-alternative": "", value: id });
+    radio.value = id;
+    radio.checked = index === 0;
+    return el("label", {}, [radio, " " + id + " description"]);
+  });
   const generate = el("button", { type: "button", "data-ai-generate": "", text: "Generate still" });
   const video = el("button", { type: "button", "data-ai-video": "", text: "Video is not available on the GPT subscription route" });
   const figure = el("figure", { "data-ai-result": "" });
@@ -188,10 +201,7 @@ function aiCard({
     el("h3", { text: "Wide shot" }),
     el("p", { className: "ai-purpose", text: "Show the room" }),
     el("blockquote", { className: "ai-text", text: "Original scenario excerpt" }),
-    el("fieldset", { className: "ai-alternatives" }, [
-      el("label", {}, [first, " option-1 description"]),
-      el("label", {}, [second, " option-2 description"]),
-    ]),
+    el("fieldset", { className: "ai-alternatives" }, radios),
     el("label", {}, ["Comment ", comment]),
     el("label", {}, ["Comparison ", mode]),
     generate,
@@ -218,6 +228,8 @@ function run({ live = false, withStill = false, approval = "pending", saved = nu
     calls: [],
     selectQueue: [],
     reviewQueue: [],
+    uploadQueue: [],
+    previewQueue: [],
     holdSelect: true,
     holdReview,
     failReview,
@@ -336,8 +348,22 @@ function run({ live = false, withStill = false, approval = "pending", saved = nu
     Blob: class { constructor(parts) { this.parts = parts; } },
     fetch: async (url, options = {}) => {
       const method = String(options.method || "GET").toUpperCase();
-      const body = options.body ? JSON.parse(options.body) : null;
-      world.calls.push({ url, method, body, headers: options.headers || {} });
+      let body = null;
+      let binary = false;
+      if (options.body != null && options.body !== "") {
+        if (typeof options.body === "string") body = JSON.parse(options.body);
+        else {
+          binary = true;
+          body = { byteLength: options.body.byteLength || options.body.length || 0 };
+        }
+      }
+      world.calls.push({ url, method, body, binary, headers: options.headers || {} });
+      if (method === "GET" && String(url).includes("/reference/")) {
+        if (world.holdPreview) return new Promise((resolve) => world.previewQueue.push(() => resolve({
+          ok: true, blob: async () => ({ parts: ["late-preview"] }),
+        })));
+        return { ok: true, blob: async () => ({ parts: ["preview-bytes"] }), json: async () => ({}) };
+      }
       if (method === "GET") return { ok: true, json: async () => world.state };
       if (body && body.action === "select" && world.holdSelect) {
         return new Promise((resolve) => {
@@ -348,6 +374,9 @@ function run({ live = false, withStill = false, approval = "pending", saved = nu
         });
       }
       if (body && body.action === "generate") {
+        if (body.outputs === 3) {
+          return { ok: true, json: async () => ({ group: "group-1", jobs: world.comparisonJobs || [] }) };
+        }
         return { ok: true, json: async () => ({ job: { id: "job-1", state: world.generateState, beat: body.beat, error: null } }) };
       }
       if (body && body.action === "review" && world.holdReview) {
@@ -361,6 +390,35 @@ function run({ live = false, withStill = false, approval = "pending", saved = nu
       if (body && body.action === "review") {
         return { ok: world.failReview !== true, json: async () => ({ error: world.failReview ? "not saved" : "", version: body.version, decision: body.decision }) };
       }
+      if (method === "GET" && String(url).includes("/reference/")) {
+        return { ok: true, blob: async () => ({ parts: ["preview-bytes"] }), json: async () => ({}) };
+      }
+      if (binary && String(url).includes("/reference")) {
+        const metadata = JSON.parse(decodeURIComponent(options.headers["X-GetBrolls-Ai-Reference"]));
+        if (world.failUpload || (metadata.declared_type === "video/mp4" && !metadata.interval && !/\d/.test(metadata.instructions))) {
+          return { ok: false, json: async () => ({ error: "Name the video interval. The reference was not kept." }) };
+        }
+        const kept = (contextId) => {
+          const reference = {
+            context_id: contextId, kind: "image", received: true, name: metadata.name,
+            instructions: metadata.instructions, target_still: metadata.still || null,
+          };
+          const beat = world.state.beats.find((row) => row.id === metadata.beat);
+          if (beat) beat[metadata.still ? "reference" : "guidance"] = reference;
+          return { ok: true, json: async () => ({ reference }) };
+        };
+        if (world.holdUpload) return new Promise((resolve) => world.uploadQueue.push(() => resolve(kept("ctx-late"))));
+        return kept("ctx-fixture");
+      }
+      if (body && body.action === "apply") {
+        return { ok: true, json: async () => ({ job: { id: "job-apply", state: "queued", error: null, operation: "apply" } }) };
+      }
+      if (body && body.action === "reference-remove") {
+        const beat = world.state.beats.find((row) => row.id === body.beat);
+        if (beat && beat.reference && beat.reference.context_id === body.context) beat.reference = null;
+        if (beat && beat.guidance && beat.guidance.context_id === body.context) beat.guidance = null;
+        return { ok: true, json: async () => ({ reference: { received: false } }) };
+      }
       return { ok: true, json: async () => ({}) };
     },
     navigator: {},
@@ -369,6 +427,23 @@ function run({ live = false, withStill = false, approval = "pending", saved = nu
     setInterval,
     clearInterval,
     console,
+  };
+  world.state = {
+    beats: cards.map((card) => {
+      const comment = card.querySelector("[data-ai-comment]");
+      const selected = [...card.querySelectorAll("[data-ai-alternative]")].find((radio) => radio.checked);
+      return {
+        id: card.getAttribute("data-ai-beat"),
+        fingerprint: card.getAttribute("data-ai-fingerprint"),
+        active: true,
+        mode: card.getAttribute("data-ai-mode") || "economy",
+        selected: selected ? (selected.value || selected.getAttribute("value") || "") : "",
+        comment: comment && typeof comment.value === "string" ? comment.value : "",
+      };
+    }),
+    jobs: [],
+    versions: [],
+    style: "Agreed style",
   };
   vm.runInNewContext(fs.readFileSync(process.argv[2], "utf8"), context);
   const card = board.querySelector(".ai-card");
@@ -394,15 +469,19 @@ async function drain() {
   const generate = card.querySelector("[data-ai-generate]");
   const option1 = [...card.querySelectorAll("[data-ai-alternative]")].find((radio) => radio.value === "option-1");
   const option2 = [...card.querySelectorAll("[data-ai-alternative]")].find((radio) => radio.value === "option-2");
-  assert.equal(live.world.calls.length, 0, "Opening the board must not generate or save");
-  assert.equal(images.disabled, true, "Three-image comparison stays disabled");
+  assert.equal(posted(live.world, "generate").length, 0, "Opening the board must not generate");
+  assert.equal(posted(live.world, "select").length, 0, "Opening the board must not save");
+  assert.equal(posted(live.world, "review").length, 0, "Opening the board must not review");
+  assert.equal(live.world.calls.some((call) => call.method === "GET" && call.url === "/__ai/state"), true);
+  assert.equal(images.disabled, false, "Images mode is available and does not generate by itself");
   assert.equal(video.disabled, true, "GPT video stays disabled");
   assert.equal(generate.disabled, false);
   assert.equal(card.querySelector("[data-ai-decision-label]").textContent, "Awaiting decision");
 
   comment.value = "one";
   comment.dispatchEvent({ type: "input" });
-  assert.equal(live.world.calls.length, 0, "Typing must not generate immediately");
+  assert.equal(posted(live.world, "generate").length, 0, "Typing must not generate immediately");
+  assert.equal(posted(live.world, "select").length, 0, "Typing must not save before the debounce");
   live.advance(400);
   assert.equal(posted(live.world, "generate").length, 0);
   assert.equal(posted(live.world, "select").length, 1);
@@ -443,6 +522,7 @@ async function drain() {
   assert.equal(generated[0].body.expected, "fp-1");
   assert.equal(generated[0].body.alternative, "option-2");
   assert.equal(generated[0].body.comment, "two");
+  assert.equal(Object.hasOwn(generated[0].body, "outputs"), false);
   assert.equal(generated[0].url, "/__ai");
   await drain();
   assert.equal(progress.textContent, "queued");
@@ -521,7 +601,7 @@ async function drain() {
   assert.equal(card.getAttribute("data-ai-signature"), "sig-1");
   assert.equal(card.getAttribute("data-ai-state"), "complete");
   assert.equal(progress.textContent, "complete");
-  assert.equal(live.world.calls.filter((call) => call.method === "GET" && call.url === "/__ai/state").length, 2);
+  assert.equal(live.world.calls.filter((call) => call.method === "GET" && call.url === "/__ai/state").length, 3);
   assert.equal(comment.value, "two revised");
   assert.equal(option2.checked, true);
   assert.equal(card.getAttribute("data-ai-current"), "true");
@@ -555,7 +635,7 @@ async function drain() {
   const portableGenerate = portableCard.querySelector("[data-ai-generate]");
   assert.equal(portableGenerate.disabled, true, "A portable page cannot generate");
   assert.equal(portableCard.querySelector("[data-ai-video]").disabled, true);
-  assert.equal([...portableCard.querySelectorAll("option")].find((option) => option.value === "images").disabled, true);
+  assert.equal([...portableCard.querySelectorAll("option")].find((option) => option.value === "images").disabled, false);
   portableCard.querySelector("[data-ai-comment]").value = "Offline note";
   portableCard.querySelector("[data-ai-comment]").dispatchEvent({ type: "input" });
   portable.advance(400);
@@ -626,21 +706,25 @@ async function drain() {
   assert.equal(fast.card.querySelector("img").getAttribute("src"), "previews/fast.png");
 
   const quota = run({ live: true, generateState: "quota" });
+  const quotaInitialReads = quota.world.calls.filter((call) => call.method === "GET").length;
+  assert.equal(quotaInitialReads, 1, "A live review reads current state on opening");
   quota.card.querySelector("[data-ai-generate]").click();
   await drain();
   quota.card.querySelector("[data-ai-generate]").click();
   assert.equal(posted(quota.world, "generate").length, 1);
   assert.equal(quota.card.querySelector("[data-ai-progress]").textContent, "quota");
-  assert.equal(quota.world.calls.filter((call) => call.method === "GET").length, 0);
+  assert.equal(quota.world.calls.filter((call) => call.method === "GET").length, quotaInitialReads, "Quota failure does not start extra polling");
   assert.equal(quota.card.getAttribute("data-ai-version"), null);
 
   const unknown = run({ live: true, generateState: "unknown" });
+  const unknownInitialReads = unknown.world.calls.filter((call) => call.method === "GET").length;
+  assert.equal(unknownInitialReads, 1, "A live review reads current state on opening");
   unknown.card.querySelector("[data-ai-generate]").click();
   await drain();
   unknown.card.querySelector("[data-ai-generate]").click();
   assert.equal(posted(unknown.world, "generate").length, 1);
   assert.equal(unknown.card.querySelector("[data-ai-progress]").textContent, "unknown");
-  assert.equal(unknown.world.calls.filter((call) => call.method === "GET").length, 0);
+  assert.equal(unknown.world.calls.filter((call) => call.method === "GET").length, unknownInitialReads, "Unknown submit does not start extra polling");
 
   const drifted = run({ live: true });
   const driftedComment = drifted.card.querySelector("[data-ai-comment]");
@@ -691,6 +775,29 @@ async function drain() {
   const switchedStore = JSON.parse(next.store["getbrolls-v2-ai:synthetic-ai"])["beat-1"];
   assert.equal(switchedStore.version, "still-2");
   assert.equal(switchedStore.versions["still-1\u001fsig-1"].state, "approved");
+
+  const reopenedEconomy = run({ live: true, withStill: true, saved: next.store });
+  reopenedEconomy.world.state = {
+    beats: [{
+      id: "beat-1", fingerprint: "fp-1", mode: "economy", active: true,
+      version: { id: "still-2", signature: "sig-2", path: "previews/ai-still-2.png", approval: "pending" },
+    }],
+    versions: [],
+  };
+  await drain();
+  assert.equal(reopenedEconomy.card.getAttribute("data-ai-version"), "still-2", "The explicitly chosen economy revision must survive reopening old saved HTML");
+
+  const reopenedComparisonEdit = run({ live: true, withStill: true, saved: next.store });
+  reopenedComparisonEdit.world.state = {
+    beats: [{
+      id: "beat-1", fingerprint: "fp-1", mode: "images", active: true, selected: "option-1",
+      version: { id: "still-2", signature: "sig-2", path: "previews/ai-still-2.png", approval: "pending" },
+      slots: [{ alternative: "option-1", version: { id: "still-1", signature: "sig-1", path: "previews/ai-still-1.png" } }],
+    }],
+    versions: [],
+  };
+  await drain();
+  assert.equal(reopenedComparisonEdit.card.getAttribute("data-ai-version"), "still-2", "A chosen Apply result is retained even though it is separate from the three original slots");
 
   const failedSave = run({ live: true, withStill: true, failReview: true });
   const failedComment = failedSave.card.querySelector("[data-ai-comment]");
@@ -905,6 +1012,790 @@ async function drain() {
   assert.equal(!inactive.card.querySelector("[data-ai-new-result]") || inactive.card.querySelector("[data-ai-new-result]").hidden === true, true);
   assert.equal(inactive.summaryText.textContent, "0 approved · 0 reviewed · 0 pending");
   assert.equal(inactive.nextButton.disabled, true);
+
+  const comparison = run({
+    live: true,
+    boardCards: [aiCard({ alternatives: ["option-1", "option-2", "option-3"] })],
+  });
+  const comparisonCard = comparison.card;
+  const comparisonComment = comparisonCard.querySelector("[data-ai-comment]");
+  const comparisonMode = comparisonCard.querySelector("select");
+  assert.equal([...comparisonCard.querySelectorAll("option")].find((option) => option.value === "images").disabled, false);
+  assert.equal(comparisonCard.querySelector("[data-ai-video]").disabled, true);
+  comparisonComment.value = "keep me";
+  comparisonComment.dispatchEvent({ type: "input" });
+  comparisonMode.value = "images";
+  comparisonMode.dispatchEvent({ type: "change" });
+  assert.equal(comparisonCard.querySelector("[data-ai-generate]").textContent, "Generate three stills");
+  assert.equal(posted(comparison.world, "generate").length, 0, "Switching mode or typing must not generate");
+  comparison.advance(400);
+  while (comparison.world.selectQueue.length) comparison.world.selectQueue.shift()();
+  await drain();
+  assert.equal(posted(comparison.world, "select").at(-1).body.mode, "images");
+  assert.equal(posted(comparison.world, "select").at(-1).body.comment, "keep me");
+  assert.equal(posted(comparison.world, "generate").length, 0);
+  comparison.world.comparisonJobs = [
+    { id: "job-a", alternative: "option-1", state: "complete" },
+    { id: "job-b", alternative: "option-2", state: "failed", error: "provider failed" },
+    { id: "job-c", alternative: "option-3", state: "queued" },
+  ];
+  comparisonCard.querySelector("[data-ai-generate]").click();
+  comparisonCard.querySelector("[data-ai-generate]").click();
+  const comparisonGenerate = posted(comparison.world, "generate");
+  assert.equal(comparisonGenerate.length, 1, "A duplicate three-still click must not launch another group");
+  assert.equal(comparisonGenerate[0].body.outputs, 3);
+  assert.equal(Object.hasOwn(comparisonGenerate[0].body, "alternative"), false);
+  assert.equal(comparisonGenerate[0].body.comment, "keep me");
+  assert.equal(comparisonGenerate[0].body.nonce, groupNonce("beat-1", "fp-1", ["option-1", "option-2", "option-3"], "keep me"));
+  await drain();
+  assert.equal(comparisonCard.getAttribute("data-ai-state"), "queued");
+  assert.equal(posted(comparison.world, "review").length, 0, "Launching three stills is not approval");
+  comparison.world.state = {
+    beats: [{
+      id: "beat-1",
+      fingerprint: "fp-1",
+      mode: "images",
+      selected: "option-1",
+      comment: "SERVER",
+      job: { id: "job-a", state: "complete", alternative: "option-1" },
+      version: { id: "still-a", signature: "sig-a", path: "previews/a.png", approval: "approved" },
+      slots: [
+        { alternative: "option-1", comment: "keep me", job: { id: "job-a", state: "complete", error: null }, version: { id: "still-a", signature: "sig-a", path: "previews/a.png", approval: null } },
+        { alternative: "option-2", job: { id: "job-b", state: "failed", error: "provider failed" }, version: null },
+        { alternative: "option-3", job: { id: "job-c", state: "queued", error: null }, version: null },
+      ],
+    }],
+  };
+  comparison.advance(1000);
+  await drain();
+  assert.equal(comparisonComment.value, "keep me");
+  assert.equal(comparisonCard.querySelectorAll(".ai-slot").length, 3);
+  assert.equal(comparisonCard.querySelector(".ai-slot img").getAttribute("src"), "previews/a.png");
+  assert.equal(comparisonCard.querySelector(".ai-slot img").getAttribute("alt"), "Generated illustration");
+  assert.equal(comparisonCard.querySelector(".ai-slot").getAttribute("data-ai-approval"), "pending");
+  assert.equal(comparisonCard.getAttribute("data-ai-state"), "queued");
+  assert.equal(comparisonCard.querySelector("[data-ai-progress]").textContent.includes("provider failed"), true);
+  assert.equal(comparisonCard.querySelector("[data-ai-progress]").textContent.includes("queued"), true);
+  assert.equal(comparisonCard.getAttribute("data-ai-version") || "", "");
+  const choose = [...comparisonCard.querySelectorAll("[data-ai-choose]")].find((button) => button.getAttribute("data-ai-choose") === "option-1");
+  const generatesBefore = posted(comparison.world, "generate").length;
+  choose.click();
+  assert.equal(comparisonComment.value, "keep me", "Choosing a generated slot retains its frozen scene comment");
+  assert.equal(posted(comparison.world, "generate").length, generatesBefore);
+  assert.equal(posted(comparison.world, "review").length, 0);
+  assert.equal(comparisonCard.getAttribute("data-ai-version"), "still-a");
+  assert.equal(comparisonCard.getAttribute("data-ai-signature"), "sig-a");
+  assert.equal(comparisonCard.querySelector("[data-ai-decision-label]").textContent, "Awaiting decision");
+  comparison.advance(400);
+  while (comparison.world.selectQueue.length) comparison.world.selectQueue.shift()();
+  await drain();
+  const chosen = posted(comparison.world, "select").at(-1);
+  assert.equal(chosen.body.alternative, "option-1");
+  assert.equal(Object.hasOwn(chosen.body, "outputs"), false);
+  comparisonCard.querySelector('[data-ai-decision="approved"]').click();
+  await drain();
+  assert.equal(posted(comparison.world, "review").length, 1);
+  assert.equal(posted(comparison.world, "review")[0].body.version, "still-a");
+  assert.equal(posted(comparison.world, "review")[0].body.signature, "sig-a");
+  comparisonComment.value = "keep me still";
+  comparisonComment.dispatchEvent({ type: "input" });
+  comparison.advance(1000);
+  await drain();
+  assert.equal(comparisonComment.value, "keep me still");
+  assert.equal(comparisonCard.getAttribute("data-ai-version"), "still-a");
+  assert.equal(comparisonCard.getAttribute("data-ai-signature"), "sig-a");
+
+  const finished = run({
+    live: true,
+    boardCards: [aiCard({ alternatives: ["option-1", "option-2", "option-3"] })],
+  });
+  await drain();
+  const finishedCard = finished.card;
+  const finishedComment = finishedCard.querySelector("[data-ai-comment]");
+  const finishedMode = finishedCard.querySelector("select");
+  finishedComment.value = "kept";
+  finishedComment.dispatchEvent({ type: "input" });
+  finishedMode.value = "images";
+  finishedMode.dispatchEvent({ type: "change" });
+  finished.advance(400);
+  while (finished.world.selectQueue.length) finished.world.selectQueue.shift()();
+  await drain();
+  finished.world.comparisonJobs = [
+    { id: "job-a", alternative: "option-1", state: "complete" },
+    { id: "job-b", alternative: "option-2", state: "complete" },
+    { id: "job-c", alternative: "option-3", state: "complete" },
+  ];
+  finished.world.state = {
+    beats: [{
+      id: "beat-1",
+      fingerprint: "fp-1",
+      active: true,
+      mode: "images",
+      selected: "option-1",
+      comment: "SERVER",
+      job: { id: "job-a", state: "complete", alternative: "option-1" },
+      version: { id: "still-a", signature: "sig-a", path: "previews/a.png", approval: "pending" },
+      slots: [
+        { alternative: "option-1", job: { id: "job-a", state: "complete" }, version: { id: "still-a", signature: "sig-a", path: "previews/a.png", approval: "pending" } },
+        { alternative: "option-2", job: { id: "job-b", state: "complete" }, version: { id: "still-b", signature: "sig-b", path: "previews/b.png", approval: "pending" } },
+        { alternative: "option-3", job: { id: "job-c", state: "complete" }, version: { id: "still-c", signature: "sig-c", path: "previews/c.png", approval: "pending" } },
+      ],
+    }],
+  };
+  finishedCard.querySelector("[data-ai-generate]").click();
+  await drain();
+  assert.equal(posted(finished.world, "generate").length, 1);
+  assert.equal(finishedCard.querySelectorAll(".ai-slot").length, 3);
+  assert.equal(finishedCard.querySelectorAll(".ai-slot img").length, 3);
+  assert.equal(finishedCard.querySelector(".ai-slot img").getAttribute("alt"), "Generated illustration");
+  assert.equal(finishedComment.value, "kept");
+  assert.equal(finishedCard.getAttribute("data-ai-version") || "", "");
+
+  const reopen = run({
+    live: true,
+    boardCards: [aiCard({ alternatives: ["option-1", "option-2", "option-3"] })],
+  });
+  reopen.world.state = {
+    beats: [{
+      id: "beat-1",
+      fingerprint: "fp-1",
+      active: true,
+      mode: "images",
+      selected: "option-1",
+      comment: "shared scene",
+      job: { id: "job-a", state: "complete", alternative: "option-1" },
+      version: { id: "still-a", signature: "sig-a", path: "previews/a.png", approval: "approved" },
+      slots: [
+        { alternative: "option-1", job: { id: "job-a", state: "complete" }, version: { id: "still-a", signature: "sig-a", path: "previews/a.png", approval: "approved" } },
+        { alternative: "option-2", job: { id: "job-b", state: "complete" }, version: { id: "still-b", signature: "sig-b", path: "previews/b.png", approval: "pending" } },
+        { alternative: "option-3", job: { id: "job-c", state: "failed", error: "provider failed" }, version: null },
+      ],
+    }],
+  };
+  await drain();
+  const reopenCard = reopen.card;
+  const reopenComment = reopenCard.querySelector("[data-ai-comment]");
+  assert.equal(posted(reopen.world, "generate").length, 0, "Reopening retained results must not generate");
+  assert.equal(reopenCard.querySelector("select").value, "images");
+  assert.equal(reopenCard.querySelector("[data-ai-generate]").textContent, "Generate three stills");
+  assert.equal(reopenCard.querySelectorAll(".ai-slot").length, 3);
+  assert.equal(reopenCard.querySelectorAll(".ai-slot img").length, 2);
+  assert.equal(reopenCard.getAttribute("data-ai-version"), "still-a");
+  assert.equal(reopenCard.getAttribute("data-ai-signature"), "sig-a");
+  assert.equal(reopenCard.getAttribute("data-ai-approval"), "approved");
+  assert.equal(reopenCard.querySelector("[data-ai-decision-label]").textContent, "Approved");
+  assert.equal(reopen.summaryText.textContent, "1 approved · 0 reviewed · 0 pending");
+  assert.equal(reopen.nextButton.disabled, true);
+  assert.equal(reopenComment.value, "shared scene");
+  assert.equal(reopenCard.querySelector('[data-ai-slot="option-1"]').getAttribute("data-ai-approval"), "approved");
+  assert.equal(reopenCard.querySelector('[data-ai-slot="option-2"]').getAttribute("data-ai-approval"), "pending");
+  const reopenChoose = (alternative) => [...reopenCard.querySelectorAll("[data-ai-choose]")].find((button) => button.getAttribute("data-ai-choose") === alternative);
+  reopenChoose("option-1").click();
+  assert.equal(posted(reopen.world, "review").length, 0);
+  assert.equal(posted(reopen.world, "generate").length, 0);
+  assert.equal(reopenCard.querySelector("[data-ai-decision-label]").textContent, "Approved");
+  assert.equal(reopenCard.getAttribute("data-ai-version"), "still-a");
+  reopenComment.value = "only still a";
+  reopenComment.dispatchEvent({ type: "input" });
+  reopenChoose("option-2").click();
+  assert.equal(posted(reopen.world, "review").length, 0);
+  assert.equal(posted(reopen.world, "generate").length, 0);
+  assert.equal(reopenCard.getAttribute("data-ai-version"), "still-b");
+  assert.equal(reopenCard.getAttribute("data-ai-approval"), "pending");
+  assert.equal(reopenCard.querySelector("[data-ai-decision-label]").textContent, "Awaiting decision");
+  assert.equal(reopenComment.value, "shared scene");
+  assert.equal(reopen.summaryText.textContent, "0 approved · 0 reviewed · 1 pending");
+  reopenChoose("option-1").click();
+  assert.equal(reopenCard.getAttribute("data-ai-version"), "still-a");
+  assert.equal(reopenCard.getAttribute("data-ai-approval"), "approved");
+  assert.equal(reopenCard.querySelector("[data-ai-decision-label]").textContent, "Approved");
+  assert.equal(reopenComment.value, "only still a");
+  assert.equal(reopen.summaryText.textContent, "1 approved · 0 reviewed · 0 pending");
+  assert.equal(posted(reopen.world, "review").length, 0);
+
+  const heldState = {
+    beats: [{
+      id: "beat-1",
+      fingerprint: "fp-1",
+      active: true,
+      mode: "images",
+      selected: "option-1",
+      comment: "shared",
+      job: { id: "job-a", state: "complete", alternative: "option-1" },
+      version: { id: "still-a", signature: "sig-a", path: "previews/a.png", approval: "approved" },
+      slots: [
+        { alternative: "option-1", comment: "a note", job: { id: "job-a", state: "complete" }, version: { id: "still-a", signature: "sig-a", path: "previews/a.png", approval: "approved" } },
+        { alternative: "option-2", comment: "b only", job: { id: "job-b", state: "complete" }, version: { id: "still-b", signature: "sig-b", path: "previews/b.png", approval: "pending" } },
+        { alternative: "option-3", comment: "shared", job: { id: "job-c", state: "failed", error: "provider failed" }, version: null },
+      ],
+    }],
+  };
+  const held = run({
+    live: true,
+    boardCards: [aiCard({ alternatives: ["option-1", "option-2", "option-3"] })],
+  });
+  held.world.state = heldState;
+  await drain();
+  const heldChoose = [...held.card.querySelectorAll("[data-ai-choose]")].find((button) => button.getAttribute("data-ai-choose") === "option-2");
+  heldChoose.click();
+  assert.equal(held.card.getAttribute("data-ai-version"), "still-b");
+  assert.equal(held.card.getAttribute("data-ai-approval"), "pending");
+  assert.equal(held.card.querySelector("[data-ai-comment]").value, "b only");
+  assert.equal(posted(held.world, "select").length, 0, "The slot choice stays local until the selection debounce");
+  assert.equal(posted(held.world, "generate").length, 0);
+  const heldAgain = run({
+    live: true,
+    saved: held.store,
+    boardCards: [aiCard({ alternatives: ["option-1", "option-2", "option-3"] })],
+  });
+  heldAgain.world.state = heldState;
+  await drain();
+  assert.equal(heldAgain.card.getAttribute("data-ai-version"), "still-b");
+  assert.equal(heldAgain.card.getAttribute("data-ai-signature"), "sig-b");
+  assert.equal(heldAgain.card.getAttribute("data-ai-approval"), "pending");
+  assert.equal(heldAgain.card.querySelector("[data-ai-decision-label]").textContent, "Awaiting decision");
+  assert.equal(heldAgain.card.querySelector("[data-ai-comment]").value, "b only");
+  assert.equal(heldAgain.card.querySelector("[data-ai-result] img").getAttribute("src"), "previews/b.png");
+  assert.equal(heldAgain.card.querySelector('[data-ai-slot="option-1"]').getAttribute("data-ai-approval"), "approved");
+  assert.equal(heldAgain.card.querySelector('[data-ai-slot="option-2"]').getAttribute("data-ai-approval"), "pending");
+  assert.equal(heldAgain.card.querySelector("[data-ai-slot-note]").textContent, "");
+  assert.equal(posted(heldAgain.world, "generate").length, 0);
+  assert.equal(posted(heldAgain.world, "review").length, 0);
+  assert.equal(posted(heldAgain.world, "select").length, 0);
+  const heldRendered = run({
+    live: true,
+    saved: held.store,
+    boardCards: [aiCard({
+      withStill: true,
+      approval: "approved",
+      version: "still-a",
+      signature: "sig-a",
+      commentText: "a note",
+      alternatives: ["option-1", "option-2", "option-3"],
+    })],
+  });
+  heldRendered.world.state = heldState;
+  await drain();
+  assert.equal(heldRendered.card.getAttribute("data-ai-version"), "still-b");
+  assert.equal(heldRendered.card.getAttribute("data-ai-signature"), "sig-b");
+  assert.equal(heldRendered.card.getAttribute("data-ai-approval"), "pending");
+  assert.equal(heldRendered.card.querySelector("[data-ai-comment]").value, "b only");
+  assert.equal(posted(heldRendered.world, "generate").length, 0);
+  const heldMissing = run({
+    live: true,
+    saved: held.store,
+    boardCards: [aiCard({ alternatives: ["option-1", "option-2", "option-3"] })],
+  });
+  heldMissing.world.state = {
+    beats: [{
+      id: "beat-1",
+      fingerprint: "fp-1",
+      active: true,
+      mode: "images",
+      selected: "option-1",
+      comment: "shared",
+      job: { id: "job-a", state: "complete", alternative: "option-1" },
+      version: { id: "still-a", signature: "sig-a", path: "previews/a.png", approval: "approved" },
+      slots: [
+        heldState.beats[0].slots[0],
+        { alternative: "option-2", comment: "b only", job: { id: "job-b", state: "complete" }, version: { id: "still-b", signature: "sig-stale", path: "previews/b.png", approval: "approved" } },
+        heldState.beats[0].slots[2],
+      ],
+    }],
+  };
+  await drain();
+  assert.equal(heldMissing.card.getAttribute("data-ai-version"), null);
+  assert.notEqual(heldMissing.card.getAttribute("data-ai-approval"), "approved");
+  assert.notEqual(heldMissing.card.querySelector("[data-ai-decision-label]").textContent, "Approved");
+  assert.equal(heldMissing.card.querySelector("[data-ai-slot-note]").textContent, "The chosen still is missing from the current comparison.");
+  assert.equal(posted(heldMissing.world, "generate").length, 0);
+  const heldForeign = run({
+    live: true,
+    saved: {
+      "getbrolls-v2-ai:synthetic-ai": JSON.stringify({
+        "beat-1": {
+          fingerprint: "old-context",
+          version: "still-b",
+          signature: "sig-b",
+          state: "pending",
+          selected: "option-2",
+          selectedDirty: true,
+          comment: "b only",
+        },
+      }),
+    },
+    boardCards: [aiCard({ alternatives: ["option-1", "option-2", "option-3"] })],
+  });
+  heldForeign.world.state = heldState;
+  await drain();
+  assert.equal(heldForeign.card.getAttribute("data-ai-version"), "still-a");
+  assert.equal(heldForeign.card.getAttribute("data-ai-approval"), "approved");
+  assert.equal(heldForeign.card.querySelector("[data-ai-comment]").value, "shared");
+  assert.equal(heldForeign.card.querySelector("[data-ai-slot-note]"), null);
+  assert.equal(posted(heldForeign.world, "generate").length, 0);
+
+  const narration = run({
+    live: true,
+    boardCards: [aiCard()],
+  });
+  narration.world.state = {
+    beats: [{
+      id: "beat-1",
+      fingerprint: "fp-1",
+      active: true,
+      mode: "economy",
+      selected: "option-1",
+      comment: "",
+      job: { id: "job-still", state: "queued", kind: "image" },
+      video_ready: false,
+      timing: {
+        resolved: false,
+        reasons: ["uncertain_match"],
+        candidates: [
+          { id: "c0", text: "first spoken span", start_s: 0, end_s: 2 },
+          { id: "c1", text: "second spoken span", start_s: 4, end_s: 6 },
+        ],
+        ambiguous: true,
+        analysis_id: "na-1",
+      },
+    }],
+    versions: [],
+  };
+  await drain();
+  const narrationCard = narration.card;
+  assert.equal(posted(narration.world, "video").length, 0, "Opening must not launch video");
+  assert.equal(posted(narration.world, "timing").length, 0, "Opening must not match narration");
+  assert.equal(posted(narration.world, "resolve").length, 0, "Opening must not resolve narration");
+  assert.equal(posted(narration.world, "generate").length, 0);
+  assert.equal(posted(narration.world, "review").length, 0);
+  assert.equal(narrationCard.querySelector("[data-ai-video]").disabled, true);
+  narrationCard.querySelector("[data-ai-video]").click();
+  assert.equal(posted(narration.world, "video").length, 0, "A disabled video button must not post");
+  const candidateChoice = narrationCard.querySelector('[data-ai-candidate-choice="c1"]');
+  assert.equal(candidateChoice.textContent.includes("c1"), true);
+  assert.equal(candidateChoice.textContent.includes("4"), true);
+  assert.equal(candidateChoice.textContent.includes("6"), true);
+  assert.equal(candidateChoice.textContent.includes("second spoken span"), true);
+  assert.equal(narrationCard.querySelector("[data-ai-timing]").textContent.includes("second spoken span"), true);
+  assert.equal(narrationCard.querySelector("[data-ai-timing]").textContent.includes("4"), true);
+  candidateChoice.click();
+  assert.equal(posted(narration.world, "resolve").length, 0, "Choosing a candidate must not resolve it");
+  assert.equal(narrationCard.querySelector("[data-ai-candidate]").value, "c1");
+  narrationCard.querySelector("[data-ai-timing-resolve]").click();
+  assert.equal(posted(narration.world, "resolve").length, 0, "Resolve waits for an explicit statement");
+  narrationCard.querySelector("[data-ai-analysis]").value = "na-1";
+  narrationCard.querySelector("[data-ai-statement]").value = "Use the second spoken span.";
+  narrationCard.querySelector("[data-ai-timing-resolve]").click();
+  await drain();
+  assert.equal(posted(narration.world, "resolve").length, 1);
+  assert.equal(posted(narration.world, "resolve")[0].body.candidate, "c1");
+  assert.equal(posted(narration.world, "resolve")[0].body.statement, "Use the second spoken span.");
+  assert.equal(posted(narration.world, "generate").length, 0);
+  narrationCard.querySelector("[data-ai-timing-match]").click();
+  await drain();
+  assert.equal(posted(narration.world, "timing").length, 1);
+  assert.equal(posted(narration.world, "timing")[0].body.analysis, "na-1");
+  narration.world.state = {
+    beats: [{
+      id: "beat-1",
+      fingerprint: "fp-1",
+      active: true,
+      mode: "economy",
+      selected: "option-1",
+      comment: "",
+      job: { id: "job-still", state: "complete", kind: "image" },
+      video_ready: true,
+      video_job: { id: "job-video", state: "running", kind: "video" },
+      timing: {
+        resolved: true,
+        start_s: 0,
+        end_s: 8,
+        analysis_id: "na-1",
+        still: "still-v",
+        preview: "previews/ai-vo-beat-1-abcdef.wav",
+        candidates: ["c0", "c1"],
+      },
+      video: {
+        id: "clip-1",
+        signature: "sig-clip",
+        path: "clips/ai-clip-1.mp4",
+        approval: "pending",
+        kind: "video",
+        width: 854,
+        height: 480,
+        duration_s: 2,
+        audio: true,
+        coverage: "short",
+        native_full_hd: false,
+        resolution: "480p",
+      },
+    }],
+    versions: [{ id: "still-v", signature: "sig-v", approval: "approved", kind: "image", path: "previews/still-v.png" }],
+  };
+  narration.advance(1000);
+  await drain();
+  assert.equal(narrationCard.getAttribute("data-ai-state"), "complete");
+  assert.equal(narrationCard.getAttribute("data-ai-video-state"), "running");
+  assert.equal(narrationCard.getAttribute("data-ai-video-ready"), "true");
+  assert.equal(narrationCard.querySelector("[data-ai-video]").disabled, false);
+  assert.equal(narrationCard.querySelector("[data-ai-comment]").value, "");
+  const preview = narrationCard.querySelector("[data-ai-vo]");
+  assert.equal(preview.getAttribute("src"), "previews/ai-vo-beat-1-abcdef.wav");
+  assert.equal(preview.autoplay, false);
+  assert.equal(preview.getAttribute("preload"), "metadata");
+  const clipMedia = narrationCard.querySelector("[data-ai-video-review] video");
+  assert.equal(clipMedia.autoplay, false);
+  assert.equal(clipMedia.getAttribute("preload"), "metadata");
+  assert.equal(narrationCard.querySelector("[data-ai-video-box] [data-ai-video-model]"), null);
+  assert.equal(narrationCard.querySelector("[data-ai-video-tool]").value, "");
+  narrationCard.querySelector("[data-ai-video]").click();
+  assert.equal(posted(narration.world, "video").length, 0, "Video waits for recorded project setup");
+  assert.match(narrationCard.querySelector("[data-ai-video-note]").textContent, /unverified|No model was guessed|not recorded/i);
+  narration.world.state.native_video = {
+    route: "grok-subscription",
+    model: "grok-video",
+    tool: "reference_to_video",
+    capability: "unverified",
+    message: "Native Grok video is unverified for this installation. Generate video freezes this model and tool, then fails closed.",
+  };
+  narration.advance(1000);
+  await drain();
+  assert.equal(narrationCard.querySelector("[data-ai-video-model]").value, "");
+  narrationCard.querySelector("[data-ai-video]").click();
+  await drain();
+  assert.equal(posted(narration.world, "video").length, 1);
+  const videoBody = posted(narration.world, "video")[0].body;
+  assert.equal(videoBody.version, "still-v");
+  assert.equal(videoBody.signature, "sig-v");
+  assert.equal(videoBody.model, "grok-video");
+  assert.equal(videoBody.tool, "reference_to_video");
+  assert.equal(videoBody.resolution, "480p");
+  assert.equal(videoBody.speech, false);
+  assert.equal(videoBody.music, false);
+  assert.equal(videoBody.atmosphere, false);
+  assert.equal(videoBody.effects, false);
+  assert.equal(posted(narration.world, "generate").length, 0);
+  assert.equal(posted(narration.world, "review").length, 0);
+  const videoNote = narrationCard.querySelector("[data-ai-video-comment]");
+  videoNote.value = "Hold the last frame";
+  narrationCard.querySelector('[data-ai-video-decision="approved"]').click();
+  await drain();
+  assert.equal(posted(narration.world, "review").length, 1);
+  assert.equal(posted(narration.world, "review")[0].body.version, "clip-1");
+  assert.equal(posted(narration.world, "review")[0].body.signature, "sig-clip");
+  assert.equal(posted(narration.world, "review")[0].body.comment, "Hold the last frame");
+  assert.equal(narrationCard.querySelector("[data-ai-decision-label]").textContent, "Awaiting decision");
+  assert.equal(narrationCard.querySelector("[data-ai-video-decision-label]").textContent, "Approved");
+  assert.equal(narrationCard.querySelector("[data-ai-comment]").value, "");
+  assert.equal(videoNote.value, "Hold the last frame");
+  assert.equal(narrationCard.getAttribute("data-ai-approval") || "", "");
+  videoNote.value = "Do not send this yet";
+  videoNote.dispatchEvent({ type: "input" });
+  narration.world.state = {
+    native_video: narration.world.state.native_video,
+    beats: [{
+      id: "beat-1",
+      fingerprint: "fp-1",
+      active: true,
+      mode: "economy",
+      selected: "option-1",
+      comment: "",
+      job: { id: "job-still", state: "complete", kind: "image" },
+      video_ready: true,
+      video_job: { id: "job-video", state: "running", kind: "video" },
+      timing: {
+        resolved: true,
+        start_s: 0,
+        end_s: 8,
+        analysis_id: "na-1",
+        still: "still-v",
+        preview: "previews/ai-vo-beat-1-abcdef.wav",
+      },
+      video: {
+        id: "clip-2",
+        signature: "sig-clip-2",
+        path: "clips/ai-clip-2.mp4",
+        approval: "changes",
+        comment: "Server note for the other clip",
+        kind: "video",
+        width: 854,
+        height: 480,
+        duration_s: 2,
+        audio: false,
+        coverage: "short",
+        native_full_hd: false,
+        resolution: "480p",
+      },
+    }],
+    versions: [{ id: "still-v", signature: "sig-v", approval: "approved", kind: "image", path: "previews/still-v.png" }],
+  };
+  narration.advance(1000);
+  await drain();
+  assert.equal(narrationCard.querySelector("[data-ai-video-comment]").value, "Server note for the other clip");
+  assert.equal(narrationCard.querySelector("[data-ai-video-decision-label]").textContent, "Changes requested");
+  assert.equal(narrationCard.querySelector("[data-ai-comment]").value, "");
+  assert.equal(narrationCard.querySelector("[data-ai-decision-label]").textContent, "Awaiting decision");
+  const readsBeforeClipReturn = narration.world.calls.filter((row) => !row.body).length;
+  narration.world.state.beats[0].video = {
+    id: "clip-1",
+    signature: "sig-clip",
+    path: "clips/ai-clip-1.mp4",
+    approval: "pending",
+    comment: "",
+    kind: "video",
+    width: 854,
+    height: 480,
+    duration_s: 2,
+    audio: true,
+    coverage: "short",
+    native_full_hd: false,
+    resolution: "480p",
+  };
+  narration.advance(1000);
+  await drain();
+  assert.ok(narration.world.calls.filter((row) => !row.body).length > readsBeforeClipReturn, "The new retained clip state must actually be fetched");
+  assert.equal(narrationCard.querySelector("[data-ai-video-comment]").value, "Do not send this yet");
+  assert.equal(narrationCard.querySelector("[data-ai-comment]").value, "");
+  assert.equal(narrationCard.querySelector("[data-ai-decision-label]").textContent, "Awaiting decision");
+  const videoReopened = run({
+    live: true,
+    saved: { ...narration.store },
+    boardCards: [aiCard()],
+  });
+  videoReopened.world.state = {
+    beats: [{
+      id: "beat-1",
+      fingerprint: "fp-1",
+      active: true,
+      mode: "economy",
+      selected: "option-1",
+      comment: "server still",
+      video_ready: false,
+      timing: { resolved: true, start_s: 0, end_s: 8, still: "still-v" },
+      video: {
+        id: "clip-1",
+        signature: "sig-clip",
+        path: "clips/ai-clip-1.mp4",
+        approval: "pending",
+        comment: "",
+        kind: "video",
+        width: 854,
+        height: 480,
+        duration_s: 2,
+        audio: true,
+        coverage: "short",
+        native_full_hd: false,
+        resolution: "480p",
+      },
+    }],
+    versions: [],
+  };
+  await drain();
+  assert.equal(videoReopened.card.querySelector("[data-ai-video-comment]").value, "Do not send this yet");
+  assert.equal(videoReopened.card.querySelector("[data-ai-comment]").value, "server still");
+  assert.equal(videoReopened.card.querySelector("[data-ai-decision-label]").textContent, "Awaiting decision");
+
+  const portableStill = run({});
+  assert.equal(portableStill.world.calls.length, 0, "A static portable review does not fetch");
+
+  function applyCard(withStill = true) {
+    const card = aiCard({ withStill, commentText: "No lettering" });
+    const instruction = el("textarea", { "data-ai-instruction": "" });
+    const file = el("input", { type: "file", "data-ai-file": "" });
+    file.files = [];
+    const role = el("select", { "data-ai-role": "" }, [el("option", { value: "appearance", text: "Appearance" })]);
+    role.value = "appearance";
+    const scope = el("select", { "data-ai-scope": "" }, [
+      el("option", { value: "beat", text: "This beat" }),
+      el("option", { value: "shared", text: "Shared style" }),
+    ]);
+    scope.value = "beat";
+    const start = el("input", { "data-ai-interval-start": "" });
+    const end = el("input", { "data-ai-interval-end": "" });
+    const scopeText = el("textarea", { "data-ai-scope-instruction": "" });
+    const upload = el("button", { type: "button", "data-ai-upload": "", text: "Keep reference" });
+    const remove = el("button", { type: "button", "data-ai-remove-reference": "", text: "Remove reference" });
+    const apply = el("button", { type: "button", "data-ai-apply": "", text: "Apply" });
+    const preview = el("img", { "data-ai-reference-preview": "" });
+    preview.hidden = true;
+    card.append(
+      instruction,
+      file,
+      role,
+      start,
+      end,
+      scope,
+      scopeText,
+      upload,
+      remove,
+      apply,
+      el("p", { "data-ai-file-note": "" }),
+      el("p", { "data-ai-reference-note": "" }),
+      el("p", { "data-ai-apply-note": "" }),
+      preview,
+    );
+    return card;
+  }
+  const portableApply = run({ boardCards: [applyCard()] });
+  const portableFile = portableApply.card.querySelector("[data-ai-file]");
+  portableFile.files = [{ name: "ref.png", type: "image/png", bytes: Uint8Array.from([1, 2, 3]) }];
+  portableFile.dispatchEvent({ type: "change" });
+  portableApply.card.querySelector("[data-ai-apply]").click();
+  assert.equal(portableApply.world.calls.length, 0, "A portable selection and Apply stay unsent");
+  assert.equal(portableApply.card.querySelector("[data-ai-file-note]").textContent, "Selected, not sent.");
+  assert.equal(portableApply.card.querySelector("[data-ai-apply-note]").textContent, "Selected, not sent.");
+
+  const liveApply = run({ live: true, boardCards: [applyCard()] });
+  const liveCard = liveApply.card;
+  const liveInstruction = liveCard.querySelector("[data-ai-instruction]");
+  const liveComment = liveCard.querySelector("[data-ai-comment]");
+  const liveFile = liveCard.querySelector("[data-ai-file]");
+  liveInstruction.value = "Keep the reservoir";
+  liveInstruction.dispatchEvent({ type: "input" });
+  liveFile.files = [{ name: "ref.png", type: "image/png", bytes: Uint8Array.from([9, 8, 7]) }];
+  liveFile.dispatchEvent({ type: "change" });
+  assert.equal(liveApply.world.calls.some((call) => call.method === "POST"), false, "Choosing a file does not upload");
+  liveCard.querySelector("[data-ai-generate]").click();
+  await drain();
+  assert.equal(posted(liveApply.world, "generate").length, 0, "Generate must not silently omit a selected unsent reference");
+  liveApply.world.state = {
+    beats: [{
+      id: "beat-1",
+      fingerprint: "fp-1",
+      active: true,
+      mode: "economy",
+      selected: "option-1",
+      comment: "No lettering",
+      job: { id: "job-1", state: "complete" },
+      version: { id: "still-1", signature: "sig-1", path: "previews/ai-still-1.png", approval: "approved" },
+      reference: { context_id: "ctx-server", name: "ref.png", role: "appearance", kind: "image", received: true },
+    }],
+  };
+  await drain();
+  assert.equal(liveInstruction.value, "Keep the reservoir");
+  assert.equal(liveComment.value, "No lettering");
+  assert.equal(liveCard.querySelector("[data-ai-file-note]").textContent, "Selected, not sent.");
+  const videoFile = liveCard.querySelector("[data-ai-file]");
+  videoFile.files = [{ name: "later.mp4", type: "video/mp4", bytes: Uint8Array.from([1]) }];
+  videoFile.dispatchEvent({ type: "change" });
+  liveCard.querySelector("[data-ai-upload]").click();
+  await drain();
+  assert.equal(posted(liveApply.world, "apply").length, 0, "A video without an interval cannot start production");
+  liveFile.files = [{ name: "ref.png", type: "image/png", bytes: Uint8Array.from([9, 8, 7]) }];
+  liveFile.dispatchEvent({ type: "change" });
+  liveCard.querySelector("[data-ai-apply]").click();
+  await drain();
+  const uploads = liveApply.world.calls.filter((call) => call.binary);
+  assert.equal(uploads.length, 2);
+  assert.equal(uploads[1].body.byteLength, 3);
+  assert.equal(String(uploads[1].url).includes("/__ai/reference"), true);
+  const applied = posted(liveApply.world, "apply");
+  assert.equal(applied.length, 1);
+  assert.equal(applied[0].body.action, "apply");
+  assert.equal(applied[0].body.instruction, "Keep the reservoir");
+  assert.equal(liveCard.querySelector("[data-ai-reference-note]").textContent, "ref.png: Keep the reservoir");
+  assert.deepEqual(applied[0].body.still, { id: "still-1", signature: "sig-1" });
+  assert.equal(posted(liveApply.world, "generate").length, 0, "Apply does not use the generate action");
+  assert.equal(String(liveCard.querySelector("[data-ai-reference-preview]").src || "").includes("ai-data"), false);
+
+  const beatReference = run({ live: true, boardCards: [applyCard()] });
+  beatReference.world.state.beats[0].guidance = {
+    context_id: "ctx-beat", kind: "image", received: true, still: null,
+  };
+  await drain();
+  beatReference.card.querySelector("[data-ai-remove-reference]").click();
+  await drain();
+  const removedBeat = posted(beatReference.world, "reference-remove");
+  assert.equal(removedBeat.length, 1);
+  assert.equal("still" in removedBeat[0].body, false, "Remove must cancel the displayed beat-level guidance even when a still exists");
+
+  const delayed = run({ live: true, boardCards: [applyCard()] });
+  await drain();
+  delayed.world.holdUpload = true;
+  const delayedFile = delayed.card.querySelector("[data-ai-file]");
+  const delayedInstruction = delayed.card.querySelector("[data-ai-instruction]");
+  delayedInstruction.value = "The original request";
+  delayedInstruction.dispatchEvent({ type: "input" });
+  delayedFile.files = [{ name: "original.png", type: "image/png", bytes: Uint8Array.from([1]) }];
+  delayedFile.dispatchEvent({ type: "change" });
+  delayed.card.querySelector("[data-ai-apply]").click();
+  delayed.card.querySelector("[data-ai-apply]").click();
+  await drain();
+  assert.equal(delayed.world.uploadQueue.length, 1, "Double Apply must not send two concurrent uploads");
+  delayed.card.setAttribute("data-ai-version", "still-new");
+  delayed.card.setAttribute("data-ai-signature", "sig-new");
+  delayedInstruction.value = "A new unsent instruction";
+  delayedInstruction.dispatchEvent({ type: "input" });
+  delayedFile.files = [{ name: "new.png", type: "image/png", bytes: Uint8Array.from([2]) }];
+  delayedFile.dispatchEvent({ type: "change" });
+  delayed.world.uploadQueue.shift()();
+  await drain();
+  const delayedApply = posted(delayed.world, "apply");
+  assert.equal(delayedApply.length, 1);
+  assert.deepEqual(delayedApply[0].body.still, { id: "still-1", signature: "sig-1" });
+  assert.equal(delayedApply[0].body.instruction, "The original request");
+  assert.equal(delayedApply[0].body.reference, "ctx-late");
+  assert.equal(delayedFile.files[0].name, "new.png");
+  assert.equal(delayedInstruction.value, "A new unsent instruction");
+  assert.equal(delayed.card.querySelector("[data-ai-file-note]").textContent, "Selected, not sent.");
+  const missingFile = run({ live: true, saved: delayed.store, boardCards: [applyCard()] });
+  await drain();
+  missingFile.card.querySelector("[data-ai-apply]").click();
+  await drain();
+  assert.equal(posted(missingFile.world, "apply").length, 0, "Reopening must not silently omit an unsent attachment");
+
+  const failedUpload = run({ live: true, boardCards: [applyCard()] });
+  await drain();
+  failedUpload.world.failUpload = true;
+  failedUpload.card.querySelector("[data-ai-instruction]").value = "Use this picture";
+  const failedFile = failedUpload.card.querySelector("[data-ai-file]");
+  failedFile.files = [{ name: "ref.png", type: "image/png", bytes: Uint8Array.from([1]) }];
+  failedFile.dispatchEvent({ type: "change" });
+  failedUpload.card.querySelector("[data-ai-apply]").click();
+  await drain();
+  assert.equal(posted(failedUpload.world, "apply").length, 0, "A refused upload must not fall through to generation");
+
+  const stillReference = run({ live: true, boardCards: [applyCard()] });
+  stillReference.world.holdPreview = true;
+  stillReference.world.state.beats[0].reference = {
+    context_id: "ctx-ancestor", kind: "image", received: true,
+    still: { id: "ancestor", signature: "ancestor-sig" },
+    target_still: { id: "still-1", signature: "sig-1" },
+  };
+  await drain();
+  stillReference.card.querySelector("[data-ai-remove-reference]").click();
+  await drain();
+  assert.deepEqual(posted(stillReference.world, "reference-remove")[0].body.still, { id: "still-1", signature: "sig-1" });
+  stillReference.world.previewQueue.shift()();
+  await drain();
+  assert.equal(stillReference.card.querySelector("[data-ai-reference-preview]").hidden, true, "Late preview bytes cannot restore a removed reference");
+
+  const initialReference = run({ live: true, boardCards: [applyCard(false)] });
+  initialReference.world.state.beats[0].reference = {
+    context_id: "ctx-initial", kind: "image", received: true, target_still: null,
+  };
+  await drain();
+  initialReference.card.querySelector("[data-ai-instruction]").value = "Use this blue palette";
+  const initialFile = initialReference.card.querySelector("[data-ai-file]");
+  initialFile.files = [{ name: "new.png", type: "image/png", bytes: Uint8Array.from([1]) }];
+  initialFile.dispatchEvent({ type: "change" });
+  initialReference.card.querySelector("[data-ai-upload]").click();
+  await drain();
+  const initialUpload = initialReference.world.calls.find((row) => row.binary);
+  const initialMetadata = JSON.parse(decodeURIComponent(initialUpload.headers["X-GetBrolls-Ai-Reference"]));
+  assert.equal("still" in initialMetadata, false, "Replacing initial guidance must not send an empty still identity");
+
+  const changedReferenceTarget = run({ live: true, boardCards: [applyCard()] });
+  changedReferenceTarget.world.state.beats[0].reference = {
+    context_id: "ctx-old-target", kind: "image", received: true,
+    target_still: { id: "still-1", signature: "sig-1" },
+  };
+  await drain();
+  changedReferenceTarget.card.setAttribute("data-ai-version", "still-new");
+  changedReferenceTarget.card.setAttribute("data-ai-signature", "sig-new");
+  changedReferenceTarget.card.querySelector("[data-ai-remove-reference]").click();
+  await drain();
+  assert.equal(posted(changedReferenceTarget.world, "reference-remove").length, 0, "Navigation cannot remove another still's reference");
 
   console.log("AI storyboard edits stay local until an explicit still launch, and review keeps the displayed version");
 })().catch((error) => {

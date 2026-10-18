@@ -78,7 +78,11 @@ SUMMARIES = {
     "ai-plan": "Register original-scenario routing and three textual AI alternatives; does not generate media",
     "ai-select": "Save an AI beat's selected alternative, comment and comparison mode; does not generate",
     "ai-generate-still": "Create one durable GPT-subscription still job from the selected economy scene after explicit launch",
+    "ai-generate-comparison": "Create three durable GPT-subscription still jobs, one per saved treatment, after an explicit three-output launch",
     "ai-approve": "Record an explicit human decision on one saved AI still; generation is not approval",
+    "ai-timing": "Match one AI beat to a completed narration analysis; does not transcribe or generate",
+    "ai-timing-resolve": "Record an explicit candidate or bounded interval correction; does not pick the first candidate",
+    "ai-generate-video": "Freeze one exact approved still and the resolved narration interval into one native video job",
     "ai-resume": "Resume a saved AI still job without silently resubmitting an unknown outcome",
 }
 
@@ -199,7 +203,11 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         "ai-plan",
         "ai-select",
         "ai-generate-still",
+        "ai-generate-comparison",
         "ai-approve",
+        "ai-timing",
+        "ai-timing-resolve",
+        "ai-generate-video",
         "ai-resume",
     ):
         p = sub.add_parser(name, help=SUMMARIES[name], description=SUMMARIES[name])
@@ -978,7 +986,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             p.add_argument(
                 "--mode",
                 choices=["economy", "images"],
-                help="Scene comparison mode; economy is the default and the only still-launch route",
+                help="Scene comparison mode; economy is the default and generates one still; images mode does not generate until an explicit three-output launch",
             )
             p.add_argument("--expected", help="Saved beat fingerprint; refuse if the scenario or style changed")
         if name == "ai-generate-still":
@@ -991,6 +999,14 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 "--request-id",
                 required=True,
                 help="Stable request identity for this launch; a repeated identical click reuses the saved job",
+            )
+            p.add_argument("--expected", help="Saved beat fingerprint; refuse if the scenario or style changed")
+        if name == "ai-generate-comparison":
+            p.add_argument("--beat", required=True, help="AI beat id already switched to images mode")
+            p.add_argument(
+                "--request-id",
+                required=True,
+                help="Stable identity for this three-still launch; a repeated identical request reuses the saved jobs",
             )
             p.add_argument("--expected", help="Saved beat fingerprint; refuse if the scenario or style changed")
         if name == "ai-approve":
@@ -1008,6 +1024,68 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
             p.add_argument("--comment", help="Optional review comment bound to this exact version")
             p.add_argument("--signature", help="Displayed version signature; refuse if the still changed")
+        if name == "ai-timing":
+            p.add_argument("--beat", required=True, help="AI beat id from ai-plan")
+            p.add_argument(
+                "--analysis",
+                required=True,
+                help="Completed narration analysis id; matching does not transcribe or generate",
+            )
+            p.add_argument(
+                "--still",
+                help="Optional saved still version id to bind; omitted leaves the still unbound",
+            )
+            p.add_argument("--expected", help="Saved beat fingerprint; refuse if the scenario or style changed")
+        if name == "ai-timing-resolve":
+            p.add_argument("--beat", required=True, help="AI beat id that already has a saved narration match")
+            p.add_argument("--analysis", required=True, help="Same completed analysis id used by ai-timing")
+            p.add_argument("--by", required=True, help="Name of the person who confirmed this exact interval")
+            p.add_argument(
+                "--statement",
+                required=True,
+                help="Exact correction statement already received; does not pick the first candidate",
+            )
+            p.add_argument(
+                "--candidate",
+                help="Saved candidate id to confirm; mutually exclusive with --start and --end",
+            )
+            p.add_argument("--start", type=float, help="Explicit narration-clock start in seconds")
+            p.add_argument("--end", type=float, help="Explicit narration-clock end in seconds")
+            p.add_argument("--expected", help="Saved beat fingerprint; refuse if the scenario or style changed")
+        if name == "ai-generate-video":
+            p.add_argument("--beat", required=True, help="AI beat id with a resolved recorded interval")
+            p.add_argument("--version", required=True, help="Exact approved still version id; video uses those bytes")
+            p.add_argument(
+                "--request-id",
+                required=True,
+                help="Stable request identity; a repeated identical launch reuses the saved job",
+            )
+            p.add_argument("--model", required=True, help="Native model name to freeze; the launch will not choose one")
+            p.add_argument(
+                "--tool",
+                choices=["reference_to_video", "image_to_video"],
+                default="reference_to_video",
+                help="Frozen native video tool",
+            )
+            p.add_argument(
+                "--resolution",
+                choices=["480p", "720p"],
+                default="480p",
+                help="Native resolution; 480p and 720p are not Full HD",
+            )
+            p.add_argument("--speech", action="store_true", help="Explicitly allow speech; omitted means no speech")
+            p.add_argument("--music", action="store_true", help="Explicitly allow music; omitted means no music")
+            p.add_argument(
+                "--atmosphere",
+                action="store_true",
+                help="Explicitly allow atmosphere, separate from project narration",
+            )
+            p.add_argument(
+                "--effects",
+                action="store_true",
+                help="Explicitly allow effects, separate from project narration",
+            )
+            p.add_argument("--expected", help="Saved beat fingerprint; refuse if the scenario or style changed")
         if name == "ai-resume":
             p.add_argument("--job", required=True, help="Saved AI job id; unknown submissions are not sent again")
     return parser

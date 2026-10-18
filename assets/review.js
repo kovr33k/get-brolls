@@ -306,6 +306,7 @@
     if (next) next.disabled = c.pending === 0;
   }
   const AI_IN_FLIGHT = new Set(["queued", "running", "remote_pending", "downloading"]);
+  let aiBoardBody = { beats: [], versions: [] };
   function aiCards() {
     return [...document.querySelectorAll(".ai-card")];
   }
@@ -326,7 +327,7 @@
     return node.dataset && node.dataset[key] ? node.dataset[key] : "";
   }
   function aiMode(card) {
-    const control = card.querySelector("select");
+    const control = card.querySelector("[data-ai-mode]");
     const value = control && control.value ? control.value : aiAttr(card, "data-ai-mode");
     return value === "images" ? "images" : "economy";
   }
@@ -336,13 +337,27 @@
     return chosen.value || aiAttr(chosen, "value");
   }
   function aiNonce(draft, alternative, comment) {
-    const raw = ["still", draft.beat, draft.fingerprint, alternative, comment, "economy"].join("\u001f");
+    const guidance = [draft.referenceId || "", draft.sharedReferences || ""].filter(Boolean);
+    const raw = ["still", draft.beat, draft.fingerprint, alternative, comment, "economy", ...guidance].join("\u001f");
     let hash = 2166136261;
     for (let i = 0; i < raw.length; i++) {
       hash ^= raw.charCodeAt(i);
       hash = Math.imul(hash, 16777619);
     }
     return "still-" + (hash >>> 0).toString(16);
+  }
+  function aiGroupNonce(card, draft, comment) {
+    const ids = [...card.querySelectorAll("[data-ai-alternative]")]
+      .map((radio) => radio.value || aiAttr(radio, "value"))
+      .filter(Boolean);
+    const guidance = [draft.referenceId || "", draft.sharedReferences || ""].filter(Boolean);
+    const raw = [draft.beat, draft.fingerprint, ...ids, comment, "3", ...guidance].join("\u001f");
+    let hash = 2166136261;
+    for (let i = 0; i < raw.length; i++) {
+      hash ^= raw.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return "group-" + (hash >>> 0).toString(16);
   }
   function aiSetCurrent(card) {
     aiCards().forEach((other) => {
@@ -354,19 +369,708 @@
     return value === "approved" || value === "changes" || value === "rejected" ? value : "";
   }
   function aiLockModes(card) {
-    card.querySelectorAll("option").forEach((option) => {
-      const value = option.value || aiAttr(option, "value");
-      if (value === "images") option.disabled = true;
-    });
-    const video = card.querySelector("[data-ai-video]");
-    if (video) video.disabled = true;
     const stale = aiAttr(card, "data-ai-stale") === "true";
+    const video = card.querySelector("[data-ai-video]");
+    if (video) video.disabled = stale || !aiLive() || aiAttr(card, "data-ai-video-ready") !== "true";
+    const videoVersion = aiAttr(card.querySelector("[data-ai-video-review]"), "data-ai-video-version");
+    card.querySelectorAll("[data-ai-video-decision]").forEach((button) => {
+      button.disabled = stale || !videoVersion;
+    });
     const generate = card.querySelector("[data-ai-generate]");
-    if (generate) generate.disabled = stale || !aiLive() || aiMode(card) !== "economy";
+    if (generate) {
+      generate.disabled = stale || !aiLive();
+      generate.textContent = aiMode(card) === "images" ? "Generate three stills" : "Generate still";
+    }
+    card.querySelectorAll("[data-ai-apply], [data-ai-upload], [data-ai-remove-reference]").forEach((button) => {
+      button.disabled = stale || !aiLive();
+    });
     const hasStill = !!aiAttr(card, "data-ai-version");
     card.querySelectorAll("[data-ai-decision]").forEach((button) => {
       button.disabled = stale || !hasStill;
     });
+  }
+  function aiHash(raw) {
+    let hash = 2166136261;
+    for (let i = 0; i < raw.length; i++) {
+      hash ^= raw.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16);
+  }
+  function aiPauseOthers(except) {
+    document.querySelectorAll("audio, video").forEach((el) => {
+      if (el !== except) pauseMedia(el);
+    });
+  }
+  function aiInsertAfter(node, anchor) {
+    if (anchor && typeof anchor.after === "function") {
+      anchor.after(node);
+      return;
+    }
+    const parent = anchor && anchor.parentNode;
+    if (parent && Array.isArray(parent.children)) {
+      const index = parent.children.indexOf(anchor);
+      node.parentNode = parent;
+      if (index < 0) parent.children.push(node);
+      else parent.children.splice(index + 1, 0, node);
+      return;
+    }
+    if (parent && typeof parent.append === "function") parent.append(node);
+  }
+  function aiInsertBefore(node, anchor) {
+    if (anchor && typeof anchor.before === "function") {
+      anchor.before(node);
+      return;
+    }
+    const parent = anchor && anchor.parentNode;
+    if (parent && Array.isArray(parent.children)) {
+      const index = parent.children.indexOf(anchor);
+      node.parentNode = parent;
+      if (index < 0) parent.children.push(node);
+      else parent.children.splice(index, 0, node);
+      return;
+    }
+    if (parent && typeof parent.append === "function") parent.append(node);
+  }
+  function aiDetach(node) {
+    if (!node) return;
+    if (typeof node.remove === "function") {
+      node.remove();
+      return;
+    }
+    const parent = node.parentNode;
+    if (parent && Array.isArray(parent.children)) {
+      const index = parent.children.indexOf(node);
+      if (index >= 0) parent.children.splice(index, 1);
+      node.parentNode = null;
+    }
+  }
+  function aiSafePreview(preview) {
+    if (typeof preview !== "string" || !preview.startsWith("previews/")) return false;
+    return preview.split("/").every((part) => part && part !== "." && part !== "..");
+  }
+  function aiField(card, name) {
+    const field = card.querySelector("[" + name + "]");
+    return field && typeof field.value === "string" ? field.value : "";
+  }
+  function aiPost(card, body, noteName) {
+    if (!aiLive()) return;
+    const save = aiSaveConfig();
+    fetch(save.aiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [save.header]: save.token },
+      body: JSON.stringify(body),
+    })
+      .then((response) => Promise.resolve()
+        .then(() => response.json())
+        .then((payload) => ({ ok: response.ok, body: payload }))
+        .catch(() => ({ ok: response.ok, body: {} })))
+      .then((result) => {
+        if (!result.ok) {
+          const message = result.body && (result.body.error || result.body.message);
+          aiNote(card, noteName, message || "The request was not saved.");
+          return;
+        }
+        aiNote(card, noteName, "");
+        aiPoll();
+      })
+      .catch(() => aiNote(card, noteName, "The request was not saved."));
+  }
+  function aiCandidateRows(timing) {
+    const raw = timing && Array.isArray(timing.candidates) ? timing.candidates : [];
+    return raw.map((row) => {
+      if (typeof row === "string") return { id: row, text: "", start_s: null, end_s: null };
+      if (!row || typeof row !== "object" || !row.id) return null;
+      return {
+        id: String(row.id),
+        text: typeof row.text === "string" ? row.text : "",
+        start_s: row.start_s,
+        end_s: row.end_s,
+      };
+    }).filter(Boolean);
+  }
+  function aiCandidateLabel(row) {
+    const bounds = row.start_s != null && row.end_s != null ? row.start_s + "–" + row.end_s + "s" : "";
+    return [row.id, bounds, row.text].filter(Boolean).join(" · ");
+  }
+  function aiTimingLine(timing) {
+    if (!timing) return "";
+    if (timing.resolved === true) {
+      return "Recorded interval " + timing.start_s + "–" + timing.end_s + "s. Timing does not generate media.";
+    }
+    const reasons = Array.isArray(timing.reasons) && timing.reasons.length ? timing.reasons.join(", ") : (timing.state || "unresolved");
+    const labels = aiCandidateRows(timing).map(aiCandidateLabel).filter(Boolean);
+    const extra = labels.length ? " Candidates: " + labels.join("; ") + "." : "";
+    return "Timing unresolved: " + reasons + "." + extra + " Timing does not generate media.";
+  }
+  function aiPaintPreview(card, timing) {
+    const blocked = timing && timing.preview_error;
+    const preview = timing && !blocked && aiSafePreview(timing.preview) ? timing.preview : "";
+    aiNote(card, "data-ai-preview-note", !preview && blocked ? String(timing.preview_error) : "");
+    let audio = card.querySelector("[data-ai-vo]");
+    if (!preview) {
+      aiDetach(audio);
+      return;
+    }
+    if (!audio) {
+      audio = document.createElement("audio");
+      audio.setAttribute("data-ai-vo", "");
+      audio.controls = true;
+      audio.autoplay = false;
+      audio.preload = "metadata";
+      audio.setAttribute("controls", "");
+      audio.setAttribute("preload", "metadata");
+      audio.addEventListener("play", () => aiPauseOthers(audio));
+      const box = card.querySelector("[data-ai-timing-box]");
+      if (box) aiInsertAfter(audio, box);
+      else card.append(audio);
+    }
+    if (audio.getAttribute("src") !== preview) {
+      audio.setAttribute("src", preview);
+      audio.src = preview;
+    }
+  }
+  function aiPaintCandidates(card, timing) {
+    const list = card.querySelector("[data-ai-candidates]");
+    if (!list) return;
+    list.textContent = "";
+    aiCandidateRows(timing).forEach((row) => {
+      const button = document.createElement("button");
+      button.setAttribute("type", "button");
+      button.setAttribute("data-ai-candidate-choice", row.id);
+      button.textContent = aiCandidateLabel(row);
+      button.addEventListener("click", () => {
+        const field = card.querySelector("[data-ai-candidate]");
+        if (field) field.value = row.id;
+      });
+      list.append(button);
+    });
+  }
+  function aiApplyBeatTiming(card, draft, beat) {
+    const timing = beat && beat.timing && typeof beat.timing === "object" ? beat.timing : null;
+    draft.timing = timing;
+    if (beat && beat.video_ready === true) card.setAttribute("data-ai-video-ready", "true");
+    else card.setAttribute("data-ai-video-ready", "false");
+    const videoJob = beat && beat.video_job && typeof beat.video_job === "object" ? beat.video_job : null;
+    if (videoJob && videoJob.state) card.setAttribute("data-ai-video-state", videoJob.state);
+    else if (typeof card.removeAttribute === "function") card.removeAttribute("data-ai-video-state");
+    let progress = card.querySelector("[data-ai-video-progress]");
+    if (videoJob && !progress) {
+      progress = document.createElement("p");
+      progress.setAttribute("data-ai-video-progress", "");
+      card.append(progress);
+    }
+    if (progress) progress.textContent = videoJob ? (videoJob.error || videoJob.state || "") : "";
+    let line = card.querySelector("[data-ai-timing]");
+    if (!line) {
+      line = document.createElement("p");
+      line.setAttribute("data-ai-timing", "");
+      card.append(line);
+    }
+    line.textContent = aiTimingLine(timing);
+    const analysis = card.querySelector("[data-ai-analysis]");
+    if (analysis && !draft.analysisDirty && timing && typeof timing.analysis_id === "string" && !analysis.value) {
+      analysis.value = timing.analysis_id;
+    }
+    aiPaintCandidates(card, timing);
+    aiPaintPreview(card, timing);
+    aiPaintVideoSetup(card);
+    aiPaintVideoReview(card, beat && beat.video);
+    aiLockModes(card);
+  }
+  function aiApprovedStill(card, draft) {
+    const timing = draft.timing;
+    const wanted = timing && typeof timing.still === "string" ? timing.still : "";
+    const rows = [];
+    const beatId = draft.beat;
+    const beats = Array.isArray(aiBoardBody.beats) ? aiBoardBody.beats : [];
+    const beat = beats.find((row) => row && row.id === beatId);
+    if (beat && beat.version) rows.push(beat.version);
+    if (beat && Array.isArray(beat.slots)) beat.slots.forEach((slot) => { if (slot && slot.version) rows.push(slot.version); });
+    if (Array.isArray(aiBoardBody.versions)) rows.push(...aiBoardBody.versions);
+    const displayed = aiAttr(card, "data-ai-version");
+    if (displayed && aiAttr(card, "data-ai-approval") === "approved") {
+      rows.push({ id: displayed, signature: aiAttr(card, "data-ai-signature"), approval: "approved", kind: "image" });
+    }
+    return rows.find((row) => (
+      row && row.kind !== "video" && row.approval === "approved" && row.id && row.signature && (!wanted || row.id === wanted)
+    )) || null;
+  }
+  function aiPostTiming(card, draft) {
+    if (aiAttr(card, "data-ai-stale") === "true") return;
+    const analysis = aiField(card, "data-ai-analysis").trim();
+    if (!analysis) {
+      aiNote(card, "data-ai-timing-note", "Name the completed narration analysis. Timing does not transcribe.");
+      return;
+    }
+    const body = { action: "timing", beat: draft.beat, analysis, expected: draft.fingerprint };
+    const known = draft.timing && typeof draft.timing.still === "string" ? draft.timing.still : "";
+    const approved = aiApprovedStill(card, draft);
+    if (known) body.still = known;
+    else if (approved) body.still = approved.id;
+    aiPost(card, body, "data-ai-timing-note");
+  }
+  function aiPostResolve(card, draft) {
+    if (aiAttr(card, "data-ai-stale") === "true") return;
+    const analysis = aiField(card, "data-ai-analysis").trim();
+    const statement = aiField(card, "data-ai-statement").trim();
+    if (!analysis || !statement) {
+      aiNote(card, "data-ai-timing-note", "Name the analysis and the exact correction statement.");
+      return;
+    }
+    const candidate = aiField(card, "data-ai-candidate").trim();
+    const startText = aiField(card, "data-ai-start").trim();
+    const endText = aiField(card, "data-ai-end").trim();
+    const body = {
+      action: "resolve",
+      beat: draft.beat,
+      analysis,
+      by: "Storyboard",
+      statement,
+      expected: draft.fingerprint,
+    };
+    if (candidate) body.candidate = candidate;
+    else if (startText && endText) {
+      body.start = Number(startText);
+      body.end = Number(endText);
+      if (!Number.isFinite(body.start) || !Number.isFinite(body.end)) {
+        aiNote(card, "data-ai-timing-note", "Start and end must be finite seconds.");
+        return;
+      }
+    } else {
+      aiNote(card, "data-ai-timing-note", "Choose a candidate or enter both start and end. Timing does not pick the first candidate.");
+      return;
+    }
+    aiPost(card, body, "data-ai-timing-note");
+  }
+  function aiEnsureTimingControls(card, draft) {
+    if (card.querySelector("[data-ai-timing-box]")) return;
+    const box = document.createElement("div");
+    box.setAttribute("data-ai-timing-box", "");
+    const analysis = document.createElement("input");
+    analysis.setAttribute("data-ai-analysis", "");
+    analysis.addEventListener("input", () => { draft.analysisDirty = true; });
+    const statement = document.createElement("input");
+    statement.setAttribute("data-ai-statement", "");
+    const candidate = document.createElement("input");
+    candidate.setAttribute("data-ai-candidate", "");
+    const start = document.createElement("input");
+    start.setAttribute("data-ai-start", "");
+    const end = document.createElement("input");
+    end.setAttribute("data-ai-end", "");
+    const candidates = document.createElement("p");
+    candidates.setAttribute("data-ai-candidates", "");
+    const match = document.createElement("button");
+    match.setAttribute("type", "button");
+    match.setAttribute("data-ai-timing-match", "");
+    match.textContent = "Match narration";
+    match.addEventListener("click", () => aiPostTiming(card, draft));
+    const resolve = document.createElement("button");
+    resolve.setAttribute("type", "button");
+    resolve.setAttribute("data-ai-timing-resolve", "");
+    resolve.textContent = "Resolve interval";
+    resolve.addEventListener("click", () => aiPostResolve(card, draft));
+    [
+      ["Analysis", analysis],
+      ["Statement", statement],
+      ["Candidate", candidate],
+      ["Start", start],
+      ["End", end],
+    ].forEach((pair) => {
+      const label = document.createElement("label");
+      label.append(pair[0] + " ", pair[1]);
+      box.append(label);
+    });
+    box.append(candidates, match, resolve);
+    const line = card.querySelector("[data-ai-timing]");
+    if (line) aiInsertAfter(box, line);
+    else card.append(box);
+  }
+  function aiVideoDecisionButton(box, decision, label) {
+    let button = [...box.querySelectorAll("[data-ai-video-decision]")].find((item) => aiAttr(item, "data-ai-video-decision") === decision);
+    if (!button) {
+      button = document.createElement("button");
+      button.setAttribute("type", "button");
+      button.setAttribute("data-ai-video-decision", decision);
+      button.textContent = label;
+      box.append(button);
+    }
+    return button;
+  }
+  function aiBindVideoDecisions(card) {
+    card.querySelectorAll("[data-ai-video-decision]").forEach((button) => {
+      if (button.dataset.aiVideoWired === "1") return;
+      button.dataset.aiVideoWired = "1";
+      button.addEventListener("click", () => aiReviewVideo(card, aiAttr(button, "data-ai-video-decision")));
+    });
+  }
+  function aiNativeSetup() {
+    const setup = aiBoardBody && aiBoardBody.native_video;
+    return setup && typeof setup === "object" ? setup : {};
+  }
+  function aiVideoLimits() {
+    return "480p and 720p are not native Full HD. A short clip does not cover the recorded interval. Motion follows the selected treatment. The approved still is the first frame. Speech and music stay off unless requested. Narration stays a separate recording.";
+  }
+  function aiDraftFor(card) {
+    return aiDrafts[aiAttr(card, "data-ai-beat")] || null;
+  }
+  function aiVideoKey(version, signature) {
+    return String(version || "") + "\u001f" + String(signature || "");
+  }
+  function aiPaintVideoSetup(card) {
+    let note = card.querySelector("[data-ai-video-setup]");
+    if (!note) {
+      note = document.createElement("p");
+      note.setAttribute("data-ai-video-setup", "");
+      const button = card.querySelector("[data-ai-video]");
+      if (button) aiInsertBefore(note, button);
+      else card.append(note);
+    }
+    const setup = aiNativeSetup();
+    const message = setup.message || "Native Grok video is unverified. Record the model and tool in project setup. No model was guessed.";
+    note.textContent = message + " " + aiVideoLimits();
+  }
+  function aiStoreVideoNote(draft, card) {
+    if (!draft) return;
+    const box = card.querySelector("[data-ai-video-review]");
+    const version = aiAttr(box, "data-ai-video-version");
+    const signature = aiAttr(box, "data-ai-video-signature");
+    const field = card.querySelector("[data-ai-video-comment]");
+    if (!version || !signature || !field) return;
+    draft.videoNotes = draft.videoNotes && typeof draft.videoNotes === "object" ? draft.videoNotes : {};
+    const comment = typeof field.value === "string" ? field.value : "";
+    draft.videoVersion = version;
+    draft.videoSignature = signature;
+    draft.videoComment = comment;
+    draft.videoNotes[aiVideoKey(version, signature)] = {
+      comment,
+      state: draft.videoState || "pending",
+      save: draft.videoSave || "",
+      dirty: draft.videoCommentDirty === true,
+    };
+  }
+  function aiEnsureVideoComment(card) {
+    const box = card.querySelector("[data-ai-video-review]");
+    if (!box) return null;
+    let field = box.querySelector("[data-ai-video-comment]");
+    if (!field) {
+      const label = document.createElement("label");
+      field = document.createElement("textarea");
+      field.setAttribute("data-ai-video-comment", "");
+      label.append("Video note ", field);
+      box.append(label);
+    }
+    if (field.dataset.aiVideoComment !== "1") {
+      field.dataset.aiVideoComment = "1";
+      field.addEventListener("input", () => {
+        const draft = aiDraftFor(card);
+        if (!draft) return;
+        draft.videoComment = field.value;
+        draft.videoCommentDirty = true;
+        draft.videoVersion = aiAttr(box, "data-ai-video-version");
+        draft.videoSignature = aiAttr(box, "data-ai-video-signature");
+        aiStoreVideoNote(draft, card);
+        persist();
+      });
+    }
+    if (!box.querySelector("[data-ai-video-decision-label]")) {
+      const decision = document.createElement("p");
+      decision.className = "ai-decision";
+      decision.setAttribute("data-ai-video-decision-label", "");
+      box.append(decision);
+    }
+    return field;
+  }
+  function aiPaintVideoDecision(card, draft) {
+    const box = card.querySelector("[data-ai-video-review]");
+    const label = box && box.querySelector("[data-ai-video-decision-label]");
+    if (!label || !draft) return;
+    const name = LABELS[draft.videoState] || LABELS.pending;
+    const unsaved = draft.videoState !== "pending" && (draft.videoSave === "pending" || draft.videoSave === "failed");
+    label.textContent = unsaved ? name + " · not saved" : name;
+  }
+  function aiApplyVideoComment(field, draft, video, sameClip) {
+    const note = draft.videoNotes && draft.videoNotes[aiVideoKey(video.id, video.signature)];
+    const serverComment = typeof video.comment === "string" ? video.comment : null;
+    if (sameClip && draft.videoCommentDirty) return;
+    if (note && note.dirty === true && typeof note.comment === "string") {
+      field.value = note.comment;
+      draft.videoComment = note.comment;
+      draft.videoCommentDirty = true;
+      return;
+    }
+    if (sameClip && draft.videoComment && serverComment === null) return;
+    field.value = serverComment || "";
+    draft.videoComment = field.value;
+    draft.videoCommentDirty = false;
+  }
+  function aiApplyVideoState(draft, video, sameClip) {
+    const note = draft.videoNotes && draft.videoNotes[aiVideoKey(video.id, video.signature)];
+    const serverState = aiKnownDecision(typeof video.approval === "string" ? video.approval : "");
+    if (!sameClip) {
+      if (note && note.dirty === true && aiKnownDecision(note.state)) {
+        draft.videoState = aiKnownDecision(note.state);
+        draft.videoSave = typeof note.save === "string" ? note.save : "";
+        return;
+      }
+      draft.videoState = serverState || "pending";
+      draft.videoSave = "";
+      return;
+    }
+    if (!aiKnownDecision(draft.videoState)) draft.videoState = serverState || "pending";
+    else if (serverState && serverState === draft.videoState) draft.videoSave = "";
+  }
+  function aiPaintVideoReview(card, video) {
+    let box = card.querySelector("[data-ai-video-review]");
+    if (!box) {
+      box = document.createElement("div");
+      box.className = "ai-video-review";
+      box.setAttribute("data-ai-video-review", "");
+      card.append(box);
+    }
+    const draft = aiDraftFor(card);
+    const previousVersion = aiAttr(box, "data-ai-video-version");
+    const previousSignature = aiAttr(box, "data-ai-video-signature");
+    if (!video || !video.id || !video.signature) {
+      if (draft && previousVersion && previousSignature) aiStoreVideoNote(draft, card);
+      box.hidden = true;
+      return;
+    }
+    const sameClip = previousVersion === video.id && previousSignature === video.signature;
+    if (draft && previousVersion && previousSignature && !sameClip) aiStoreVideoNote(draft, card);
+    box.hidden = false;
+    box.setAttribute("data-ai-video-version", video.id);
+    box.setAttribute("data-ai-video-signature", video.signature);
+    let meta = box.querySelector("[data-ai-video-meta]");
+    if (!meta) {
+      meta = document.createElement("p");
+      meta.setAttribute("data-ai-video-meta", "");
+      box.append(meta);
+    }
+    const short = video.coverage === "short" ? " Duration is shorter than the recorded interval." : "";
+    const native = video.native_full_hd === false ? " Native 480p/720p is not native Full HD." : "";
+    meta.textContent = (video.width || "") + "×" + (video.height || "") + " " + (video.resolution || "")
+      + " · " + (video.duration_s == null ? "" : video.duration_s) + "s · audio " + video.audio + "." + short + native;
+    let media = box.querySelector("video");
+    if (!media) {
+      media = document.createElement("video");
+      media.controls = true;
+      media.autoplay = false;
+      media.preload = "metadata";
+      media.setAttribute("controls", "");
+      media.setAttribute("preload", "metadata");
+      media.addEventListener("play", () => aiPauseOthers(media));
+      box.append(media);
+    }
+    if (video.path && media.getAttribute("src") !== video.path) {
+      media.setAttribute("src", video.path);
+      media.src = video.path;
+    }
+    const field = aiEnsureVideoComment(card);
+    if (draft && field) {
+      aiApplyVideoComment(field, draft, video, sameClip);
+      aiApplyVideoState(draft, video, sameClip);
+      draft.videoVersion = video.id;
+      draft.videoSignature = video.signature;
+      aiPaintVideoDecision(card, draft);
+    }
+    aiVideoDecisionButton(box, "approved", "Approve this video");
+    aiVideoDecisionButton(box, "changes", "Request video changes");
+    aiVideoDecisionButton(box, "rejected", "Reject this video");
+    aiBindVideoDecisions(card);
+  }
+  function aiLaunchVideo(card, draft) {
+    const button = card.querySelector("[data-ai-video]");
+    if (!button || button.disabled || aiAttr(card, "data-ai-video-ready") !== "true") return;
+    if (aiAttr(card, "data-ai-stale") === "true") return;
+    const timing = draft.timing;
+    if (!timing || timing.resolved !== true) {
+      aiNote(card, "data-ai-video-note", "Resolve the recorded interval before generating video.");
+      return;
+    }
+    const setup = aiNativeSetup();
+    const typedModel = aiField(card, "data-ai-video-model").trim();
+    const model = typedModel || (typeof setup.model === "string" ? setup.model.trim() : "");
+    const toolField = card.querySelector("[data-ai-video-tool]");
+    const chosenTool = toolField && toolField.value ? toolField.value : "";
+    const tool = chosenTool || (typeof setup.tool === "string" ? setup.tool : "");
+    if (!model || (tool !== "reference_to_video" && tool !== "image_to_video")) {
+      aiNote(card, "data-ai-video-note", setup.message || "Native Grok video is unverified. Record the model and tool in project setup. No model was guessed.");
+      return;
+    }
+    const still = aiApprovedStill(card, draft);
+    if (!still) {
+      aiNote(card, "data-ai-video-note", "Approve the exact still before generating video.");
+      return;
+    }
+    const resolutionField = card.querySelector("[data-ai-video-resolution]");
+    const resolution = resolutionField && resolutionField.value ? resolutionField.value : "480p";
+    const sound = {
+      speech: !!(card.querySelector("[data-ai-speech]") || {}).checked,
+      music: !!(card.querySelector("[data-ai-music]") || {}).checked,
+      atmosphere: !!(card.querySelector("[data-ai-atmosphere]") || {}).checked,
+      effects: !!(card.querySelector("[data-ai-effects]") || {}).checked,
+    };
+    const requestId = "video-" + aiHash([
+      draft.beat,
+      draft.fingerprint,
+      still.id,
+      still.signature,
+      String(timing.start_s),
+      String(timing.end_s),
+      model,
+      tool,
+      resolution,
+      sound.speech ? "1" : "0",
+      sound.music ? "1" : "0",
+      sound.atmosphere ? "1" : "0",
+      sound.effects ? "1" : "0",
+    ].join("\u001f"));
+    aiPost(card, {
+      action: "video",
+      beat: draft.beat,
+      expected: draft.fingerprint,
+      version: still.id,
+      signature: still.signature,
+      requestId,
+      model,
+      tool,
+      resolution,
+      speech: sound.speech,
+      music: sound.music,
+      atmosphere: sound.atmosphere,
+      effects: sound.effects,
+    }, "data-ai-video-note");
+  }
+  function aiReviewVideo(card, decision) {
+    const box = card.querySelector("[data-ai-video-review]");
+    const version = aiAttr(box, "data-ai-video-version");
+    const signature = aiAttr(box, "data-ai-video-signature");
+    if (!box || !version || !signature || !LABELS[decision] || decision === "pending") return;
+    if (aiAttr(card, "data-ai-stale") === "true") return;
+    const draft = aiDraftFor(card);
+    if (!draft || !aiLive()) return;
+    const comment = aiField(card, "data-ai-video-comment");
+    draft.videoState = decision;
+    draft.videoVersion = version;
+    draft.videoSignature = signature;
+    draft.videoComment = comment;
+    draft.videoCommentDirty = false;
+    draft.videoSave = "pending";
+    aiStoreVideoNote(draft, card);
+    aiPaintVideoDecision(card, draft);
+    persist();
+    const save = aiSaveConfig();
+    fetch(save.aiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [save.header]: save.token },
+      body: JSON.stringify({
+        action: "review",
+        beat: draft.beat,
+        version,
+        signature,
+        decision,
+        by: "Storyboard",
+        comment,
+      }),
+    })
+      .then((response) => Promise.resolve()
+        .then(() => response.json())
+        .then((payload) => ({ ok: response.ok, body: payload }))
+        .catch(() => ({ ok: response.ok, body: {} })))
+      .then((result) => {
+        if (aiAttr(box, "data-ai-video-version") !== version || aiAttr(box, "data-ai-video-signature") !== signature) return;
+        if (!result.ok) {
+          draft.videoSave = "failed";
+          draft.videoCommentDirty = true;
+          aiNote(card, "data-ai-video-note", (result.body && result.body.error) || "The video review was not saved.");
+        } else {
+          draft.videoSave = "saved";
+          aiNote(card, "data-ai-video-note", "");
+        }
+        aiStoreVideoNote(draft, card);
+        aiPaintVideoDecision(card, draft);
+        persist();
+        if (result.ok) aiPoll();
+      })
+      .catch(() => {
+        if (aiAttr(box, "data-ai-video-version") !== version || aiAttr(box, "data-ai-video-signature") !== signature) return;
+        draft.videoSave = "failed";
+        draft.videoCommentDirty = true;
+        aiStoreVideoNote(draft, card);
+        aiPaintVideoDecision(card, draft);
+        aiNote(card, "data-ai-video-note", "The video review was not saved.");
+        persist();
+      });
+  }
+  function aiEnsureVideoAdvanced(card) {
+    const details = card.querySelector(".ai-details");
+    if (!details || details.querySelector("[data-ai-video-advanced]")) return;
+    const box = document.createElement("div");
+    box.setAttribute("data-ai-video-advanced", "");
+    const model = document.createElement("input");
+    model.setAttribute("data-ai-video-model", "");
+    const tool = document.createElement("select");
+    tool.setAttribute("data-ai-video-tool", "");
+    const project = document.createElement("option");
+    project.value = "";
+    project.textContent = "Project setup";
+    tool.append(project);
+    [["reference_to_video", "reference_to_video"], ["image_to_video", "image_to_video"]].forEach((pair) => {
+      const option = document.createElement("option");
+      option.value = pair[0];
+      option.textContent = pair[1];
+      tool.append(option);
+    });
+    [["Model", model], ["Tool", tool]].forEach((pair) => {
+      const label = document.createElement("label");
+      label.append(pair[0] + " ", pair[1]);
+      box.append(label);
+    });
+    details.append(box);
+  }
+  function aiEnsureVideoControls(card, draft) {
+    if (card.querySelector("[data-ai-video-box]")) {
+      aiEnsureVideoAdvanced(card);
+      return;
+    }
+    const box = document.createElement("div");
+    box.setAttribute("data-ai-video-box", "");
+    const resolution = document.createElement("select");
+    resolution.setAttribute("data-ai-video-resolution", "");
+    ["480p", "720p"].forEach((name) => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      resolution.append(option);
+    });
+    resolution.value = "480p";
+    const flags = [
+      ["speech", "data-ai-speech", "Speech"],
+      ["music", "data-ai-music", "Music"],
+      ["atmosphere", "data-ai-atmosphere", "Atmosphere"],
+      ["effects", "data-ai-effects", "Effects"],
+    ].map((item) => {
+      const input = document.createElement("input");
+      input.setAttribute("type", "checkbox");
+      input.setAttribute(item[1], "");
+      const label = document.createElement("label");
+      label.append(input, " " + item[2]);
+      return label;
+    });
+    const resolutionLabel = document.createElement("label");
+    resolutionLabel.append("Resolution ", resolution);
+    box.append(resolutionLabel);
+    flags.forEach((label) => box.append(label));
+    const videoButton = card.querySelector("[data-ai-video]");
+    if (videoButton) aiInsertBefore(box, videoButton);
+    else card.append(box);
+    if (videoButton && videoButton.dataset.aiVideoLaunch !== "1") {
+      videoButton.dataset.aiVideoLaunch = "1";
+      videoButton.addEventListener("click", () => aiLaunchVideo(card, draft));
+    }
+    aiEnsureVideoAdvanced(card);
+    aiBindVideoDecisions(card);
   }
   function aiNote(card, name, text) {
     let note = card.querySelector("[" + name + "]");
@@ -433,6 +1137,11 @@
     if (version && version.width && version.height) {
       parts.push(version.width + "×" + version.height + " " + (version.codec || ""));
     }
+    const setup = aiNativeSetup();
+    parts.push(
+      "Native video " + (setup.model || "model not recorded") + " · "
+      + (setup.tool || "tool not recorded") + " · capability unverified"
+    );
     parts.push("Generated illustration, not documentary evidence. Generation is not approval.");
     node.textContent = parts.join(" · ");
   }
@@ -447,11 +1156,24 @@
       mode: draft.mode,
       modeDirty: draft.modeDirty === true,
       job: draft.job || "",
-      version: draft.version || "",
-      signature: draft.signature || "",
+      version: (draft.pendingExact || draft).version || "",
+      signature: (draft.pendingExact || draft).signature || "",
       state: draft.state,
       save: draft.save || "",
       versions: draft.versions || {},
+      videoVersion: draft.videoVersion || "",
+      videoSignature: draft.videoSignature || "",
+      videoComment: typeof draft.videoComment === "string" ? draft.videoComment : "",
+      videoCommentDirty: draft.videoCommentDirty === true,
+      videoState: draft.videoState || "pending",
+      videoSave: draft.videoSave || "",
+      videoNotes: draft.videoNotes && typeof draft.videoNotes === "object" ? draft.videoNotes : {},
+      instruction: typeof draft.instruction === "string" ? draft.instruction : "",
+      instructionDirty: draft.instructionDirty === true,
+      fileName: typeof draft.fileName === "string" ? draft.fileName : "",
+      fileUnsent: draft.fileUnsent === true,
+      uploadEpoch: draft.uploadEpoch || 0,
+      referenceId: typeof draft.referenceId === "string" ? draft.referenceId : "",
     };
   }
   function aiContextMatch(stored, fingerprint, version, signature) {
@@ -460,6 +1182,12 @@
       return !!version && !!signature && stored.version === version && stored.signature === signature;
     }
     return (stored.version || "") === (version || "") && (stored.signature || "") === (signature || "");
+  }
+  function aiLocalExact(stored, fingerprint, version, signature) {
+    if (!stored || stored.fingerprint !== fingerprint) return null;
+    if (!stored.version || !stored.signature) return null;
+    if (stored.version === (version || "") && stored.signature === (signature || "")) return null;
+    return stored;
   }
   function aiLoadDraft(card) {
     const beat = aiAttr(card, "data-ai-beat");
@@ -485,16 +1213,44 @@
       commentDirty: false,
       mode: aiMode(card),
       modeDirty: false,
+      sceneComment: commentBox && typeof commentBox.value === "string" ? commentBox.value : "",
       job: aiAttr(card, "data-ai-job"),
       version,
       signature,
       state: serverDecision || "pending",
       save: "",
       versions: stored && stored.fingerprint === fingerprint && stored.versions && typeof stored.versions === "object" ? stored.versions : {},
+      videoNotes: stored && stored.fingerprint === fingerprint && stored.videoNotes && typeof stored.videoNotes === "object" && !Array.isArray(stored.videoNotes) ? stored.videoNotes : {},
+      videoVersion: "",
+      videoSignature: "",
+      videoComment: "",
+      videoCommentDirty: false,
+      videoState: "pending",
+      videoSave: "",
       epoch: 0,
       saveEpoch: 0,
       offered: null,
+      instruction: "",
+      instructionDirty: false,
+      fileName: "",
+      fileUnsent: false,
+      uploadEpoch: 0,
+      referenceId: "",
     };
+    const videoBox = card.querySelector("[data-ai-video-review]");
+    const videoVersion = aiAttr(videoBox, "data-ai-video-version");
+    const videoSignature = aiAttr(videoBox, "data-ai-video-signature");
+    const videoNote = videoVersion && videoSignature ? draft.videoNotes[videoVersion + "\u001f" + videoSignature] : null;
+    const videoField = card.querySelector("[data-ai-video-comment]");
+    if (videoNote && videoNote.dirty === true && videoField && typeof videoNote.comment === "string") {
+      videoField.value = videoNote.comment;
+      draft.videoVersion = videoVersion;
+      draft.videoSignature = videoSignature;
+      draft.videoComment = videoNote.comment;
+      draft.videoCommentDirty = true;
+      draft.videoState = aiKnownDecision(videoNote.state) || "pending";
+      draft.videoSave = typeof videoNote.save === "string" ? videoNote.save : "";
+    }
     if (aiContextMatch(stored, fingerprint, version, signature)) {
       if (typeof stored.comment === "string" && commentBox) {
         commentBox.value = stored.comment;
@@ -524,6 +1280,41 @@
           draft.save = "pending";
         }
       }
+    }
+    const held = aiLocalExact(stored, fingerprint, version, signature);
+    if (held) {
+      draft.pendingExact = {
+        version: held.version,
+        signature: held.signature,
+        selectedDirty: held.selectedDirty === true,
+        comment: typeof held.comment === "string" ? held.comment : "",
+      };
+      if (held.selectedDirty === true && typeof held.selected === "string") {
+        card.querySelectorAll("[data-ai-alternative]").forEach((radio) => {
+          const value = radio.value || aiAttr(radio, "value");
+          radio.checked = value === held.selected;
+        });
+        draft.selected = held.selected;
+        draft.selectedDirty = true;
+      }
+      if (held.commentDirty === true && typeof held.comment === "string" && commentBox) {
+        commentBox.value = held.comment;
+        draft.comment = held.comment;
+        draft.commentDirty = true;
+      }
+    }
+    if (stored && stored.fingerprint === fingerprint) {
+      const instructionBox = card.querySelector("[data-ai-instruction]");
+      if (instructionBox && typeof stored.instruction === "string") {
+        instructionBox.value = stored.instruction;
+        draft.instruction = stored.instruction;
+        draft.instructionDirty = stored.instructionDirty === true;
+      }
+      draft.fileName = typeof stored.fileName === "string" ? stored.fileName : "";
+      draft.fileUnsent = stored.fileUnsent === true;
+      draft.uploadEpoch = typeof stored.uploadEpoch === "number" ? stored.uploadEpoch : 0;
+      draft.referenceId = typeof stored.referenceId === "string" ? stored.referenceId : "";
+      if (draft.fileUnsent) aiNote(card, "data-ai-file-note", "Selected, not sent.");
     }
     if (version && signature && aiKnownDecision(draft.state)) {
       const identity = version + "\u001f" + signature;
@@ -561,7 +1352,7 @@
     const payload = { action: "select", beat: draft.beat, expected: draft.fingerprint };
     if (draft.selectedDirty) payload.alternative = aiSelected(card);
     if (draft.commentDirty) payload.comment = draft.comment;
-    if (draft.modeDirty && aiMode(card) === "economy") payload.mode = "economy";
+    if (draft.modeDirty) payload.mode = aiMode(card);
     fetch(save.aiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json", [save.header]: save.token },
@@ -584,34 +1375,58 @@
   function aiGenerate(card) {
     const button = card.querySelector("[data-ai-generate]");
     const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
-    if (!button || button.disabled || !draft || !aiLive() || aiMode(card) !== "economy") return;
+    const images = aiMode(card) === "images";
+    if (!button || button.disabled || !draft || !aiLive()) return;
+    if (draft.referenceBusy || draft.fileUnsent) {
+      aiNote(card, "data-ai-file-note", "Keep the selected reference before generating.");
+      return;
+    }
     const alternative = aiSelected(card);
     const commentBox = card.querySelector("[data-ai-comment]");
     const comment = commentBox && typeof commentBox.value === "string" ? commentBox.value : draft.comment;
-    if (!alternative) return;
-    const nonce = aiNonce(draft, alternative, comment);
+    if (!images && !alternative) return;
+    const nonce = images ? aiGroupNonce(card, draft, comment) : aiNonce(draft, alternative, comment);
     if (aiLaunched.has(nonce)) return;
     aiLaunched.add(nonce);
     draft.comment = comment;
     const save = aiSaveConfig();
+    const payload = {
+      action: "generate",
+      beat: draft.beat,
+      expected: draft.fingerprint,
+      comment,
+      nonce,
+      requestId: nonce,
+    };
+    if (images) payload.outputs = 3;
+    else {
+      payload.alternative = alternative;
+    }
     fetch(save.aiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json", [save.header]: save.token },
-      body: JSON.stringify({
-        action: "generate",
-        beat: draft.beat,
-        expected: draft.fingerprint,
-        alternative,
-        comment,
-        nonce,
-        requestId: nonce,
-      }),
+      body: JSON.stringify(payload),
     })
       .then((response) => Promise.resolve()
         .then(() => response.json())
         .then((body) => ({ ok: response.ok, body }))
         .catch(() => ({ ok: response.ok, body: {} })))
       .then((result) => {
+        const jobs = result.ok && result.body && Array.isArray(result.body.jobs) ? result.body.jobs : null;
+        if (jobs && jobs.length) {
+          const flight = jobs.find((row) => row && AI_IN_FLIGHT.has(row.state));
+          const marked = flight || jobs[0];
+          if (marked && marked.state) card.setAttribute("data-ai-state", marked.state);
+          const progress = card.querySelector("[data-ai-progress]");
+          if (progress) {
+            progress.textContent = jobs
+              .map((row) => (row.alternative || row.id || "slot") + ": " + (row.error || row.state || "waiting"))
+              .join(" · ");
+          }
+          aiPoll();
+          aiEnsurePoll();
+          return;
+        }
         const job = result.ok && result.body ? result.body.job : null;
         const terminal = job && ["failed", "unknown", "quota", "auth"].includes(job.state);
         if (!result.ok || !job || terminal) {
@@ -639,11 +1454,218 @@
         if (progress) progress.textContent = "Could not start still generation.";
       });
   }
+  function aiSlotVersion(figure) {
+    const id = aiAttr(figure, "data-ai-version");
+    const signature = aiAttr(figure, "data-ai-signature");
+    if (!id || !signature) return null;
+    const image = figure.querySelector("img");
+    return {
+      id,
+      signature,
+      path: image ? image.getAttribute("src") || "" : "",
+      approval: aiAttr(figure, "data-ai-approval"),
+    };
+  }
+  function aiSceneComment(card, draft, value) {
+    const box = card.querySelector("[data-ai-comment]");
+    const text = typeof value === "string" ? value : "";
+    if (box) box.value = text;
+    draft.comment = text;
+  }
+  function aiRestoreChoice(card, draft, beat) {
+    if (!draft.modeDirty && (beat.mode === "images" || beat.mode === "economy")) {
+      const control = card.querySelector("[data-ai-mode]");
+      if (control) control.value = beat.mode;
+      card.setAttribute("data-ai-mode", beat.mode);
+      draft.mode = beat.mode;
+      aiLockModes(card);
+    }
+    if (!draft.selectedDirty && typeof beat.selected === "string" && beat.selected) {
+      card.querySelectorAll("[data-ai-alternative]").forEach((radio) => {
+        const value = radio.value || aiAttr(radio, "value");
+        radio.checked = value === beat.selected;
+      });
+      draft.selected = beat.selected;
+    }
+    if (!draft.commentDirty && typeof beat.comment === "string") {
+      aiSceneComment(card, draft, beat.comment);
+      draft.sceneComment = beat.comment;
+      draft.commentDirty = false;
+    }
+  }
+  function aiSlotDecision(version, prior, current, same) {
+    const kept = same ? aiKnownDecision(current) : "";
+    const stored = prior && aiKnownDecision(prior.state);
+    return kept || stored || aiKnownDecision(version && version.approval) || "pending";
+  }
+  function aiChooseSlot(card, slot, quiet) {
+    const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+    if (!draft || !slot || aiAttr(card, "data-ai-stale") === "true") return;
+    const alternative = slot.alternative || "";
+    card.querySelectorAll("[data-ai-alternative]").forEach((radio) => {
+      radio.checked = (radio.value || aiAttr(radio, "value")) === alternative;
+    });
+    draft.selected = alternative;
+    if (!quiet) draft.selectedDirty = true;
+    const version = slot.version;
+    if (version && version.id && version.signature) {
+      const same = draft.version === version.id && draft.signature === version.signature;
+      if (!same) aiStoreDisplayed(draft, card);
+      const prior = (draft.versions || {})[version.id + "\u001f" + version.signature];
+      draft.state = aiSlotDecision(version, prior, draft.state, same);
+      draft.version = version.id;
+      draft.signature = version.signature;
+      draft.job = (slot.job && slot.job.id) || version.job || draft.job;
+      card.setAttribute("data-ai-approval", draft.state);
+      if (!quiet && !same) {
+        if (prior && typeof prior.comment === "string") aiSceneComment(card, draft, prior.comment);
+        else if (typeof slot.comment === "string") aiSceneComment(card, draft, slot.comment);
+        else if (typeof draft.sceneComment === "string") aiSceneComment(card, draft, draft.sceneComment);
+        draft.commentDirty = false;
+      }
+      aiShowStill(card, {
+        id: version.id,
+        signature: version.signature,
+        path: version.path || "",
+        approval: draft.state,
+      });
+      aiPaintDecision(card, draft);
+    }
+    if (!quiet) aiSetCurrent(card);
+    persist();
+    if (!quiet) aiScheduleSelect(card);
+  }
+  function aiRestoreExactSlot(card, draft, held, slot, beat) {
+    if (held.selectedDirty === true) draft.selectedDirty = true;
+    aiChooseSlot(card, slot, true);
+    if (slot.alternative && typeof beat.selected === "string" && slot.alternative !== beat.selected) {
+      draft.selectedDirty = true;
+    }
+    if (!draft.commentDirty) {
+      if (typeof slot.comment === "string") aiSceneComment(card, draft, slot.comment);
+      else if (typeof held.comment === "string") aiSceneComment(card, draft, held.comment);
+    }
+    aiNote(card, "data-ai-slot-note", "");
+    persist();
+    if (draft.selectedDirty || draft.commentDirty || draft.modeDirty) aiScheduleSelect(card);
+  }
+  function aiHydrateFocus(card, draft, beat) {
+    const pendingSlot = draft.pendingExact && Array.isArray(beat.slots) && beat.slots.some((slot) => (
+      slot && slot.version && slot.version.id === draft.pendingExact.version && slot.version.signature === draft.pendingExact.signature
+    ));
+    if (draft.pendingExact && !pendingSlot && beat.fingerprint === draft.fingerprint) {
+      const held = draft.pendingExact;
+      const latest = beat.version;
+      const focus = latest && latest.id === held.version && latest.signature === held.signature ? latest
+        : (Array.isArray(aiBoardBody.versions) ? aiBoardBody.versions : []).find((row) => (
+          row && row.kind === "image" && row.beat === draft.beat && row.inputs === draft.fingerprint
+          && row.id === held.version && row.signature === held.signature
+        ));
+      if (focus) {
+        draft.pendingExact = null;
+        draft.hydrated = true;
+        draft.offered = focus;
+        aiUseOffered(card);
+      } else aiNote(card, "data-ai-slot-note", beat.mode === "images" ? "The chosen still is missing from the current comparison." : "The chosen retained still is not available in this context.");
+      return;
+    }
+    if (
+      draft.pendingExact &&
+      beat.fingerprint === draft.fingerprint &&
+      beat.mode === "images" &&
+      Array.isArray(beat.slots)
+    ) {
+      const held = draft.pendingExact;
+      draft.pendingExact = null;
+      draft.hydrated = true;
+      const slot = beat.slots.find((row) => (
+        row && row.version && row.version.id === held.version && row.version.signature === held.signature
+      ));
+      if (slot) {
+        aiRestoreExactSlot(card, draft, held, slot, beat);
+        return;
+      }
+      aiNote(card, "data-ai-slot-note", "The chosen still is missing from the current comparison.");
+      return;
+    }
+    if (draft.hydrated) return;
+    draft.hydrated = true;
+    if (aiAttr(card, "data-ai-version") && aiAttr(card, "data-ai-signature")) return;
+    if (beat.mode !== "images" || !Array.isArray(beat.slots) || !beat.slots.length) return;
+    const focus = beat.version && typeof beat.version === "object" ? beat.version : null;
+    if (!focus || !focus.id || !focus.signature) return;
+    const slot = beat.slots.find((row) => (
+      row && row.version && row.version.id === focus.id && row.version.signature === focus.signature
+    ));
+    aiChooseSlot(card, slot || { alternative: beat.selected || "", job: beat.job, version: focus }, true);
+  }
+  function aiChooseButton(card, button) {
+    const figure = button.parentNode;
+    aiChooseSlot(card, {
+      alternative: aiAttr(button, "data-ai-choose"),
+      comment: figure.getAttribute("data-ai-slot-comment"),
+      job: { id: aiAttr(figure, "data-ai-job"), state: aiAttr(figure, "data-ai-state") },
+      version: aiSlotVersion(figure),
+    });
+  }
+  function aiPaintSlots(card, slots) {
+    if (!Array.isArray(slots) || !slots.length) return;
+    let box = card.querySelector("[data-ai-slots]");
+    if (!box) {
+      box = document.createElement("div");
+      box.className = "ai-slots";
+      box.setAttribute("data-ai-slots", "");
+      card.append(box);
+    }
+    box.textContent = "";
+    const selected = aiSelected(card);
+    slots.forEach((slot) => {
+      const job = slot && slot.job ? slot.job : {};
+      const version = slot && slot.version ? slot.version : null;
+      const alternative = (slot && slot.alternative) || "";
+      const figure = document.createElement("figure");
+      figure.className = "ai-slot";
+      figure.setAttribute("data-ai-slot", alternative);
+      figure.setAttribute("data-ai-selected", alternative && alternative === selected ? "true" : "false");
+      if (slot && typeof slot.comment === "string") figure.setAttribute("data-ai-slot-comment", slot.comment);
+      if (job.id) figure.setAttribute("data-ai-job", job.id);
+      if (job.state) figure.setAttribute("data-ai-state", job.state);
+      if (version && version.id) figure.setAttribute("data-ai-version", version.id);
+      if (version && version.signature) figure.setAttribute("data-ai-signature", version.signature);
+      if (version) figure.setAttribute("data-ai-approval", version.approval || "pending");
+      if (version && version.path) {
+        const image = document.createElement("img");
+        image.setAttribute("src", version.path);
+        image.setAttribute("alt", "Generated illustration");
+        image.alt = "Generated illustration";
+        figure.append(image);
+      }
+      const caption = document.createElement("figcaption");
+      caption.textContent = job.error || job.state || "waiting";
+      const button = document.createElement("button");
+      button.setAttribute("type", "button");
+      button.setAttribute("data-ai-choose", alternative);
+      button.textContent = "Review this still";
+      button.addEventListener("click", () => aiChooseSlot(card, slot));
+      figure.append(caption, button);
+      box.append(figure);
+    });
+  }
   function aiApplyState(body) {
+    aiBoardBody = body && typeof body === "object" ? body : { beats: [], versions: [] };
     const beats = Array.isArray(body && body.beats) ? body.beats : [];
+    const shared = Array.isArray(body && body.shared_references) ? body.shared_references : [];
     aiCards().forEach((card) => {
       const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
       if (!draft) return;
+      draft.sharedReferences = shared.map((row) => row.context_id || row.error || "").sort().join("\u001f");
+      let sharedNote = card.querySelector("[data-ai-shared-reference-note]");
+      if (!sharedNote && shared.length) {
+        sharedNote = document.createElement("p");
+        sharedNote.setAttribute("data-ai-shared-reference-note", "");
+        card.append(sharedNote);
+      }
+      if (sharedNote) sharedNote.textContent = shared.map((row) => row.error || "Shared style reference: " + [row.name, row.scope_instruction].filter(Boolean).join(" — ")).join(" · ");
       const beat = beats.find((row) => row && row.id === aiAttr(card, "data-ai-beat"));
       if (!beat || beat.active === false) {
         const inactiveJob = beat && beat.job && typeof beat.job === "object" ? beat.job : null;
@@ -670,6 +1692,25 @@
         aiNote(card, "data-ai-stale-note", "");
         aiLockModes(card);
       }
+      aiRestoreChoice(card, draft, beat);
+      const slotReview = Array.isArray(beat.slots) && beat.slots.length > 0;
+      if (slotReview) {
+        const flight = beat.slots.map((slot) => slot && slot.job).find((job) => job && AI_IN_FLIGHT.has(job.state));
+        if (flight && flight.state) card.setAttribute("data-ai-state", flight.state);
+        if (aiMode(card) === "images") {
+          const slotProgress = card.querySelector("[data-ai-progress]");
+          if (slotProgress) {
+            slotProgress.textContent = beat.slots
+              .map((slot) => {
+                const slotJob = (slot && slot.job) || {};
+                return (slot.alternative || slotJob.id || "slot") + ": " + (slotJob.error || slotJob.state || "waiting");
+              })
+              .join(" · ");
+          }
+        }
+        aiPaintSlots(card, beat.slots);
+      }
+      aiHydrateFocus(card, draft, beat);
       const displayed = aiAttr(card, "data-ai-version");
       if (job && !displayed && draft.state === "pending" && job.id) {
         card.setAttribute("data-ai-job", job.id);
@@ -679,7 +1720,7 @@
       const displayedSignature = aiAttr(card, "data-ai-signature");
       const sameStill = incoming && displayed && incoming.id === displayed && incoming.signature === displayedSignature;
       const firstStill = incoming && incoming.id && incoming.signature && !displayed && draft.state === "pending";
-      if (firstStill || sameStill) {
+      if (!slotReview && (firstStill || sameStill)) {
         aiShowStill(card, incoming);
         if (firstStill) {
           draft.version = incoming.id;
@@ -689,7 +1730,7 @@
           if (serverDecision) draft.state = serverDecision;
         }
         aiHideOffer(card);
-      } else if (incoming && incoming.id && incoming.signature && displayed && (incoming.id !== displayed || incoming.signature !== displayedSignature)) {
+      } else if (!slotReview && incoming && incoming.id && incoming.signature && displayed && (incoming.id !== displayed || incoming.signature !== displayedSignature)) {
         draft.offered = {
           id: incoming.id,
           signature: incoming.signature,
@@ -705,6 +1746,8 @@
       const shown = firstStill || sameStill ? incoming : null;
       aiShowDiagnostics(card, job, shown || (displayed ? { id: displayed, signature: displayedSignature } : null));
       aiPaintDecision(card, draft);
+      aiApplyBeatTiming(card, draft, beat);
+      aiKeepApplyDraft(card, draft, beat);
     });
     aiEnsurePoll();
     paintGallery();
@@ -788,7 +1831,9 @@
   }
   function aiEnsurePoll() {
     if (typeof setInterval !== "function" || typeof clearInterval !== "function") return;
-    const needs = aiLive() && aiCards().some((card) => AI_IN_FLIGHT.has(aiAttr(card, "data-ai-state")));
+    const needs = aiLive() && aiCards().some((card) => (
+      AI_IN_FLIGHT.has(aiAttr(card, "data-ai-state")) || AI_IN_FLIGHT.has(aiAttr(card, "data-ai-video-state"))
+    ));
     if (!needs) {
       if (aiPollTimer) clearInterval(aiPollTimer);
       aiPollTimer = 0;
@@ -848,6 +1893,386 @@
         persist();
       });
   }
+  function aiFinite(input) {
+    if (!input || typeof input.value !== "string" || !input.value.trim()) return null;
+    const number = Number(input.value);
+    return Number.isFinite(number) ? number : null;
+  }
+  function aiChosenFile(card) {
+    const input = card.querySelector("[data-ai-file]");
+    const files = input && input.files;
+    if (!files || !files.length) return null;
+    return files[0] || null;
+  }
+  function aiDeclaredType(file) {
+    const type = file && file.type;
+    if (type === "image/png" || type === "image/jpeg" || type === "video/mp4") return type;
+    const name = String((file && file.name) || "").toLowerCase();
+    if (name.endsWith(".png")) return "image/png";
+    if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+    if (name.endsWith(".mp4")) return "video/mp4";
+    return "";
+  }
+  function aiVideoFile(file) {
+    return aiDeclaredType(file) === "video/mp4";
+  }
+  function aiApplyInstruction(card) {
+    const box = card.querySelector("[data-ai-instruction]");
+    return box && typeof box.value === "string" ? box.value.trim() : "";
+  }
+  function aiReferenceInstruction(card, draft) {
+    const typed = aiApplyInstruction(card);
+    if (typed) return typed;
+    const comment = card.querySelector("[data-ai-comment]");
+    if (comment && typeof comment.value === "string" && comment.value.trim()) return comment.value.trim();
+    return typeof draft.comment === "string" ? draft.comment.trim() : "";
+  }
+  function aiScopeChoice(card) {
+    const scope = card.querySelector("[data-ai-scope]");
+    const value = scope && scope.value === "shared" ? "shared" : "beat";
+    const extra = card.querySelector("[data-ai-scope-instruction]");
+    const text = (extra && typeof extra.value === "string" ? extra.value.trim() : "") || aiApplyInstruction(card);
+    if (value === "shared" && !text) return { ok: false, scope: value, scope_instruction: "" };
+    return { ok: true, scope: value, scope_instruction: value === "shared" ? text : "" };
+  }
+  function aiIntervalChoice(card, file) {
+    if (!aiVideoFile(file)) return { ok: true, interval: null };
+    const start = aiFinite(card.querySelector("[data-ai-interval-start]"));
+    const end = aiFinite(card.querySelector("[data-ai-interval-end]"));
+    if (start == null && end == null) return { ok: true, interval: null };
+    if (start == null || end == null || !(end > start)) return { ok: false, interval: null };
+    return { ok: true, interval: { start_s: start, end_s: end } };
+  }
+  function aiFileBytes(file) {
+    if (file && typeof file.arrayBuffer === "function") return file.arrayBuffer();
+    if (file && file.bytes != null) return Promise.resolve(file.bytes);
+    return Promise.resolve(null);
+  }
+  function aiReferenceUrl(save) {
+    if (save.aiReferenceUrl) return String(save.aiReferenceUrl).replace(/\/$/, "");
+    return String(save.aiUrl).replace(/\/$/, "") + "/reference";
+  }
+  function aiJsonResult(response) {
+    return Promise.resolve()
+      .then(() => response.json())
+      .then((body) => ({ ok: response.ok, body }))
+      .catch(() => ({ ok: response.ok, body: {} }));
+  }
+  function aiPreviewReference(card, contextId, kind) {
+    const save = aiSaveConfig();
+    if (!save || !contextId) return;
+    card.setAttribute("data-ai-reference-context", contextId);
+    const part = kind === "video" ? "sheet" : "pixels";
+    const url = aiReferenceUrl(save) + "/" + encodeURIComponent(contextId) + "?part=" + part;
+    fetch(url, { method: "GET", headers: { [save.header]: save.token } })
+      .then((response) => (response.ok && typeof response.blob === "function" ? response.blob() : null))
+      .then((blob) => {
+        if (!blob || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") return;
+        const image = card.querySelector("[data-ai-reference-preview]");
+        if (!image || aiAttr(card, "data-ai-reference-context") !== contextId) return;
+        if (image.src && String(image.src).startsWith("blob:")) URL.revokeObjectURL(image.src);
+        const preview = URL.createObjectURL(blob);
+        if (String(preview).includes("ai-data")) return;
+        image.hidden = false;
+        image.alt = "Private reference preview";
+        image.src = preview;
+      })
+      .catch(() => {});
+  }
+  function aiKeepApplyDraft(card, draft, beat) {
+    const box = card.querySelector("[data-ai-instruction]");
+    if (box && draft.instructionDirty && typeof draft.instruction === "string") box.value = draft.instruction;
+    if (draft.fileUnsent) aiNote(card, "data-ai-file-note", "Selected, not sent.");
+    if (beat && !draft.referenceBusy) {
+      const shown = beat.reference || beat.guidance;
+      const still = shown && beat.reference ? (shown.target_still || aiStillTarget(card)) : null;
+      if (!still || still.id === aiAttr(card, "data-ai-version")) {
+        draft.referenceId = shown ? shown.context_id || "" : "";
+        draft.referenceTarget = { still, context: draft.referenceId };
+        if (shown && shown.error) {
+          aiClearReferencePreview(card);
+          aiNote(card, "data-ai-reference-note", shown.error);
+        } else if (shown && shown.context_id && aiAttr(card, "data-ai-reference-context") !== shown.context_id) {
+          aiPreviewReference(card, shown.context_id, shown.kind);
+          aiNote(card, "data-ai-reference-note", [shown.name, shown.instructions].filter(Boolean).join(": "));
+        } else if (!shown) aiClearReferencePreview(card);
+      }
+    }
+    aiLockModes(card);
+  }
+  function aiClearReferencePreview(card) {
+    card.removeAttribute("data-ai-reference-context");
+    const image = card.querySelector("[data-ai-reference-preview]");
+    if (image) {
+      if (image.src && String(image.src).startsWith("blob:") && typeof URL !== "undefined") URL.revokeObjectURL(image.src);
+      image.removeAttribute("src");
+      image.hidden = true;
+    }
+    aiNote(card, "data-ai-reference-note", "");
+  }
+  function aiStillTarget(card) {
+    const id = aiAttr(card, "data-ai-version");
+    const signature = aiAttr(card, "data-ai-signature");
+    return id && signature ? { id, signature } : null;
+  }
+  function aiRememberFile(card, draft) {
+    const file = aiChosenFile(card);
+    draft.uploadEpoch = (draft.uploadEpoch || 0) + 1;
+    draft.fileName = file ? (file.name || "attachment") : "";
+    draft.fileUnsent = !!file;
+    aiNote(card, "data-ai-file-note", file ? "Selected, not sent." : "");
+    persist();
+  }
+  function aiSendReference(card, draft, file) {
+    const save = aiSaveConfig();
+    if (!save || !file || draft.referenceBusy) {
+      aiNote(card, "data-ai-file-note", "Choose a PNG, JPEG, or MP4. Nothing was sent.");
+      return Promise.resolve(false);
+    }
+    if (draft.referenceTarget && draft.referenceTarget.still && JSON.stringify(draft.referenceTarget.still) !== JSON.stringify(aiStillTarget(card))) {
+      aiNote(card, "data-ai-file-note", "The displayed still changed. Refreshing its reference context; the file stays selected.");
+      aiPoll();
+      return Promise.resolve(false);
+    }
+    const declared = aiDeclaredType(file);
+    const instructions = aiReferenceInstruction(card, draft);
+    if (!declared || !instructions) {
+      aiNote(card, "data-ai-file-note", "Type what this reference is for. Nothing was sent.");
+      return Promise.resolve(false);
+    }
+    const interval = aiIntervalChoice(card, file);
+    if (!interval.ok) {
+      aiNote(card, "data-ai-file-note", "Name both ends of the video interval. Nothing was sent.");
+      return Promise.resolve(false);
+    }
+    const scoped = aiScopeChoice(card);
+    if (!scoped.ok) {
+      aiNote(card, "data-ai-file-note", "Shared style needs an explicit scope instruction. Nothing was sent.");
+      return Promise.resolve(false);
+    }
+    const still = draft.referenceId && draft.referenceTarget ? draft.referenceTarget.still : aiStillTarget(card);
+    const displayed = JSON.stringify(aiStillTarget(card));
+    const uploadEpoch = draft.uploadEpoch;
+    const roleBox = card.querySelector("[data-ai-role]");
+    const metadata = {
+      beat: draft.beat,
+      fingerprint: draft.fingerprint,
+      identity: "up-" + aiHash(JSON.stringify([
+        draft.beat, draft.fingerprint, still, file.name, uploadEpoch, instructions,
+        roleBox && roleBox.value, scoped, interval.interval,
+      ])),
+      name: file.name || "attachment",
+      declared_type: declared,
+      instructions,
+      role: roleBox && roleBox.value ? roleBox.value : "guidance",
+      scope: scoped.scope,
+    };
+    if (scoped.scope === "shared") metadata.scope_instruction = scoped.scope_instruction;
+    if (still) metadata.still = still;
+    if (interval.interval) metadata.interval = interval.interval;
+    if (draft.referenceId) {
+      metadata.replace = true;
+      metadata.context = draft.referenceId;
+    }
+    draft.referenceBusy = true;
+    return aiFileBytes(file).then((bytes) => {
+      if (!bytes) {
+        aiNote(card, "data-ai-file-note", "The selected file had no bytes. Nothing was sent.");
+        return false;
+      }
+      return fetch(aiReferenceUrl(save), {
+        method: "POST",
+        headers: {
+          [save.header]: save.token,
+          "X-GetBrolls-Ai-Reference": encodeURIComponent(JSON.stringify(metadata)),
+        },
+        body: bytes,
+      })
+        .then(aiJsonResult)
+        .then((result) => {
+          const reference = result.ok && result.body ? result.body.reference : null;
+          if (!reference || !reference.context_id) {
+            aiNote(card, "data-ai-file-note", (result.body && result.body.error) || "The reference was not kept.");
+            return false;
+          }
+          if (displayed === JSON.stringify(aiStillTarget(card))) {
+            draft.referenceId = reference.context_id;
+            draft.referenceTarget = { still, context: reference.context_id };
+          }
+          if (uploadEpoch === draft.uploadEpoch && displayed === JSON.stringify(aiStillTarget(card))) {
+            draft.fileUnsent = false;
+            const input = card.querySelector("[data-ai-file]");
+            if (input) input.value = "";
+            aiNote(card, "data-ai-file-note", "Reference kept. It was not sent for generation.");
+            aiNote(card, "data-ai-reference-note", [reference.name || file.name, reference.instructions || instructions].filter(Boolean).join(": "));
+            aiPreviewReference(card, reference.context_id, reference.kind);
+          }
+          persist();
+          return reference.context_id;
+        })
+        .catch(() => {
+          aiNote(card, "data-ai-file-note", "The reference was not kept.");
+          return false;
+        });
+    }).catch(() => {
+      aiNote(card, "data-ai-file-note", "The reference was not kept. Choose the file again to retry.");
+      return false;
+    }).finally(() => { draft.referenceBusy = false; aiPoll(); });
+  }
+  function aiKeepReference(card) {
+    const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+    if (!draft) return;
+    if (!aiLive()) {
+      draft.fileUnsent = !!draft.fileName || !!aiChosenFile(card);
+      aiNote(card, "data-ai-file-note", "Selected, not sent.");
+      persist();
+      return;
+    }
+    const button = card.querySelector("[data-ai-upload]");
+    if (button && button.disabled) return;
+    aiSendReference(card, draft, aiChosenFile(card));
+  }
+  function aiRemoveReference(card) {
+    const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+    if (!draft) return;
+    if (!aiLive()) {
+      aiNote(card, "data-ai-apply-note", "Selected, not sent.");
+      persist();
+      return;
+    }
+    const button = card.querySelector("[data-ai-remove-reference]");
+    if ((button && button.disabled) || draft.referenceBusy) return;
+    const save = aiSaveConfig();
+    const payload = { action: "reference-remove", beat: draft.beat, expected: draft.fingerprint };
+    if (!draft.referenceId || !draft.referenceTarget) return;
+    const target = draft.referenceTarget;
+    if (target.still && JSON.stringify(target.still) !== JSON.stringify(aiStillTarget(card))) {
+      aiNote(card, "data-ai-apply-note", "The displayed still changed. Refreshing its reference context before removal.");
+      aiPoll();
+      return;
+    }
+    const displayed = JSON.stringify(aiStillTarget(card));
+    if (target.still) payload.still = target.still;
+    payload.context = draft.referenceId;
+    draft.referenceBusy = true;
+    fetch(save.aiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [save.header]: save.token },
+      body: JSON.stringify(payload),
+    })
+      .then(aiJsonResult)
+      .then((result) => {
+        if (!result.ok) {
+          aiNote(card, "data-ai-apply-note", (result.body && result.body.error) || "The reference was not removed.");
+          return;
+        }
+        if (draft.referenceTarget === target && displayed === JSON.stringify(aiStillTarget(card))) {
+          draft.referenceId = "";
+          draft.referenceTarget = null;
+          aiClearReferencePreview(card);
+        }
+        aiNote(card, "data-ai-file-note", draft.fileUnsent ? "Selected, not sent." : "Reference removed. Earlier media stays.");
+        persist();
+      })
+      .catch(() => aiNote(card, "data-ai-apply-note", "The reference was not removed."))
+      .finally(() => { draft.referenceBusy = false; aiPoll(); });
+  }
+  function aiPostApply(card, draft, instruction, frozen) {
+    const save = aiSaveConfig();
+    const stillId = frozen.still ? frozen.still.id : "";
+    const signature = frozen.still ? frozen.still.signature : "";
+    const scoped = frozen.scope;
+    if (!scoped.ok) {
+      aiNote(card, "data-ai-apply-note", "Shared style needs an explicit scope instruction.");
+      return;
+    }
+    const nonce = "apply-" + aiHash([
+      "apply", draft.beat, draft.fingerprint, stillId, signature, frozen.referenceId || "", instruction,
+      JSON.stringify(scoped), String(frozen.uploadEpoch || 0),
+    ].join("\u001f"));
+    if (aiLaunched.has(nonce)) return;
+    aiLaunched.add(nonce);
+    const payload = {
+      action: "apply",
+      beat: draft.beat,
+      expected: draft.fingerprint,
+      instruction,
+      nonce,
+      requestId: nonce,
+    };
+    if (stillId && signature) payload.still = { id: stillId, signature };
+    if (scoped.scope === "shared") {
+      payload.scope = "shared";
+      payload.scope_instruction = scoped.scope_instruction;
+    }
+    if (frozen.referenceId) payload.reference = frozen.referenceId;
+    return fetch(save.aiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [save.header]: save.token },
+      body: JSON.stringify(payload),
+    })
+      .then(aiJsonResult)
+      .then((result) => {
+        const job = result.ok && result.body ? result.body.job : null;
+        if (!result.ok || !job) {
+          aiLaunched.delete(nonce);
+          aiNote(card, "data-ai-apply-note", (job && job.error) || (result.body && result.body.error) || "Apply was not started.");
+          return;
+        }
+        if (job.state && JSON.stringify(aiStillTarget(card)) === JSON.stringify(frozen.still)) card.setAttribute("data-ai-state", job.state);
+        const progress = card.querySelector("[data-ai-progress]");
+        if (progress) progress.textContent = job.error || job.state || "";
+        aiNote(card, "data-ai-apply-note", "");
+        aiPoll();
+        aiEnsurePoll();
+      })
+      .catch(() => {
+        aiLaunched.delete(nonce);
+        aiNote(card, "data-ai-apply-note", "Apply was not started.");
+      });
+  }
+  function aiApply(card) {
+    const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+    if (!draft) return;
+    if (!aiLive()) {
+      aiNote(card, "data-ai-apply-note", "Selected, not sent.");
+      if (draft.fileName || aiChosenFile(card)) {
+        draft.fileUnsent = true;
+        aiNote(card, "data-ai-file-note", "Selected, not sent.");
+      }
+      persist();
+      return;
+    }
+    const button = card.querySelector("[data-ai-apply]");
+    if ((button && button.disabled) || draft.applyPending || draft.referenceBusy) return;
+    const instruction = aiApplyInstruction(card);
+    if (!instruction) {
+      aiNote(card, "data-ai-apply-note", "Type the Apply instruction.");
+      return;
+    }
+    draft.instruction = instruction;
+    draft.instructionDirty = true;
+    const file = draft.fileUnsent ? aiChosenFile(card) : null;
+    if (draft.fileUnsent && !file) {
+      aiNote(card, "data-ai-apply-note", "Choose the unsent file again before Apply.");
+      return;
+    }
+    const frozen = {
+      still: aiStillTarget(card), scope: aiScopeChoice(card),
+      referenceId: draft.referenceId, uploadEpoch: draft.uploadEpoch,
+    };
+    draft.applyPending = true;
+    const done = () => { draft.applyPending = false; };
+    if (file) {
+      aiSendReference(card, draft, file).then((context) => {
+        if (!context) return;
+        frozen.referenceId = context;
+        return aiPostApply(card, draft, instruction, frozen);
+      }).finally(done);
+      return;
+    }
+    Promise.resolve(aiPostApply(card, draft, instruction, frozen)).finally(done);
+  }
   function mountAi() {
     const cards = aiCards();
     if (!cards.length && !aiRows.length) return;
@@ -890,14 +2315,10 @@
           aiScheduleSelect(card);
         });
       }
-      const mode = card.querySelector("select");
+      const mode = card.querySelector("[data-ai-mode]");
       if (mode) {
         mode.addEventListener("change", () => {
-          card.querySelectorAll("option").forEach((option) => {
-            if ((option.value || aiAttr(option, "value")) === "images") option.disabled = true;
-          });
-          if (mode.value === "images") mode.value = "economy";
-          draft.mode = "economy";
+          draft.mode = aiMode(card);
           draft.modeDirty = true;
           aiLockModes(card);
           aiSetCurrent(card);
@@ -905,12 +2326,34 @@
           aiScheduleSelect(card);
         });
       }
+      card.querySelectorAll("[data-ai-choose]").forEach((button) => {
+        button.addEventListener("click", () => aiChooseButton(card, button));
+      });
       const generate = card.querySelector("[data-ai-generate]");
       if (generate) generate.addEventListener("click", () => aiGenerate(card));
+      const instruction = card.querySelector("[data-ai-instruction]");
+      if (instruction) {
+        instruction.addEventListener("input", () => {
+          draft.instruction = instruction.value;
+          draft.instructionDirty = true;
+          persist();
+        });
+      }
+      const referenceFile = card.querySelector("[data-ai-file]");
+      if (referenceFile) referenceFile.addEventListener("change", () => aiRememberFile(card, draft));
+      const upload = card.querySelector("[data-ai-upload]");
+      if (upload) upload.addEventListener("click", () => aiKeepReference(card));
+      const removeReference = card.querySelector("[data-ai-remove-reference]");
+      if (removeReference) removeReference.addEventListener("click", () => aiRemoveReference(card));
+      const apply = card.querySelector("[data-ai-apply]");
+      if (apply) apply.addEventListener("click", () => aiApply(card));
       card.querySelectorAll("[data-ai-decision]").forEach((button) => {
         button.addEventListener("click", () => aiDecide(card, aiAttr(button, "data-ai-decision")));
       });
+      aiEnsureTimingControls(card, draft);
+      aiEnsureVideoControls(card, draft);
     });
+    if (aiLive()) aiPoll();
     aiEnsurePoll();
     paintGallery();
   }

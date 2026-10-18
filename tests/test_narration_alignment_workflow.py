@@ -19,6 +19,7 @@ from test_graphics_audio_workflow import (
     FX_HZ,
     _assert_decoded_fx_without_vo,
     _assert_effects_job,
+    _assert_no_media_autoplay,
     _assert_package_excludes_vo,
     _wav,
 )
@@ -496,7 +497,7 @@ class NarrationAlignmentWorkflowTests(unittest.TestCase):
                 self.assertIn("Narration alignment state", page)
                 self.assertIn("stat-miss", page)
                 self.assertNotIn("narration/private", page)
-                self.assertNotIn("autoplay", page.lower())
+                _assert_no_media_autoplay(self, page)
                 self.assertEqual(preview_before, {path.as_posix() for path in _preview_paths(tmp)})
                 _assert_clean(self, json.dumps(status), json.dumps(review), page)
                 candidate_id = hello["candidates"][0]["id"]

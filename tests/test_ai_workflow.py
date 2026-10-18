@@ -56,7 +56,7 @@ class AIWorkflowTests(unittest.TestCase):
         self.plan.write_text(json.dumps(plan), encoding="utf-8")
         self.call("ai-plan", "--file", self.plan)
 
-    def call(self, command, *args, ok=True, project=None):
+    def call(self, command, *args, ok=True, project=None, timeout=15):
         result = subprocess.run(
             [sys.executable, str(CLI), command, "--project", str(project or self.project), *map(str, args)],
             capture_output=True,
@@ -64,7 +64,7 @@ class AIWorkflowTests(unittest.TestCase):
             encoding="utf-8",
             env=self.env,
             check=False,
-            timeout=15,
+            timeout=timeout,
         )
         self.assertEqual(0 if ok else 2, result.returncode, result.stderr)
         return json.loads(result.stdout if ok else result.stderr)
@@ -244,3 +244,170 @@ class AIWorkflowTests(unittest.TestCase):
         payload.update(expected="0" * 64, nonce="stale-launch")
         self.assertEqual(400, self.http("/__ai", payload)[0])
         self.assertEqual(1, self.turn_count())
+
+    def _image_bytes(self):
+        stored = self.ai()
+        found = {}
+        for job in stored["jobs"].values():
+            if (job.get("request") or {}).get("kind") != "image" or not job.get("result"):
+                continue
+            version = stored["versions"][job["result"]]
+            found[job["request"]["alternative"]] = (self.project / "brolls" / version["path"]).read_bytes()
+        return found
+
+    def test_explicit_comparison_launches_three_distinct_stills_without_hidden_replay(self):
+        self.call("ai-generate-comparison", "--beat", "scarcity", "--request-id", "cmp-1", ok=False, timeout=30)
+        self.assertFalse(self.ai()["jobs"])
+        self.assertEqual(0, self.turn_count())
+        self.call(
+            "ai-select",
+            "--beat",
+            "scarcity",
+            "--mode",
+            "images",
+            "--alternative",
+            "option-2",
+            "--comment",
+            "No lettering",
+        )
+        self.assertFalse(self.ai()["jobs"])
+        self.assertEqual(0, self.turn_count())
+        first = self.call("ai-generate-comparison", "--beat", "scarcity", "--request-id", "cmp-1", timeout=45)
+        self.assertEqual(3, len(first["jobs"]))
+        self.assertTrue(all(job["state"] == "complete" for job in first["jobs"]))
+        self.assertEqual(["option-1", "option-2", "option-3"], [job["alternative"] for job in first["jobs"]])
+        blobs = self._image_bytes()
+        self.assertEqual({"option-1", "option-2", "option-3"}, set(blobs))
+        self.assertTrue(all(blob.startswith(b"\x89PNG") for blob in blobs.values()))
+        self.assertEqual(3, len(set(blobs.values())))
+        self.assertEqual(3, self.turn_count())
+        again = self.call("ai-generate-comparison", "--beat", "scarcity", "--request-id", "cmp-1", timeout=30)
+        self.assertEqual([job["id"] for job in first["jobs"]], [job["id"] for job in again["jobs"]])
+        self.assertEqual(first["group"], again["group"])
+        self.assertEqual(3, self.turn_count())
+        self.call("ai-select", "--beat", "scarcity", "--comment", "A different note")
+        self.call("ai-generate-comparison", "--beat", "scarcity", "--request-id", "cmp-1", ok=False, timeout=30)
+        self.assertEqual(3, len(self.ai()["jobs"]))
+        self.assertEqual(3, len(self.ai()["versions"]))
+        self.assertEqual(3, self.turn_count())
+        self.call("review")
+        page = (self.project / "brolls/review.html").read_text(encoding="utf-8")
+        self.assertEqual(3, page.count('class="ai-slot"'))
+        self.assertIn("Generate three stills", page)
+        self.assertIn('data-ai-route="broll"', page)
+        self.assertTrue(all(version["approval"]["state"] == "pending" for version in self.ai()["versions"].values()))
+        self.assertFalse(any((job.get("request") or {}).get("kind") == "video" for job in self.ai()["jobs"].values()))
+
+    def test_comparison_failure_and_unknown_leave_siblings_untouched(self):
+        self.call("ai-select", "--beat", "scarcity", "--mode", "images", "--alternative", "option-1")
+        self.env["GETBROLLS_AI_FAIL_IF_PROMPT_CONTAINS"] = "empty warehouse"
+        failed = self.call("ai-generate-comparison", "--beat", "scarcity", "--request-id", "cmp-fail", timeout=45)
+        by_alt = {job["alternative"]: job["state"] for job in failed["jobs"]}
+        self.assertEqual({"option-1": "complete", "option-2": "complete", "option-3": "failed"}, by_alt)
+        self.assertEqual({"option-1", "option-2"}, set(self._image_bytes()))
+        self.assertEqual(2, len(set(self._image_bytes().values())))
+        self.call("ai-select", "--beat", "scarcity", "--mode", "economy")
+        self.assertEqual(2, len(self.ai()["versions"]))
+        self.assertEqual(3, len(self.ai()["jobs"]))
+        self.call("ai-select", "--beat", "scarcity", "--mode", "images")
+        again = self.call("ai-generate-comparison", "--beat", "scarcity", "--request-id", "cmp-fail", timeout=30)
+        self.assertEqual([job["id"] for job in failed["jobs"]], [job["id"] for job in again["jobs"]])
+        self.assertEqual(3, self.turn_count())
+        self.env.pop("GETBROLLS_AI_FAIL_IF_PROMPT_CONTAINS")
+        self.env["GETBROLLS_AI_UNKNOWN_IF_PROMPT_CONTAINS"] = "A final drop"
+        unknown = self.call("ai-generate-comparison", "--beat", "scarcity", "--request-id", "cmp-unknown", timeout=45)
+        unknown_job = next(job for job in unknown["jobs"] if job["alternative"] == "option-2")
+        self.assertEqual("unknown", unknown_job["state"])
+        self.assertEqual(
+            {"complete", "unknown"},
+            {job["state"] for job in unknown["jobs"]},
+        )
+        self.env.pop("GETBROLLS_AI_UNKNOWN_IF_PROMPT_CONTAINS")
+        self.env["GETBROLLS_AI_FIXTURE"] = "success"
+        resumed = self.call("ai-resume", "--job", unknown_job["id"])
+        self.assertEqual("unknown", resumed["job"]["state"])
+        self.assertFalse(resumed["resubmitted"])
+        self.assertEqual(6, self.turn_count())
+        self.assertEqual(6, len(self.ai()["jobs"]))
+
+    def test_http_comparison_exposes_slots_and_selection_does_not_approve(self):
+        self.start_server()
+        self.call(
+            "ai-select",
+            "--beat",
+            "scarcity",
+            "--mode",
+            "images",
+            "--alternative",
+            "option-1",
+            "--comment",
+            "No lettering",
+        )
+        expected = self.ai()["beats"]["scarcity"]["fingerprint"]
+        refused, _body = self.http(
+            "/__ai",
+            {
+                "action": "generate",
+                "beat": "scarcity",
+                "expected": expected,
+                "outputs": 3,
+                "nonce": "paid-http",
+                "route": "openrouter",
+            },
+        )
+        self.assertEqual(400, refused)
+        self.assertFalse(self.ai()["jobs"])
+        payload = {
+            "action": "generate",
+            "beat": "scarcity",
+            "expected": expected,
+            "outputs": 3,
+            "nonce": "http-cmp",
+            "comment": "No lettering",
+        }
+        with patch.dict(os.environ, self.env):
+            status, raw = self.http("/__ai", payload)
+        self.assertEqual(200, status, raw)
+        body = json.loads(raw)
+        self.assertEqual(3, len(body["jobs"]))
+        self.assertTrue(all(job["state"] == "complete" for job in body["jobs"]))
+        with patch.dict(os.environ, self.env):
+            self.assertEqual(200, self.http("/__ai", payload)[0])
+        self.assertEqual(3, self.turn_count())
+        state = json.loads(self.http("/__ai/state")[1])
+        beat = next(row for row in state["beats"] if row["id"] == "scarcity")
+        self.assertEqual(3, len(beat["slots"]))
+        self.assertTrue(all(slot["comment"] == "No lettering" for slot in beat["slots"]))
+        hashes = [slot["version"]["sha256"] for slot in beat["slots"]]
+        paths = [slot["version"]["path"] for slot in beat["slots"]]
+        self.assertEqual(3, len(set(hashes)))
+        self.assertEqual(3, len(set(paths)))
+        self.assertTrue(all(path.startswith("previews/") for path in paths))
+        chosen = beat["slots"][1]
+        status, raw = self.http(
+            "/__ai",
+            {"action": "select", "beat": "scarcity", "alternative": chosen["alternative"], "expected": expected},
+        )
+        self.assertEqual(200, status, raw)
+        self.assertEqual(3, len(self.ai()["versions"]))
+        self.assertTrue(all(version["approval"]["state"] == "pending" for version in self.ai()["versions"].values()))
+        decision = {
+            "action": "review",
+            "version": chosen["version"]["id"],
+            "signature": chosen["version"]["signature"],
+            "decision": "approved",
+            "by": "Test editor",
+            "comment": "Chosen slot review note",
+        }
+        self.assertEqual(200, self.http("/__ai", decision)[0])
+        approved = [version for version in self.ai()["versions"].values() if version["approval"]["state"] == "approved"]
+        self.assertEqual([chosen["version"]["id"]], [version["id"] for version in approved])
+        refreshed = json.loads(self.http("/__ai/state")[1])
+        slots = next(row for row in refreshed["beats"] if row["id"] == "scarcity")["slots"]
+        for slot in slots:
+            expected_comment = (
+                "Chosen slot review note" if slot["alternative"] == chosen["alternative"] else "No lettering"
+            )
+            self.assertEqual(expected_comment, slot["comment"])
+        self.assertEqual(3, len(self.ai()["versions"]))
+        self.assertFalse(any((job.get("request") or {}).get("kind") == "video" for job in self.ai()["jobs"].values()))

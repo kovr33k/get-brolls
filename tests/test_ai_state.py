@@ -281,3 +281,125 @@ class AIStateTests(unittest.TestCase):
         self.assertNotIn("still.png", blob)
         self.assertIsNone(public["remote"].get("turnId") if public["remote"] else None)
         self.assertEqual("thr", public["remote"]["threadId"])
+
+    def test_comparison_group_reuses_identity_and_confirms_only_as_a_full_set(self):
+        from getbrolls.ai_state import confirm, launch_comparison
+
+        with self.assertRaisesRegex(ValueError, "images mode"):
+            launch_comparison(self.ledger, {"beat": "beat-1", "outputs": 3}, "cmp-1")
+        self.assertFalse(self.ledger.data["ai"]["jobs"])
+        select(self.ledger, {"beat": "beat-1", "alternative": "option-1", "mode": "images", "comment": "No people"})
+        launched = launch_comparison(self.ledger, {"beat": "beat-1", "outputs": 3}, "cmp-1")
+        jobs = launched["jobs"]
+        self.assertEqual(["option-1", "option-2", "option-3"], [job["request"]["alternative"] for job in jobs])
+        self.assertEqual({1, 2, 3}, {job["request"]["slot"] for job in jobs})
+        self.assertTrue(all(job["request"]["group"] == launched["group"]["id"] for job in jobs))
+        self.assertTrue(all(job["request"]["quality"] == "agreed" for job in jobs))
+        self.assertTrue(all(job["state"] == "queued" and job["submit_outcome"] == "not_sent" for job in jobs))
+        self.ledger.save("ai-generate-comparison")
+        again = launch_comparison(Ledger(self.project), {"beat": "beat-1", "outputs": 3}, "cmp-1")
+        self.assertEqual([job["id"] for job in jobs], [job["id"] for job in again["jobs"]])
+        select(self.ledger, {"beat": "beat-1", "comment": "Changed direction", "mode": "images"})
+        with self.assertRaisesRegex(ValueError, "different frozen"):
+            launch_comparison(self.ledger, {"beat": "beat-1", "outputs": 3}, "cmp-1")
+        self.assertEqual(3, len(self.ledger.data["ai"]["jobs"]))
+        paid = launch_comparison(self.ledger, {"beat": "beat-1", "outputs": 3, "route": "openrouter"}, "paid-cmp")
+        self.assertTrue(all(job["state"] == "awaiting_confirmation" for job in paid["jobs"]))
+        with self.assertRaisesRegex(ValueError, "every still"):
+            confirm(
+                self.ledger,
+                [paid["jobs"][0]["id"]],
+                {paid["jobs"][0]["id"]: paid["jobs"][0]["fingerprint"]},
+                "Editor",
+            )
+        self.assertTrue(all(job["state"] == "awaiting_confirmation" for job in paid["jobs"]))
+        signatures = {job["id"]: job["fingerprint"] for job in paid["jobs"]}
+        confirm(self.ledger, list(signatures), signatures, "Editor")
+        self.assertTrue(all(job["state"] == "queued" and job["submit_outcome"] == "not_sent" for job in paid["jobs"]))
+
+    def test_stale_timing_flag_does_not_advertise_video(self):
+        from getbrolls.ai import public_board
+
+        beat = self.ledger.data["ai"]["beats"]["beat-1"]
+        beat["timing"] = {
+            "readiness": {"resolved": True},
+            "analysis_id": "missing-analysis",
+            "match": {"state": "resolved"},
+        }
+        row = next(item for item in public_board(self.ledger)["beats"] if item["id"] == "beat-1")
+        self.assertFalse(row["video_ready"])
+        self.assertFalse(row["timing"]["resolved"])
+        self.assertNotEqual(["resolved"], row["timing"]["reasons"])
+
+    def test_board_focus_matches_the_selected_comparison_still(self):
+        from getbrolls.ai import public_board, storyboard_section
+        from getbrolls.ai_state import launch_comparison
+
+        select(
+            self.ledger,
+            {"beat": "beat-1", "mode": "images", "alternative": "option-2", "comment": "No people"},
+        )
+        launched = launch_comparison(self.ledger, {"beat": "beat-1", "outputs": 3}, "cmp-focus")
+        ai = self.ledger.data["ai"]
+        for job in launched["jobs"]:
+            alternative = job["request"]["alternative"]
+            version_id = "still-" + alternative
+            version = {
+                "id": version_id,
+                "beat": "beat-1",
+                "kind": "image",
+                "path": "previews/ai-" + version_id + ".png",
+                "sha256": "ab" * 32,
+                "inputs": job["request"]["inputs"],
+                "job": job["id"],
+                "alternative": alternative,
+                "approval": {"state": "approved" if alternative == "option-2" else "pending"},
+            }
+            ai["versions"][version_id] = version
+            job["state"] = "complete"
+            job["result"] = version_id
+        row = next(item for item in public_board(self.ledger)["beats"] if item["id"] == "beat-1")
+        self.assertEqual("still-option-2", row["version"]["id"])
+        self.assertEqual("approved", row["version"]["approval"])
+        page = storyboard_section(self.ledger)
+        self.assertIn('data-ai-version="still-option-2"', page)
+        self.assertIn('data-ai-approval="approved"', page)
+        self.assertIn('data-ai-slot="option-1"', page)
+        self.assertIn('data-ai-approval="pending"', page)
+
+    def test_deleted_or_changed_still_is_not_video_ready(self):
+        from unittest.mock import patch
+
+        from getbrolls.ai import _video_ready, public_board
+
+        preview = self.ledger.root / "previews" / "ai-still-test.png"
+        preview.parent.mkdir(parents=True, exist_ok=True)
+        preview.write_bytes(b"png-bytes")
+        sha = digest(preview)
+        version = {
+            "id": "still-test",
+            "kind": "image",
+            "beat": "beat-1",
+            "inputs": self.ledger.data["ai"]["beats"]["beat-1"]["fingerprint"],
+            "path": "previews/ai-still-test.png",
+            "sha256": sha,
+            "approval": {"state": "approved"},
+        }
+        beat = self.ledger.data["ai"]["beats"]["beat-1"]
+        beat["timing"] = {
+            "readiness": {"resolved": True, "reasons": []},
+            "match": {"state": "resolved"},
+            "analysis_id": "missing-analysis",
+            "still": {"id": "still-test", "sha256": sha},
+        }
+        versions = {"still-test": version}
+        ready = {"resolved": True, "reasons": [], "timing": {"start_s": 0, "end_s": 1}}
+        with patch("getbrolls.ai_timing.current_readiness", return_value=ready):
+            self.assertTrue(_video_ready(self.ledger, beat, versions))
+            preview.write_bytes(b"changed")
+            self.assertFalse(_video_ready(self.ledger, beat, versions))
+            preview.unlink()
+            self.assertFalse(_video_ready(self.ledger, beat, versions))
+        row = next(item for item in public_board(self.ledger)["beats"] if item["id"] == "beat-1")
+        self.assertFalse(row["video_ready"])
+        self.assertFalse(row["timing"]["resolved"])

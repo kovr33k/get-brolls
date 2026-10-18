@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-16
+updated: 2026-10-18
 tags: [get-brolls, quality, qa, evidence]
 ---
 
@@ -55,6 +55,20 @@ Actual local-browser observations cover native file selection, transfer/save and
 ## AI stills — 2026-10-16 (issue #83)
 
 Local public-workflow coverage for economy scene choice and one GPT-subscription still uses a synthetic `codex app-server` transport, synthetic PNG/JPEG and the authenticated loopback Storyboard. That establishes routing, three alternatives, frozen jobs, duplicate request identity, unknown-submit refusal, decoded hashes and exact-still review. It does not establish ChatGPT account entitlement, actual `savedPath` media from a live login, image quality or Resolve acceptance. Those remain a separately authorized pilot.
+
+Three-image comparison reuses that synthetic transport for an explicit three-output launch. Prompt-distinct PNG bytes, partial failure, unknown submit, and Storyboard slot selection are part of the same public CLI/HTTP contract. Current local synthetic checks are recorded in the AI reference revisions entry below. Native Grok image and video are not established: installed streaming-json starts at `tool_call` `pending`, the native session folder and `ToolOutput` shape are not proven equal to the public grok-build tree, and `--model` does not prove the media model. The adapter therefore returns unverified and does not start a process. Caller-supplied account JSON is not entitlement.
+
+Public timing and video workflow tests are synthetic. They use a planted completed analysis, decodable WAV/PNG/MP4 fixtures, and a test-only patch around the refusal point. That public workflow covers explicit timing, bounded preview reuse, clip-bound review, and a frozen video request. It does not establish native media entitlement, installed tool output, or a fail-closed one-call guarantee. The native Grok adapter remains unimplemented: it does not start a process or send a request, and no installation has been accepted as capable. The pre-tool hook fails open on transport, timeout, malformed, ask, and unknown results, so a callback denial alone is not that guarantee. Current local synthetic checks are recorded below.
+
+## AI reference revisions — 2026-10-18 (issue #85)
+
+The focused AI run passes **138 tests with one skip**, including eleven actual loopback HTTP journeys. Synthetic PNG/JPEG/MP4 and the test app-server cover received bytes and hashes, authenticated private previews, Host/Origin/session refusals, malformed inputs, interruption/retry, initial/revision targets, replacement/removal, late video intervals named in ordinary instructions, explicitly shared reference guidance, bound observations and frozen history. The comparison Apply result keeps separate progress/media beside the three retained slots. Node checks cover repeated clicks, late responses, unsent files/drafts, changed targets and reopening exact economy/comparison revisions. These counts overlap the full suite and must not be added to it.
+
+The final full local Windows run passes **1,756 tests in 933.881 seconds with 33 skips**, without failures or errors. Global lint, formatting, types, skill mirror, relative links and both Storyboard JavaScript syntax checks pass. Verification input hashes match at completion; this evidence entry was updated afterwards. Required PR Windows CI remains a separate integration gate.
+
+Actual local-browser observations cover native PNG file selection and transfer, replacement before the first still, saved shared-style context on other AI cards, first synthetic production with saved guidance, exact-still Apply, beat-guidance Remove, retained text on another scene and restoration of the selected economy revision after reopening. The observed 497-pixel viewport has no horizontal overflow. This is a synthetic media/transport exercise; actual GPT reference matching, account entitlement, Grok/OpenRouter production and Resolve acceptance remain the separately authorized provider/Resolve pilot in issue #91.
+
+The broader regression initially found two tests that searched the entire inline HTML/JavaScript for the word `autoplay`, including assignments that disable it. Their corrected checks parse audio/video attributes; a separate regression rejects both `autoplay` and `autoplay="false"`. The two affected public media workflows and that check pass together.
 
 ## What each evidence layer establishes
 

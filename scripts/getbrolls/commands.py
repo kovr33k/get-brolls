@@ -1736,7 +1736,11 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         "ai-plan",
         "ai-select",
         "ai-generate-still",
+        "ai-generate-comparison",
         "ai-approve",
+        "ai-timing",
+        "ai-timing-resolve",
+        "ai-generate-video",
         "ai-resume",
     ):
         if cmd.startswith("ai-"):
@@ -1746,7 +1750,11 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
                 "ai-plan": ai_commands.plan_command,
                 "ai-select": ai_commands.select_command,
                 "ai-generate-still": ai_commands.generate_still_command,
+                "ai-generate-comparison": ai_commands.generate_comparison_command,
                 "ai-approve": ai_commands.approve_command,
+                "ai-timing": ai_commands.timing_command,
+                "ai-timing-resolve": ai_commands.timing_resolve_command,
+                "ai-generate-video": ai_commands.generate_video_command,
                 "ai-resume": ai_commands.resume_command,
             }[cmd](ledger, args)
 

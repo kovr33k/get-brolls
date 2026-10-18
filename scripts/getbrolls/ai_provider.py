@@ -8,6 +8,7 @@ as JSONL (one object per line, envelope omits jsonrpc) and treats only an
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import queue
@@ -40,6 +41,31 @@ QUOTA = "quota"
 UNKNOWN = "unknown"
 FAILED = "failed"
 COMPLETE = "complete"
+IMAGE_DETAILS = frozenset({"auto", "low", "high", "original"})
+INSPECTION_OVERRIDE = "features.image_generation=false"
+INSPECTION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["observations"],
+    "properties": {
+        "observations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["id", "order", "role", "sha256", "observation"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "order": {"type": "integer", "minimum": 1},
+                    "role": {"type": "string"},
+                    "sha256": {"type": "string"},
+                    "observation": {"type": "string"},
+                },
+            },
+        },
+    },
+}
 
 _TURN_EVENTS = frozenset({"item/started", "item/completed", "turn/started", "turn/completed"})
 _OVERSIZED = "Native app-server line exceeds the bounded JSONL size."
@@ -284,7 +310,7 @@ class AppServer:
             self._inbox_put(None if closed else exc)
 
 
-def _command():
+def _command(*, inspection=False):
     override = os.environ.get(APP_SERVER_ENV)
     if any(os.environ.get(name) for name in TEST_ENV) and not override:
         raise ValueError("Test fixture env is set but GETBROLLS_CODEX_APP_SERVER is missing.")
@@ -292,11 +318,27 @@ def _command():
         path = Path(override)
         if not path.is_file():
             raise ValueError("GETBROLLS_CODEX_APP_SERVER does not point to an executable fixture.")
-        return [sys.executable, str(path)] if path.suffix.lower() == ".py" else [str(path)]
-    binary = shutil.which("codex")
-    if not binary:
-        raise ValueError("Codex CLI is not installed; GPT subscription stills cannot run.")
-    return [binary, "app-server", "--stdio"]
+        command = [sys.executable, str(path)] if path.suffix.lower() == ".py" else [str(path)]
+    else:
+        binary = shutil.which("codex")
+        if not binary:
+            raise ValueError("Codex CLI is not installed; GPT subscription stills cannot run.")
+        command = [binary, "app-server", "--stdio"]
+    if inspection:
+        return _inspection_command(command)
+    return command
+
+
+def _inspection_command(command):
+    """Process-only image-generation disable. This does not write user configuration."""
+    flag = ["-c", INSPECTION_OVERRIDE]
+    executable = Path(command[0]).name.lower()
+    if executable.startswith("python"):
+        return [*command, "--", *flag]
+    if "app-server" in command:
+        index = command.index("app-server")
+        return [*command[:index], *flag, *command[index:]]
+    return [command[0], *flag, *command[1:]]
 
 
 def _spawn(command, workdir):
@@ -573,6 +615,32 @@ def _read_capabilities(session):
     }
 
 
+def _read_inspection_gate(session):
+    """Confirm the process override before any inspection thread. outputSchema is not this gate."""
+    error, message = _rpc(session, "config/read", {"includeLayers": False}, "config")
+    if error:
+        return {
+            "status": UNSUPPORTED,
+            "error": "Inspection could not verify that image generation is disabled. Nothing was submitted.",
+            "code": "inspection_gate",
+            "media": False,
+        }
+    raw_result = message.get("result")
+    result = raw_result if isinstance(raw_result, dict) else {}
+    raw_config = result.get("config")
+    config = raw_config if isinstance(raw_config, dict) else {}
+    raw_features = config.get("features")
+    features = raw_features if isinstance(raw_features, dict) else {}
+    if features.get("image_generation") is not False:
+        return {
+            "status": UNSUPPORTED,
+            "error": "Image generation is still available. Inspection was not submitted.",
+            "code": "inspection_gate",
+            "media": False,
+        }
+    return None
+
+
 def _start_thread(session, workdir):
     error, message = _rpc(
         session,
@@ -603,19 +671,122 @@ def _watch_turn(session, thread, turn):
             return outcome
 
 
-def _run_turn(session, thread, prompt, on_submitted, state):
+def _prepare_images(images):
+    """Turn caller image records into localImage items. A name in text is not an item."""
+    if images is None:
+        return []
+    if not isinstance(images, list):
+        raise ValueError("Local image inputs must be a list of files.")
+    prepared = []
+    for image in images:
+        if not isinstance(image, dict):
+            raise ValueError("Each local image input must name a path.")
+        raw = image.get("path")
+        if not isinstance(raw, str) or not raw.strip() or "\0" in raw:
+            raise ValueError("A local image input needs an actual file path.")
+        path = Path(raw)
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("A local image input is missing or is not a regular file.")
+        item = {"type": "localImage", "path": str(path.resolve())}
+        detail = image.get("detail")
+        if detail is not None:
+            if detail not in IMAGE_DETAILS:
+                raise ValueError("Image detail must be auto, low, high, or original.")
+            item["detail"] = detail
+        prepared.append(item)
+    return prepared
+
+
+def _turn_input(prompt, images):
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ValueError("The native turn needs the instruction text.")
+    return [{"type": "text", "text": prompt}, *images]
+
+
+def _surprise_media(item, remote):
+    """Account for generated media. Detecting it is not a no-generation gate and does not approve it."""
+    saved = item.get("savedPath")
+    path = None
+    digest = None
+    if isinstance(saved, str) and saved and "\0" not in saved:
+        candidate = Path(saved)
+        try:
+            if candidate.is_file() and not candidate.is_symlink():
+                data = candidate.read_bytes()
+                path = str(candidate.resolve())
+                digest = hashlib.sha256(data).hexdigest()
+        except OSError:
+            path = None
+            digest = None
+    return {
+        "status": FAILED,
+        "error": "Inspection observed generated media. The file is unreviewed and was not approved.",
+        "code": "inspection_media",
+        "remote": remote,
+        "media": True,
+        "generated": True,
+        "path": path,
+        "sha256": digest,
+    }
+
+
+def _watch_findings(session, thread, turn):
+    """Read one inspection turn. A generated image stays a failed, unreviewed artifact."""
+    remote = {"threadId": thread, "turnId": turn}
+    texts = []
+    while True:
+        message = session.read()
+        if not _relevant(message, thread, turn):
+            continue
+        method = message.get("method")
+        if method == "item/completed":
+            item = _item(message) or {}
+            if item.get("type") == "imageGeneration":
+                return _surprise_media(item, remote)
+            if item.get("type") == "agentMessage" and isinstance(item.get("text"), str):
+                texts.append(item["text"])
+            continue
+        if method != "turn/completed":
+            continue
+        turn_obj = _params(message).get("turn")
+        if not isinstance(turn_obj, dict):
+            return {
+                "status": FAILED,
+                "error": "The inspection turn ended without findings.",
+                "code": "inspection_empty",
+                "remote": remote,
+                "media": False,
+            }
+        if turn_obj.get("status") != "completed":
+            failed = _terminal_turn(turn_obj, remote)
+            failed["media"] = False
+            return failed
+        if not texts:
+            return {
+                "status": FAILED,
+                "error": "The inspection turn completed without findings for the attached images.",
+                "code": "inspection_empty",
+                "remote": remote,
+                "media": False,
+            }
+        return {"status": COMPLETE, "findings": texts[-1], "remote": remote, "media": False}
+
+
+def _run_turn(session, thread, turn):
+    prompt = turn["prompt"]
+    images = turn["images"]
+    output_schema = turn["output_schema"]
+    expect = turn["expect"]
+    on_submitted = turn["on_submitted"]
+    state = turn["state"]
     remote = {"threadId": thread}
     state["submitted"] = True
     state["remote"] = remote
+    params = {"threadId": thread, "input": _turn_input(prompt, images), "approvalPolicy": "never"}
+    if output_schema is not None:
+        params["outputSchema"] = output_schema
     try:
-        turn_req = session.request(
-            "turn/start",
-            {
-                "threadId": thread,
-                "input": [{"type": "text", "text": prompt}],
-                "approvalPolicy": "never",
-            },
-        )
+        turn_req = session.request("turn/start", params)
     except (_TransportEndedError, _DeadlineExceededError, OSError, ValueError):
         _call_on_submitted(on_submitted, remote)
         return _uncertain(remote)
@@ -629,31 +800,64 @@ def _run_turn(session, thread, prompt, on_submitted, state):
         remote = {"threadId": thread, "turnId": turn}
         state["remote"] = remote
         _call_on_submitted(on_submitted, remote)
+    if expect == "findings":
+        return _watch_findings(session, thread, turn)
     return _watch_turn(session, thread, turn)
 
 
-def _run_session(session, prompt, workdir, on_submitted, state):
-    error = _initialize(session) or _read_account(session) or _read_capabilities(session)
+def _run_session(session, workdir, turn):
+    error = _initialize(session) or _read_account(session)
     if error:
         return error
+    if turn["expect"] == "still":
+        error = _read_capabilities(session)
+        if error:
+            return error
+    else:
+        error = _read_inspection_gate(session)
+        if error:
+            return error
     thread, error = _start_thread(session, workdir)
     if error:
         return error
-    return _run_turn(session, thread, prompt, on_submitted, state)
+    return _run_turn(session, thread, turn)
 
 
-def generate_still(prompt, workdir, *, timeout: float = TIMEOUT_S, on_submitted=None):
-    """Run one bounded native still. Never falls back to a paid API."""
+def _execute(prompt, workdir, options):
+    images = options.get("images")
+    output_schema = options.get("output_schema")
+    expect = options.get("expect")
+    timeout = options.get("timeout")
+    on_submitted = options.get("on_submitted")
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
+    prepared = _prepare_images(images)
+    if expect == "findings" and not prepared:
+        return {
+            "status": FAILED,
+            "error": "Inspection needs the actual image files. Nothing was submitted.",
+            "code": "missing_images",
+            "media": False,
+        }
     try:
-        proc = _spawn(_command(), workdir)
+        proc = _spawn(_command(inspection=expect == "findings"), workdir)
     except OSError as exc:
         return {"status": FAILED, "error": redact(str(exc)), "code": "spawn"}
     session = AppServer(proc, timeout=timeout)
     state = {"submitted": False, "remote": {}}
     try:
-        return _run_session(session, prompt, workdir, on_submitted, state)
+        return _run_session(
+            session,
+            workdir,
+            {
+                "prompt": prompt,
+                "images": prepared,
+                "output_schema": output_schema,
+                "expect": expect,
+                "on_submitted": on_submitted,
+                "state": state,
+            },
+        )
     except (
         _TransportEndedError,
         _DeadlineExceededError,
@@ -667,3 +871,33 @@ def generate_still(prompt, workdir, *, timeout: float = TIMEOUT_S, on_submitted=
         return _failed_transport(exc)
     finally:
         session.close()
+
+
+def generate_still(prompt, workdir, *, images=None, timeout: float = TIMEOUT_S, on_submitted=None):
+    """Run one bounded native still. Image files travel as localImage items, never as a fallback provider."""
+    return _execute(
+        prompt,
+        workdir,
+        {
+            "images": images,
+            "output_schema": None,
+            "expect": "still",
+            "timeout": timeout,
+            "on_submitted": on_submitted,
+        },
+    )
+
+
+def inspect_images(prompt, workdir, images, *, timeout: float = TIMEOUT_S, on_submitted=None):
+    """One bounded inspection turn. It must not be treated as media generation."""
+    return _execute(
+        prompt,
+        workdir,
+        {
+            "images": images,
+            "output_schema": INSPECTION_SCHEMA,
+            "expect": "findings",
+            "timeout": timeout,
+            "on_submitted": on_submitted,
+        },
+    )
