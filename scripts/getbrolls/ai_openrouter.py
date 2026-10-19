@@ -338,7 +338,8 @@ def _failure(exc, *, sent=False, remote=None):
         exc.close()
         status = "unknown" if sent and number >= HTTPStatus.INTERNAL_SERVER_ERROR else "failed"
         code = "auth" if number in {401, 403} else "quota" if number in {402, 429} else "http"
-        message = f"OpenRouter media rejected (HTTP {number}). No retry or billing fallback."
+        outcome = "submission is uncertain" if status == "unknown" else "request was rejected"
+        message = f"OpenRouter {outcome} (HTTP {number}). No retry or billing fallback."
     return {
         "status": status,
         "code": code,

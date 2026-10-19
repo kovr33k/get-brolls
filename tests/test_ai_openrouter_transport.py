@@ -80,6 +80,8 @@ class OpenRouterTransportTests(unittest.TestCase):
                 before = len(self.calls)
                 result = self.produce()
                 self.assertEqual(expected, result["status"])
+                if expected == "unknown":
+                    self.assertIn("uncertain", result["error"])
                 self.assertEqual(before + 1, len(self.calls))
                 self.assertNotIn("private", str(result))
                 self.assertNotIn("hostile", str(result))
