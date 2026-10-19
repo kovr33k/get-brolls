@@ -267,6 +267,10 @@ def validate_ai(data):
 
 
 def _validate_native_video(ai):
+    if "openrouter" in ai:
+        from .ai_openrouter import setup
+
+        setup(ai["openrouter"])
     raw = ai.get("native_video", None)
     if raw is None:
         return
@@ -359,6 +363,10 @@ def import_plan(ledger, payload):
         else:
             working["native_video"] = chosen
     _import_still_provider(working, payload)
+    if "openrouter" in payload:
+        from .ai_openrouter import setup
+
+        working["openrouter"] = setup(payload["openrouter"])
     ledger.data["ai"] = working
     ledger.save("ai-plan")
     return {"beats": len(routing), "ai_beats": len(active), "default_mode": "economy"}
@@ -607,11 +615,11 @@ def _session_id(nonce, material):
     return str(uuid.UUID(fingerprint({"nonce": nonce, "material": material})[:32]))
 
 
-def _ordinary_references(ledger, beat, nonce, route):
+def _ordinary_references(ledger, beat, nonce, route, *, allow_paid=False):
     """Beat-level guidance frozen into this launch. Empty when the beat has none."""
     from .ai_references import freeze_ordinary_guidance
 
-    return freeze_ordinary_guidance(ledger, beat, nonce, route)
+    return freeze_ordinary_guidance(ledger, beat, nonce, route, allow_paid=allow_paid)
 
 
 def _native_image_output(ledger):
@@ -641,7 +649,7 @@ def _apply_comment(beat, payload, comment, selected=None):
         beat["selected"] = selected
 
 
-def launch_still(ledger, payload, nonce):
+def launch_still(ledger, payload, nonce, *, paid=None):
     beat = beat_for(ledger, payload.get("beat"), payload.get("expected") or payload.get("inputs"))
     if beat.get("mode") != "economy":
         raise ValueError(
@@ -654,12 +662,14 @@ def launch_still(ledger, payload, nonce):
         raise ValueError("Select a scene alternative before generating a still.")
     alternative = next(row for row in beat["alternatives"] if row["id"] == selected)
     style, style_prompt, quality = _agreed_style(ledger)
-    route, model = _image_route(
-        payload, allow_openrouter=False, setup=(ledger.data.get("ai") or {}).get("still_provider")
+    route, model = (
+        ("openrouter", paid["model"])
+        if paid
+        else _image_route(payload, allow_openrouter=False, setup=(ledger.data.get("ai") or {}).get("still_provider"))
     )
     comment = _launch_comment(beat, payload)
     nonce = text(nonce, "Request identity", 160)
-    references = _ordinary_references(ledger, beat, nonce, route)
+    references = _ordinary_references(ledger, beat, nonce, route, allow_paid=bool(paid))
     _apply_comment(beat, payload, comment, selected)
     request = {
         "beat": beat["id"],
@@ -679,7 +689,9 @@ def launch_still(ledger, payload, nonce):
     }
     if references:
         request["references"] = references
-    if model:
+    if paid:
+        request.update(model=model, resolution=paid["resolution"], paid=paid)
+    elif model:
         request.update(_native_image_output(ledger))
         request["model"] = model
         request["tool"] = "image_edit" if references else "image_gen"
@@ -734,7 +746,9 @@ def _comparison_request(beat, row, scope, binding):
     }
     if references:
         request["references"] = references
-    if model:
+    if scope.get("paid"):
+        request.update(model=model, resolution=scope["resolution"], paid=scope["paid"])
+    elif model:
         request.update({key: scope[key] for key in ("aspect_ratio", "resolution") if key in scope})
         request["model"] = model
         request["tool"] = "image_edit" if references else "image_gen"
@@ -791,7 +805,7 @@ def _freeze_comparison(ledger, beat, scope, nonce):
     return {"group": group, "jobs": jobs}
 
 
-def launch_comparison(ledger, payload, nonce):
+def launch_comparison(ledger, payload, nonce, *, paid=None):
     """Freeze exactly three still jobs. The caller must pass outputs=3; mode selection alone does not launch."""
     if (
         not isinstance(payload, dict)
@@ -805,14 +819,18 @@ def launch_comparison(ledger, payload, nonce):
             "Switch to images mode before the explicit three-still launch. Economy mode generates one still."
         )
     nonce = text(nonce, "Request identity", GROUP_NONCE_LIMIT)
-    route, model = _image_route(
-        payload, allow_openrouter=True, setup=(ledger.data.get("ai") or {}).get("still_provider")
+    route, model = (
+        ("openrouter", paid["model"])
+        if paid
+        else _image_route(payload, allow_openrouter=True, setup=(ledger.data.get("ai") or {}).get("still_provider"))
     )
     agreed = _agreed_style(ledger)
     comment = _launch_comment(beat, payload)
-    references = _ordinary_references(ledger, beat, nonce, route)
+    references = _ordinary_references(ledger, beat, nonce, route, allow_paid=bool(paid))
     scope = _comparison_scope(beat, agreed, comment, (route, model), references)
-    if model:
+    if paid:
+        scope.update(paid=paid, resolution=paid["resolution"])
+    elif model:
         scope.update(_native_image_output(ledger))
     saved = _saved_comparison(state(ledger.data), nonce, fingerprint(scope))
     if saved:
@@ -899,6 +917,14 @@ def public_job(job):
     for name in ("group", "slot", "mode"):
         if name in request and request.get(name) is not None:
             public[name] = request.get(name)
+    if request.get("route") == "openrouter" and request.get("paid"):
+        from .ai_openrouter import public_launch
+
+        public["paid"] = public_launch(job)
+        remote = job.get("remote") or {}
+        public["recoverable"] = bool(
+            remote.get("requestId") or (remote.get("artifact") and remote.get("artifact_sha256"))
+        )
     return public
 
 

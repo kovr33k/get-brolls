@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-18
+updated: 2026-10-19
 tags: [get-brolls, quality, qa, evidence]
 ---
 
@@ -97,6 +97,12 @@ A separate real project received exact-version chat approvals for an image-guide
 The acceptance scope was explicitly amended to remove an additional human video-reference demonstration. Video upload/persistence, requested intervals, actual inclusion, retained direction, shared scope and recovery remain covered by the existing automated/browser/native evidence. General cinematic video-style correspondence is not claimed as human-accepted. The [checkpoint](GRAPHICS-REFERENCES-ACCEPTANCE.md) preserves this boundary for all 55 stories and 13 criteria.
 
 Required [Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/38971486563) passed for executable revision `7e54263`: **1,635 tests, 26 skips, no failures, 1,245.798 seconds**, plus the maintained tooling checks, with a matching verification tree. The final documentation-only PR revision still requires its own required check before integration. Separate AI-generation changes are outside this evidence.
+
+## OpenRouter paid media — 2026-10-19 (issue #87)
+
+Dedicated image/video adapters share durable AI jobs, saved originals, exact human review and GET-only known-video recovery. Storyboard separates preparation from confirmation and displays frozen model, prompt, reference/first-frame identity, recorded interval, sound, output count and estimated or explicitly unknown cost. Subscription actions never select this paid route. Automated checks use synthetic media and mocked HTTP: one/three-image scopes, partial failure, exact first-frame and interval-reference bytes, duplicate/lost responses, changed inputs, revoked approval, download recovery, invalid output, credential/redirect boundaries and read-only refresh. A browser fixture also checks restored confirmation, exact three-output consent and preservation of later drafts. Initial reference validation was corrected to use separate temporary staging, preserving worker write-once filenames.
+
+Official dedicated API documentation and public model metadata were checked on this date; example profiles are described in [GUIDE](GUIDE.md#explicit-paid-openrouter-launches). Public metadata GETs establish the advertised wire/capability contract only. No paid generation, spending, actual OpenRouter account entitlement, real reference fidelity or Resolve use was exercised. Native Grok live evidence below remains bounded to its own route and is not OpenRouter acceptance. Final required Windows checks must cover the submitted revision; complete production acceptance remains issue #91.
 
 ## Grok OAuth media — 2026-10-18 (issue #86)
 

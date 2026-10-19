@@ -341,7 +341,7 @@ def reference_prompt_lines(summaries):
     return lines
 
 
-def freeze_ordinary_guidance(ledger, beat, nonce, route):
+def freeze_ordinary_guidance(ledger, beat, nonce, route, *, allow_paid=False):
     """Freeze active beat-level guidance for an ordinary launch. No job is created.
 
     An empty list means this beat has no active guidance. Still-bound guidance is
@@ -355,13 +355,17 @@ def freeze_ordinary_guidance(ledger, beat, nonce, route):
         raise ValueError(_STILL_BOUND)
     active = _exact_active(store, _target_key(beat.get("id"), beat.get("fingerprint"), None))
     if active is None:
-        return freeze_shared_guidance(ledger, beat, nonce, route)
+        return freeze_shared_guidance(ledger, beat, nonce, route, allow_paid=allow_paid)
     still = active.get("still")
     if isinstance(still, dict) and still.get("id"):
         raise ValueError(_STILL_BOUND)
     if active.get("beat") != beat.get("id") or active.get("fingerprint") != beat.get("fingerprint"):
         raise ValueError(_STALE_GUIDANCE)
-    if route not in {"gpt-subscription", "grok-subscription"}:
+    if route not in (
+        {"gpt-subscription", "grok-subscription", "openrouter"}
+        if allow_paid
+        else {"gpt-subscription", "grok-subscription"}
+    ):
         raise ValueError(_UNSUPPORTED_ROUTE)
     _require_launch_video(store, active)
     identity = "frz-" + fingerprint({"nonce": nonce, "context": active["id"]})[:40]
@@ -369,7 +373,10 @@ def freeze_ordinary_guidance(ledger, beat, nonce, route):
         ledger,
         {"beat": beat["id"], "fingerprint": beat["fingerprint"], "identity": identity},
     )
-    return [job_reference(frozen), *freeze_shared_guidance(ledger, beat, nonce, route, exclude={active["id"]})]
+    return [
+        job_reference(frozen),
+        *freeze_shared_guidance(ledger, beat, nonce, route, exclude={active["id"]}, allow_paid=allow_paid),
+    ]
 
 
 def shared_guidance(ledger, *, exclude=()):
@@ -385,11 +392,15 @@ def shared_guidance(ledger, *, exclude=()):
     return rows
 
 
-def freeze_shared_guidance(ledger, beat, nonce, route, *, exclude=()):
+def freeze_shared_guidance(ledger, beat, nonce, route, *, exclude=(), allow_paid=False):  # noqa: PLR0913 - explicit paid preparation policy and shared-source exclusions remain distinct.
     """Freeze shared style without attaching it to another beat or approving media."""
     beat_for(ledger, beat.get("id"), beat.get("fingerprint"))
     rows = shared_guidance(ledger, exclude=exclude)
-    if rows and route not in {"gpt-subscription", "grok-subscription"}:
+    if rows and route not in (
+        {"gpt-subscription", "grok-subscription", "openrouter"}
+        if allow_paid
+        else {"gpt-subscription", "grok-subscription"}
+    ):
         raise ValueError(_UNSUPPORTED_ROUTE)
     result = []
     for row in rows:

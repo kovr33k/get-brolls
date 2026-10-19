@@ -2,13 +2,15 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-18
+updated: 2026-10-19
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+- OpenRouter media: prepare and explicitly confirm each one-image, three-image comparison or exact-approved-first-frame video launch in Storyboard. Freeze model, references, recorded timing, sound, output scope and provider estimate or unknown cost before any generation POST. Keep subscription buttons separate; preserve partial results, exact reviews and version history. Recover known video handles with GET only; unknown submissions never re-POST. Validate actual saved media and protect API keys, signed downloads, redirect failures and read-only state.
 
 - Grok OAuth media: generate subscription stills, comparisons and exact-image revisions through the retained xAI OAuth account, and animate only approved first-frame bytes with intact narration timing. Freeze route/model/profile/tool; preserve actual originals and reference-input hashes. One media POST per job, no static-key or endpoint fallback, no unknown-submit retry. Resume known video requests with GET only, and recover retained originals without another generation. Distinguish embedded cover art from moving-video streams; keep actual dimensions, frame rate, audio, quality shortfalls and separate still/video decisions visible.
 

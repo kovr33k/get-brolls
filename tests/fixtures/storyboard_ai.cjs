@@ -1809,7 +1809,43 @@ async function drain() {
   await drain();
   assert.equal(posted(changedReferenceTarget.world, "reference-remove").length, 0, "Navigation cannot remove another still's reference");
 
-  console.log("AI storyboard edits stay local until an explicit still launch, and review keeps the displayed version");
+  const paid = run({ live: true, boardCards: [aiCard({ alternatives: ["option-1", "option-2", "option-3"] })] });
+  paid.world.state.openrouter = { image: { model: "test/image", resolution: "2K" } };
+  paid.world.state.jobs = [1, 2, 3].map((slot) => ({
+    id: "paid-" + slot, beat: "beat-1", kind: "image", route: "openrouter", group: "paid-group",
+    state: "awaiting_confirmation", alternative: "option-" + slot,
+    paid: { model: "test/image", fingerprint: "paid-fp-" + slot, prompt: "Frozen prompt " + slot, estimate: { usd: null } },
+  }));
+  await drain();
+  paid.advance(1000);
+  await drain();
+  const paidBox = paid.card.querySelector("[data-ai-paid]");
+  assert.equal(paidBox.querySelector("[data-ai-paid-image]").disabled, false);
+  assert.equal(paidBox.querySelector("[data-ai-paid-video]").disabled, true);
+  const confirmation = paidBox.querySelector("[data-ai-paid-confirm]");
+  assert.ok(paidBox.textContent.includes("3 image output(s)"));
+  assert.ok(paidBox.textContent.includes("Estimate unknown"));
+  assert.ok(paidBox.textContent.includes("Frozen prompt 3"));
+  assert.equal(posted(paid.world, "confirm-paid").length, 0, "Restoring prepared scope never authorizes spending");
+  paid.card.querySelector("[data-ai-comment]").value = "An unsent later draft";
+  paid.card.querySelector("[data-ai-comment]").dispatchEvent({ type: "input" });
+  confirmation.click();
+  confirmation.click();
+  await drain();
+  const confirmed = posted(paid.world, "confirm-paid");
+  assert.equal(confirmed.length, 1, "Double click must confirm the one frozen group once");
+  assert.deepEqual(Array.from(confirmed[0].body.jobs), ["paid-1", "paid-2", "paid-3"]);
+  assert.equal(confirmed[0].body.signatures["paid-3"], "paid-fp-3");
+  assert.equal(paid.card.querySelector("[data-ai-comment]").value, "An unsent later draft");
+  assert.equal(posted(paid.world, "generate").length, 0, "Paid confirmation cannot invoke a subscription launch");
+  paidBox.querySelector("[data-ai-paid-image]").click();
+  await drain();
+  assert.equal(posted(paid.world, "prepare-paid").length, 1);
+  assert.equal(posted(paid.world, "prepare-paid")[0].body.comment, "An unsent later draft");
+  const portablePaid = run({ live: false });
+  assert.equal(portablePaid.card.querySelector("[data-ai-paid-image]").disabled, true);
+
+  console.log("AI storyboard edits, exact paid confirmations and retained versions preserve local drafts");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

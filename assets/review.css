@@ -122,3 +122,8 @@ a.source-link-card:hover{border-color:var(--accent)}
   .print-notes img{display:inline-block;vertical-align:top;width:auto;max-width:240px;height:auto;max-height:260px;object-fit:contain;margin:0 10px 10px 0}
   .print-notes a{color:black}
 }
+
+/* Keep frozen paid-launch details readable on narrow Storyboard cards. */
+[data-ai-paid] { margin-top: 1rem; border-top: 1px solid var(--border, #666); padding-top: .75rem; }
+[data-ai-paid] button { margin: .25rem .5rem .25rem 0; }
+[data-ai-paid] pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; font-size: .8rem; }

@@ -93,7 +93,7 @@ def resolve_timing(ledger, beat_id, analysis_id, review):
     return public_timing(timing)
 
 
-def launch_video(ledger, payload, nonce):
+def launch_video(ledger, payload, nonce, *, paid=None):
     if not isinstance(payload, dict):
         raise ValueError("The video launch must name the approved still and frozen native tool.")
     beat = beat_for(ledger, payload.get("beat"), payload.get("expected") or payload.get("inputs"))
@@ -111,9 +111,9 @@ def launch_video(ledger, payload, nonce):
     if bound and (bound.get("id") != version["id"] or bound.get("sha256") != version["sha256"]):
         raise ValueError("The resolved interval is bound to a different still.")
     timing["still"] = {"id": version["id"], "sha256": version["sha256"]}
-    model, tool = _freeze_native_choice(ledger, payload)
-    resolution = payload.get("resolution") or "480p"
-    if resolution not in RESOLUTIONS:
+    model, tool = (paid["model"], "image_to_video") if paid else _freeze_native_choice(ledger, payload)
+    resolution = paid["resolution"] if paid else payload.get("resolution") or "480p"
+    if not paid and resolution not in RESOLUTIONS:
         raise ValueError("Native video resolution is 480p or 720p. That is not native Full HD.")
     sound = _sound(payload)
     interval = ready["timing"]
@@ -123,6 +123,7 @@ def launch_video(ledger, payload, nonce):
     requested = (
         6 if length <= _SHORT_INTERVAL_S else 10 if tool == "image_to_video" else min(15, max(1, math.floor(length)))
     )
+    requested = paid["duration"] if paid else requested
     style = (ledger.data.get("ai") or {}).get("style") or {}
     style_prompt = (
         text(style.get("prompt"), "Agreed AI visual style") if isinstance(style, dict) and style.get("prompt") else ""
@@ -138,7 +139,7 @@ def launch_video(ledger, payload, nonce):
         "beat": beat["id"],
         "inputs": beat["fingerprint"],
         "kind": "video",
-        "route": "grok-subscription",
+        "route": "openrouter" if paid else "grok-subscription",
         "model": model,
         "tool": tool,
         "resolution": resolution,
@@ -163,6 +164,8 @@ def launch_video(ledger, payload, nonce):
         ),
         "session_id": str(uuid.UUID(fingerprint({"nonce": nonce, "still": version["sha256"]})[:32])),
     }
+    if paid:
+        request["paid"] = paid
     return new_job(ledger, request, nonce)
 
 
@@ -685,7 +688,7 @@ def _video_prompt(style_prompt, quality, policy):
     requested = policy["requested"]
     lines = [
         "Generate one video whose first frame is exactly the supplied still. Do not create a new starting image.",
-        f"Requested duration: {requested}s. Requested resolution: {resolution}. This 480p or 720p request is not native Full HD.",
+        f"Requested duration: {requested}s. Requested resolution: {resolution}. Measure actual output; do not claim upscale as native Full HD.",
         "Agreed visual style: " + style_prompt,
         "Agreed quality: " + quality,
         "Motion: " + motion,

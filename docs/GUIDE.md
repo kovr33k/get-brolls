@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-18
+updated: 2026-10-19
 tags: [get-brolls, guide, installation, providers, storyboard, graphics, ai]
 ---
 
@@ -1313,6 +1313,27 @@ Active guidance persists across text-only revisions until explicitly replaced or
 References default to **This beat**. Choose **Shared style** only when explicitly requesting project-wide AI guidance; its scope instruction is retained, and future explicit image launches on other AI beats also use that reference. The original owner, media, still binding and frozen history stay intact. Shared-reference notes appear on the other AI cards; manage the attachment in its original scene. Uploading does not regenerate other scenes or approve any media. Removing the shared source removes it from later launches while retaining earlier job inputs.
 
 Public tests use a synthetic native-transport fixture and synthetic PNG/JPEG/MP4. That is not live ChatGPT entitlement, image quality or Resolve acceptance. Do not run `codex login`/`logout` or paid image jobs from this workflow until a separately authorized pilot.
+
+### Explicit paid OpenRouter launches
+
+OpenRouter is a separate paid choice. Keep `OPENROUTER_API_KEY` in the private environment or `.env`, never in an AI plan. Add explicit model profiles to that plan before running `ai-plan`; for example:
+
+```json
+"openrouter": {
+  "image": {"model": "bytedance-seed/seedream-4.5", "resolution": "2K"},
+  "video": {"model": "google/veo-3.1", "resolution": "1080p", "duration": 6}
+}
+```
+
+These are example model choices, not access or quality guarantees. Preparation checks current public model/endpoint capabilities and freezes the requested profile. Normal subscription buttons keep their existing route; subscription errors never press the paid buttons. Missing configuration stays unavailable.
+
+In Storyboard, **Prepare paid still launch** freezes one selected economy image or all three comparison alternatives. **Prepare paid video launch** requires an exact approved still and resolved recorded narration; it freezes that first frame, narration identity/interval, motion, sound flags, model, duration and resolution. Preparation performs capability GETs only. Inspect the displayed frozen prompt, reference identities, profile, output count and estimate, then use **Confirm this paid …-output launch**. A simple image-unit tariff can yield a provider estimate; tiered/token/video or absent pricing remains explicitly unknown. An estimate is not a spending cap. Changed/later launches require their own confirmation. Reloading or viewing a prepared launch never confirms it; duplicate preparation/confirmation reuses the intended jobs. Completed and failed attempts remain in history.
+
+The adapter uses the dedicated [Images API](https://openrouter.ai/docs/api/api-reference/images/generate-an-image) and [Videos API](https://openrouter.ai/docs/api/api-reference/video-generation/submit-a-video-generation-request). Three alternatives are three separately journaled one-image requests under one three-output confirmation, retaining partial results. Image/interval-frame references are frozen and staged as actual pixels; raw reference videos are not sent. An advertised input-count/profile shortfall blocks the launch instead of dropping guidance. Video uses `frame_images` with `first_frame`, preserving the exact approved original bytes. Scene soundtrack and project narration remain separate, and still approval never approves a resulting video.
+
+Known video requests can use **Recover saved video; no new generation** or `ai-resume --project PROJECT --job JOB_ID`. This polls and retrieves the retained handle without another generation POST. Unknown submissions with no handle remain uncertain and cannot auto-regenerate. The [current retrieval contract](https://openrouter.ai/docs/api/api-reference/video-generation/poll-video-generation-status) distinguishes authenticated content from signed URLs: credentials go only to the fixed API origin and the locally constructed content path for that handle; signed downloads use no bearer. Redirects are refused. Keys, remote error bodies and signed URLs stay out of public state and logs. Actual local decoding/hash/dimensions/duration/FPS/audio determine reviewability; requested 1080p does not turn smaller output into native Full HD. Review each retained result explicitly.
+
+This implementation has synthetic/mocked transport and browser checks. It does not establish paid account access, real OpenRouter quality/reference fidelity, multi-clip coverage or Resolve acceptance. Live spending requires a separately authorized concrete pilot.
 
 ## Storyboard
 

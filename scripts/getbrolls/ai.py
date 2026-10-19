@@ -14,6 +14,7 @@ import uuid
 from html import escape
 from pathlib import Path
 
+from .ai_openrouter import retrievable as _openrouter_retrievable
 from .ai_provider import APP_SERVER_ENV, COMPLETE, TIMEOUT_S, generate_still, inspect_images
 from .ai_state import (
     ALTERNATIVE_COUNT,
@@ -507,6 +508,7 @@ def public_board(ledger):
         "native_video": _native_video_status(ai),
         "still_provider": ai.get("still_provider") or {"route": "gpt-subscription", "model": None},
         "shared_references": _shared_reference_cards(ledger),
+        "openrouter": ai.get("openrouter") or {},
     }
 
 
@@ -694,7 +696,9 @@ def resume_command(ledger, args):
         ledger.save("ai-resume-unknown")
         return {"job": public_job(job), "resubmitted": False}
     if (
-        (_recorded_artifact(job) and (job.get("remote") or {}).get("artifact_sha256")) or _grok_retrievable(job)
+        (_recorded_artifact(job) and (job.get("remote") or {}).get("artifact_sha256"))
+        or _grok_retrievable(job)
+        or _openrouter_retrievable(job)
     ) and job.get("state") in {"remote_pending", "downloading", "unknown", "failed"}:
         return {
             "job": public_job(job),
@@ -2489,11 +2493,7 @@ def _produce_worker(project, job_id):  # noqa: C901 - Dispatch retains separate 
     request = job.get("request") or {}
     route = request.get("route")
     kind = request.get("kind")
-    if (
-        route == "openrouter"
-        or route not in {"gpt-subscription", "grok-subscription"}
-        or kind not in {"image", "video"}
-    ):
+    if route not in {"gpt-subscription", "grok-subscription", "openrouter"} or kind not in {"image", "video"}:
         _store_terminal(
             project,
             job_id,
@@ -2511,7 +2511,7 @@ def _produce_worker(project, job_id):  # noqa: C901 - Dispatch retains separate 
             {"state": "failed", "message": "The GPT subscription route launches stills only.", "code": "unsupported"},
         )
         return
-    if route == "grok-subscription":
+    if route in {"grok-subscription", "openrouter"}:
         try:
             beat_for(_ledger, request.get("beat"), request.get("inputs"))
         except ValueError as exc:
@@ -2527,7 +2527,7 @@ def _produce_worker(project, job_id):  # noqa: C901 - Dispatch retains separate 
             if not current:
                 return
             current["submit_outcome"] = "accepted"
-            current["state"] = "remote_pending"
+            current["state"] = "downloading" if remote.get("phase") == "downloading" else "remote_pending"
             current["remote"] = dict(remote or {})
             ledger.save("ai-submitted")
 
@@ -2536,6 +2536,10 @@ def _produce_worker(project, job_id):  # noqa: C901 - Dispatch retains separate 
         outcome = _produce_visual(project, job, workdir, timeout, on_submitted)
     elif route == "gpt-subscription":
         outcome = generate_still(request.get("prompt") or "", workdir, timeout=timeout, on_submitted=on_submitted)
+    elif route == "openrouter":
+        from .ai_openrouter import produce
+
+        outcome = produce(project, job, workdir, timeout=timeout, on_submitted=on_submitted)
     else:
         from .ai_grok import produce
 
@@ -2560,8 +2564,10 @@ def _retrieve_job(project, job_id):
         job = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         if not job or job.get("state") == "complete":
             return None
-        if not _grok_retrievable(job) and (
-            not _recorded_artifact(job) or not (job.get("remote") or {}).get("artifact_sha256")
+        if (
+            not _grok_retrievable(job)
+            and not _openrouter_retrievable(job)
+            and (not _recorded_artifact(job) or not (job.get("remote") or {}).get("artifact_sha256"))
         ):
             return None
         return job
@@ -2571,8 +2577,13 @@ def _retrieve_worker(project, job_id):
     job = _retrieve_job(project, job_id)
     if job is None:
         return
-    if _grok_retrievable(job) and not (job.get("remote") or {}).get("artifact_sha256"):
-        from .ai_grok import retrieve
+    if (_grok_retrievable(job) or _openrouter_retrievable(job)) and not (job.get("remote") or {}).get(
+        "artifact_sha256"
+    ):
+        if _openrouter_retrievable(job):
+            from .ai_openrouter import retrieve
+        else:
+            from .ai_grok import retrieve
 
         workdir = _job_dir(_brolls_root(project), job_id)
         workdir.mkdir(parents=True, exist_ok=True)
@@ -2697,7 +2708,7 @@ def _store_terminal(project, job_id, fields):
         job["state"] = state_name
         job["submit_outcome"] = (
             "unknown"
-            if state_name == "unknown" and not _grok_retrievable(job)
+            if state_name == "unknown" and not _grok_retrievable(job) and not _openrouter_retrievable(job)
             else job.get("submit_outcome") or "accepted"
         )
         job["error"] = _error_payload(fields.get("message"), fields.get("code"))

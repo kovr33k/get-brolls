@@ -585,6 +585,132 @@
       })
       .catch(() => aiNote(card, noteName, "The request was not saved."));
   }
+  function aiPaidPost(card, payload) {
+    const save = aiSaveConfig();
+    return fetch(save.aiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [save.header]: save.token },
+      body: JSON.stringify(payload),
+    }).then((response) => response.json().then((body) => {
+      if (!response.ok) throw new Error(body.error || "The paid request was not saved.");
+      aiNote(card, "data-ai-paid-note", "");
+      aiPoll();
+      aiEnsurePoll();
+      return body;
+    }));
+  }
+  function aiPreparePaid(card, kind) {
+    const draft = aiDraftFor(card);
+    if (!draft || !aiLive() || aiAttr(card, "data-ai-stale") === "true") return;
+    if (draft.referenceBusy || draft.fileUnsent) {
+      aiNote(card, "data-ai-paid-note", "Keep the selected reference before preparing paid work.");
+      return;
+    }
+    const payload = {
+      action: "prepare-paid", kind, beat: draft.beat, expected: draft.fingerprint,
+    };
+    if (kind === "video") {
+      const still = aiApprovedStill(card, draft);
+      if (!still || !draft.timing || !draft.timing.resolved) {
+        aiNote(card, "data-ai-paid-note", "Approve the exact still and resolve recorded timing first.");
+        return;
+      }
+      payload.version = still.id;
+      ["speech", "music", "atmosphere", "effects"].forEach((name) => {
+        payload[name] = !!(card.querySelector("[data-ai-" + name + "]") || {}).checked;
+      });
+    } else {
+      payload.comment = aiField(card, "data-ai-comment");
+      if (aiMode(card) === "images") payload.outputs = 3;
+      else payload.alternative = aiSelected(card);
+    }
+    payload.requestId = "paid-" + aiHash(JSON.stringify([
+      payload, aiBoardBody.openrouter || {}, draft.timing || {},
+      draft.referenceId || "", draft.sharedReferences || "",
+      (aiBoardBody.jobs || []).filter((job) => job.route === "openrouter" && job.beat === draft.beat && job.kind === kind && ["complete", "failed"].includes(job.state)).map((job) => job.id).sort(),
+    ]));
+    aiPaidPost(card, payload).catch((error) => aiNote(card, "data-ai-paid-note", error.message));
+  }
+  function aiPaintPaid(card, jobs) {
+    let box = card.querySelector("[data-ai-paid]");
+    if (!box) {
+      box = document.createElement("div");
+      box.setAttribute("data-ai-paid", "");
+      card.append(box);
+      [["image", "Prepare paid still launch"], ["video", "Prepare paid video launch"]].forEach(([kind, label]) => {
+        const button = document.createElement("button");
+        button.setAttribute("type", "button");
+        button.setAttribute("data-ai-paid-" + kind, "");
+        button.textContent = label;
+        button.addEventListener("click", () => aiPreparePaid(card, kind));
+        box.append(button);
+      });
+      const note = document.createElement("p");
+      note.setAttribute("data-ai-paid-note", "");
+      box.append(note);
+      const pending = document.createElement("div");
+      pending.setAttribute("data-ai-paid-pending", "");
+      box.append(pending);
+    }
+    const setup = aiBoardBody.openrouter || {};
+    ["image", "video"].forEach((kind) => {
+      const button = box.querySelector("[data-ai-paid-" + kind + "]");
+      const ready = kind !== "video" || aiAttr(card, "data-ai-video-ready") === "true";
+      button.disabled = !aiLive() || !setup[kind] || !ready || aiAttr(card, "data-ai-stale") === "true";
+      button.title = setup[kind] ? "Prepare scope for confirmation; no generation yet." : "Configure OpenRouter in the AI plan first.";
+    });
+    const pending = box.querySelector("[data-ai-paid-pending]");
+    const selected = jobs.filter((job) => job.beat === aiAttr(card, "data-ai-beat") && job.paid && (
+      job.state === "awaiting_confirmation" || (job.recoverable && ["failed", "unknown", "remote_pending", "downloading"].includes(job.state))
+    ));
+    const key = JSON.stringify(selected);
+    if (aiAttr(pending, "data-ai-paid-key") === key) return;
+    pending.setAttribute("data-ai-paid-key", key);
+    pending.textContent = "";
+    const groups = new Map();
+    selected.forEach((job) => {
+      const id = job.group || job.id;
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(job);
+    });
+    groups.forEach((rows) => {
+      const awaiting = rows.every((job) => job.state === "awaiting_confirmation");
+      const group = document.createElement("div");
+      const title = document.createElement("p");
+      const known = rows.every((job) => job.paid.estimate && typeof job.paid.estimate.usd === "number");
+      const cost = known ? "Estimated USD " + rows.reduce((sum, job) => sum + job.paid.estimate.usd, 0).toFixed(4) : "Estimate unknown; paid generation";
+      title.textContent = "OpenRouter · " + rows[0].paid.model + " · " + rows.length + " " + rows[0].kind + " output(s) · " + cost;
+      group.append(title);
+      rows.forEach((job) => {
+        const details = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.textContent = "Frozen scene, prompt and inputs: " + (job.alternative || job.id);
+        const description = document.createElement("pre");
+        description.textContent = JSON.stringify(job.paid, null, 2);
+        details.append(summary, description);
+        group.append(details);
+      });
+      const button = document.createElement("button");
+      button.setAttribute("type", "button");
+      button.setAttribute("data-ai-paid-confirm", "");
+      button.textContent = awaiting ? "Confirm this paid " + rows.length + "-output launch" : "Recover saved video; no new generation";
+      button.disabled = !aiLive() || aiAttr(card, "data-ai-stale") === "true";
+      button.addEventListener("click", () => {
+        if (button.disabled || !aiLive() || aiAttr(card, "data-ai-stale") === "true") return;
+        button.disabled = true;
+        const payload = awaiting ? {
+          action: "confirm-paid", jobs: rows.map((job) => job.id),
+          signatures: Object.fromEntries(rows.map((job) => [job.id, job.paid.fingerprint])), by: "Storyboard",
+        } : { action: "resume", job: rows[0].id };
+        aiPaidPost(card, payload).catch((error) => {
+          button.disabled = false;
+          aiNote(card, "data-ai-paid-note", error.message);
+        });
+      });
+      group.append(button);
+      pending.append(group);
+    });
+  }
   function aiCandidateRows(timing) {
     const raw = timing && Array.isArray(timing.candidates) ? timing.candidates : [];
     return raw.map((row) => {
@@ -1770,6 +1896,7 @@
     aiCards().forEach((card) => {
       const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
       if (!draft) return;
+      aiPaintPaid(card, Array.isArray(body.jobs) ? body.jobs : []);
       draft.sharedReferences = shared.map((row) => row.context_id || row.error || "").sort().join("\u001f");
       let sharedNote = card.querySelector("[data-ai-shared-reference-note]");
       if (!sharedNote && shared.length) {
@@ -2464,6 +2591,7 @@
       });
       aiEnsureTimingControls(card, draft);
       aiEnsureVideoControls(card, draft);
+      aiPaintPaid(card, []);
     });
     if (aiLive()) aiPoll();
     aiEnsurePoll();

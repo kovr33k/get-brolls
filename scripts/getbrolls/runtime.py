@@ -161,6 +161,7 @@ def redact(text, limit: int | None = 1200):
         "TELEGRAM_SESSION",
         "GEMINI_API_KEY",
         "XAI_API_KEY",
+        "OPENROUTER_API_KEY",
         "INWORLD_API_KEY",
     ):
         secret = os.getenv(key)
