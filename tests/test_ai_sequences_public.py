@@ -1,5 +1,6 @@
 """Storyboard sequence actions retain bounded ordered media and exact review."""
 
+import hashlib
 import json
 import math
 import re
@@ -211,6 +212,28 @@ class SequencePublicTests(unittest.TestCase):
         board = json.loads(media.http("/__ai/state")[1])
         self.assertEqual(sequence["id"], board["beats"][0]["sequence"]["id"])
         self.assertIsNone(board["beats"][0]["sequence"]["version"])
+
+    def test_status_reports_sequence_plan_without_recovery_or_state_writes(self):
+        sequence = self.prepare()
+        media = self.media
+        root = media.project / "brolls"
+
+        def saved_state():
+            # CLI diagnostics may append to existing logs; ledger, journal and all media stay intact.
+            return {
+                path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in root.rglob("*")
+                if path.is_file() and path.name != "diagnostics.jsonl" and not path.name.startswith("getbrolls.log")
+            }
+
+        before = saved_state()
+        calls = len(media.requests)
+        report = media.call("status")["ai"]["beats"][0]["sequence"]
+        self.assertEqual(sequence["id"], report["id"])
+        self.assertEqual("planned", report["state"])
+        self.assertEqual(240, report["frames"])
+        self.assertEqual(before, saved_state())
+        self.assertEqual(calls, len(media.requests))
 
     def test_long_interval_and_malformed_scope_are_refused_before_any_generation(self):
         media = self.media

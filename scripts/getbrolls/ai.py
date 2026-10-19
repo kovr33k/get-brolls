@@ -140,6 +140,8 @@ def _status_timing(data, root, beat):
 
 
 def public_status(data, root=None):
+    from .ai_sequences import board_sequence
+
     ai = data.get("ai")
     if not isinstance(ai, dict):
         return {}
@@ -155,6 +157,7 @@ def public_status(data, root=None):
                 "selected": beat.get("selected"),
                 "fingerprint": beat.get("fingerprint"),
                 "timing": _status_timing(data, root, beat),
+                "sequence": board_sequence(_ReadOnlyLedger(data, Path(root)), beat) if root is not None else None,
             }
         )
     jobs = [public_job(job) for job in (ai.get("jobs") or {}).values() if isinstance(job, dict)]
