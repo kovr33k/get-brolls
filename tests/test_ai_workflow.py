@@ -35,7 +35,8 @@ class AIWorkflowTests(unittest.TestCase):
             "GETBROLLS_CODEX_APP_SERVER": str(PEER),
             "GETBROLLS_AI_FIXTURE": "success",
             "GETBROLLS_AI_INLINE": "1",
-            "GETBROLLS_AI_TIMEOUT": "1",
+            # Successful workflows include subprocess startup and durable ledger writes on Windows.
+            "GETBROLLS_AI_TIMEOUT": "8",
         }
         self.call("init-rules")
         plan = {
@@ -125,6 +126,7 @@ class AIWorkflowTests(unittest.TestCase):
     def test_unknown_submit_survives_restart_without_second_native_turn(self):
         self.select()
         self.env["GETBROLLS_AI_FIXTURE"] = "lost_ack"
+        self.env["GETBROLLS_AI_TIMEOUT"] = "1"
         launched = self.launch()
         self.assertEqual("unknown", launched["job"]["state"], launched)
         self.env["GETBROLLS_AI_FIXTURE"] = "success"
@@ -135,8 +137,10 @@ class AIWorkflowTests(unittest.TestCase):
         self.assertFalse(self.ai()["versions"])
 
     def test_portable_exact_still_review_import_checks_signature_and_media_bytes(self):
+        self.env["GETBROLLS_AI_FIXTURE"] = "slow_ack"
         self.select()
-        self.launch()
+        launched = self.launch()
+        self.assertEqual("complete", launched["job"]["state"], launched)
         self.call("review")
         page = (self.project / "brolls/review.html").read_text(encoding="utf-8")
         match = re.search(r"window.GETBROLLS_REVIEW=(.*?);</script>", page)
@@ -213,6 +217,7 @@ class AIWorkflowTests(unittest.TestCase):
         self.assertEqual(0, self.turn_count())
 
     def test_http_generation_and_exact_review_reject_stale_context(self):
+        self.env["GETBROLLS_AI_FIXTURE"] = "slow_ack"
         self.start_server()
         expected = self.ai()["beats"]["scarcity"]["fingerprint"]
         payload = {

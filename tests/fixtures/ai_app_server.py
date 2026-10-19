@@ -388,6 +388,8 @@ def _handle_turn_start(ident, mode, prompt="", images=None):
         _result(ident, _turn_result())
         _turn_completed(status="interrupted")
         return
+    if mode == "slow_ack":
+        time.sleep(1.2)
     _result(ident, _turn_result())
     _emit_turn(mode, prompt, images)
 
