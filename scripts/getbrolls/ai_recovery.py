@@ -190,11 +190,16 @@ def handle_correct(project, data):
 
 def admitted_media(project, relative):
     """Read-only serving guard: publish only intact committed AI versions/preview bytes."""
+    from .ai import _public_timing
     from .ai_timing import checked_video_input
 
     try:
         ledger = Ledger(project, recover=False)
         ai = ledger.data.get("ai") or {}
+        if relative.startswith("previews/ai-vo-"):
+            return any(
+                (_public_timing(ledger, beat) or {}).get("preview") == relative for beat in ai.get("beats", {}).values()
+            )
         for version in ai.get("versions", {}).values():
             if relative not in {version.get("path"), (version.get("preview") or {}).get("path")}:
                 continue

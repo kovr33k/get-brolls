@@ -254,6 +254,12 @@ class PublicTimingTests(unittest.TestCase):
         self.assertTrue(str(matched["preview"]).startswith("previews/ai-vo-scarcity-"))
         preview = self.project / "brolls" / matched["preview"]
         self.assertTrue(preview.read_bytes().startswith(b"RIFF"))
+        served_status, served = self.http("/" + matched["preview"], token=False)
+        self.assertEqual(200, served_status)
+        self.assertEqual(preview.read_bytes(), served)
+        uncommitted = preview.with_name("ai-vo-uncommitted.wav")
+        uncommitted.write_bytes(served)
+        self.assertEqual(404, self.http("/previews/ai-vo-uncommitted.wav", token=False)[0])
         self.assertNotIn("narration/private", preview.as_posix())
         held = self.previews()
         report = self.call("status")
