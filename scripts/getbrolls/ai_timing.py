@@ -94,6 +94,10 @@ def resolve_timing(ledger, beat_id, analysis_id, review):
 
 
 def launch_video(ledger, payload, nonce, *, paid=None):
+    return new_job(ledger, video_request(ledger, payload, nonce, paid=paid), nonce)
+
+
+def video_request(ledger, payload, nonce, *, paid=None):
     if not isinstance(payload, dict):
         raise ValueError("The video launch must name the approved still and frozen native tool.")
     beat = beat_for(ledger, payload.get("beat"), payload.get("expected") or payload.get("inputs"))
@@ -166,7 +170,7 @@ def launch_video(ledger, payload, nonce, *, paid=None):
     }
     if paid:
         request["paid"] = paid
-    return new_job(ledger, request, nonce)
+    return request
 
 
 def checked_video_input(ledger, request):
@@ -183,7 +187,12 @@ def checked_video_input(ledger, request):
     ready = current_readiness(ledger, beat, beat.get("timing"))
     timing = ready.get("timing") or {}
     interval = {key: timing.get(key) for key in ("start_s", "end_s", "start_frame", "end_frame")}
-    if not ready.get("resolved") or interval != request.get("interval"):
+    expected_interval = request.get("interval")
+    if request.get("sequence"):
+        from .ai_sequences import checked_child
+
+        expected_interval = checked_child(ledger, request)["scope"]["request"]["interval"]
+    if not ready.get("resolved") or interval != expected_interval:
         raise ValueError("The frozen narration interval changed before video submission.")
     if ready.get("narration") != request.get("narration"):
         raise ValueError("The frozen recording or analysis identity changed before video submission.")

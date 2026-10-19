@@ -443,19 +443,15 @@ def _prior_paid(ai, nonce):
     for group in (ai.get("groups") or {}).values():
         if group.get("nonce") == nonce:
             return ((jobs.get(group["jobs"][0]) or {}).get("request") or {}).get("paid")
+    for sequence in (ai.get("sequences") or {}).values():
+        if sequence.get("nonce") == nonce:
+            return sequence["scope"]["request"].get("paid")
     return None
 
 
-def handle_prepare(project, data):
-    from .ai_state import _native_image_output, public_job
-    from .ledger import Ledger
-    from .runtime import project_lock
+def prepared_setup(snapshot, kind, nonce):
+    from .ai_state import _native_image_output
 
-    nonce = text(data.get("requestId"), "Request identity", 160)
-    kind = data.get("kind")
-    if kind not in {"image", "video"}:
-        raise ValueError("Prepare one image, three image alternatives, or one video.")
-    snapshot = Ledger(project, recover=False)
     ai = snapshot.data.get("ai") or {}
     choice = setup(ai.get("openrouter")).get(kind)
     if not choice:
@@ -467,14 +463,32 @@ def handle_prepare(project, data):
             raise ValueError("This request identity already belongs to different frozen inputs.")
     else:
         paid = capabilities(choice, kind, aspect)
+    return choice, aspect, paid
+
+
+def check_setup(ledger, kind, choice, aspect):
+    from .ai_state import _native_image_output
+
+    if (
+        setup((ledger.data.get("ai") or {}).get("openrouter")).get(kind) != choice
+        or _native_image_output(ledger)["aspect_ratio"] != aspect
+    ):
+        raise ValueError("OpenRouter setup changed while preparing; prepare the new scope.")
+
+
+def handle_prepare(project, data):
+    from .ai_state import public_job
+    from .ledger import Ledger
+    from .runtime import project_lock
+
+    nonce = text(data.get("requestId"), "Request identity", 160)
+    kind = data.get("kind")
+    if kind not in {"image", "video"}:
+        raise ValueError("Prepare one image, three image alternatives, or one video.")
+    choice, aspect, paid = prepared_setup(Ledger(project, recover=False), kind, nonce)
     with project_lock(project):
         ledger = Ledger(project)
-        current = ledger.data.get("ai") or {}
-        if (
-            setup(current.get("openrouter")).get(kind) != choice
-            or _native_image_output(ledger)["aspect_ratio"] != aspect
-        ):
-            raise ValueError("OpenRouter setup changed while preparing; prepare the new scope.")
+        check_setup(ledger, kind, choice, aspect)
         jobs = _prepare_jobs(ledger, data, nonce, kind, paid)
         for job in jobs:
             validate_request(job["request"])
@@ -501,6 +515,7 @@ def _prepare_jobs(ledger, data, nonce, kind, paid):
 
 def handle_confirm(project, data):
     from .ai import _job_dir, _refresh_jobs, _should_dispatch, start_worker
+    from .ai_sequences import MAX_CLIPS
     from .ai_state import confirm, public_job
     from .ledger import Ledger
     from .runtime import project_lock
@@ -509,11 +524,11 @@ def handle_confirm(project, data):
     signatures = data.get("signatures")
     if (
         not isinstance(ids, list)
-        or len(ids) not in {1, 3}
+        or not 1 <= len(ids) <= MAX_CLIPS
         or any(not isinstance(key, str) for key in ids)
         or len(set(ids)) != len(ids)
     ):
-        raise ValueError("Confirm the exact one- or three-output launch once.")
+        raise ValueError("Confirm the exact bounded launch once.")
     snapshot = Ledger(project, recover=False)
     stored = (snapshot.data.get("ai") or {}).get("jobs") or {}
     jobs = [stored.get(key) for key in ids]
@@ -525,6 +540,7 @@ def handle_confirm(project, data):
     ):
         raise ValueError("Paid confirmation does not match the displayed frozen launch.")
     jobs = [job for job in jobs if isinstance(job, dict)]
+    _check_launch_membership(snapshot.data["ai"], jobs, ids)
     # Only validation and local staging before consent; no remote call or credential lookup.
     for job in jobs:
         if job["state"] == "awaiting_confirmation":
@@ -548,3 +564,17 @@ def handle_confirm(project, data):
     for job_id in dispatch:
         start_worker(project, job_id)
     return {"jobs": _refresh_jobs(project, ids) or public}
+
+
+def _check_launch_membership(ai, jobs, ids):
+    sequence_ids = {job["request"].get("sequence") for job in jobs}
+    if sequence_ids != {None}:
+        sequences = ai.get("sequences") or {}
+        if (
+            len(sequence_ids) != 1
+            or None in sequence_ids
+            or set(sequences.get(next(iter(sequence_ids)), {}).get("jobs", [])) != set(ids)
+        ):
+            raise ValueError("Confirm every clip of one exact frozen sequence.")
+    elif len(ids) not in {1, 3}:
+        raise ValueError("Confirm one output or three image alternatives.")

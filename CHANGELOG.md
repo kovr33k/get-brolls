@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Ordered AI sequences: prepare bounded native/OpenRouter clip sets from resolved recorded-narration timing, freeze each approved first frame and placement, and explicitly launch the native set or confirm every paid clip together. Retain originals, source jobs, hashes, actual durations, order and trims. Compose exact frame coverage with scene sound, keep project narration separate in the editing file, and mix it only into the sequence preview. Preserve partial failures and GET-only recovery; expose missing coverage and native profile shortfalls without hidden fill or upscale. Bind independent sequence review and portable decisions to exact media and current inputs; preserve comments and starting-frame choices through Storyboard refresh.
+
 - Windows CI: use the pinned FFmpeg 9.0.2 Essentials archive from Gyan's GitHub release mirror and verify SHA-256 before extraction, avoiding Chocolatey catalog outages. Successful native AI workflow tests allow subprocess startup and durable writes, exercise delayed acknowledgements, and retain explicit lost-response/no-resubmit coverage.
 
 - OpenRouter media: prepare and explicitly confirm each one-image, three-image comparison or exact-approved-first-frame video launch in Storyboard. Freeze model, references, recorded timing, sound, output scope and provider estimate or unknown cost before any generation POST. Keep subscription buttons separate; preserve partial results, exact reviews and version history. Recover known video handles with GET only; unknown submissions never re-POST. Validate actual saved media and protect API keys, signed downloads, redirect failures and read-only state.

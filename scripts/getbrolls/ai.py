@@ -466,6 +466,8 @@ def _reference_card(ledger, beat, still_id):
 
 
 def public_board(ledger):
+    from .ai_sequences import board_sequence
+
     ai = ledger.data.get("ai") or {}
     jobs = ai.get("jobs") or {}
     versions = ai.get("versions") or {}
@@ -494,6 +496,7 @@ def public_board(ledger):
                 "slots": _group_slots(ai, beat),
                 "timing": _public_timing(ledger, beat),
                 "video": _public_video(ledger, video),
+                "sequence": board_sequence(ledger, beat),
                 "video_job": public_job(video_job) if video_job else None,
                 "video_ready": _video_ready(ledger, beat, versions),
                 "reference": _reference_card(ledger, beat, still_id) if still_id else None,
@@ -1321,12 +1324,14 @@ def handle_state(project):
 
 
 def review_records(ledger, ident):
+    from .ai_sequences import board_sequence
+
     ai = ledger.data.get("ai")
     if not isinstance(ai, dict):
         return []
     records = []
     for version in (ai.get("versions") or {}).values():
-        if not isinstance(version, dict) or version.get("kind") != "image":
+        if not isinstance(version, dict) or version.get("kind") not in {"image", "sequence"}:
             continue
         beat = (ai.get("beats") or {}).get(version.get("beat")) or {}
         job = (ai.get("jobs") or {}).get(version.get("job")) or {}
@@ -1349,6 +1354,12 @@ def review_records(ledger, ident):
                 "signature": version_signature(version),
                 "state": approval.get("state") or "pending",
                 "path": version.get("path"),
+                **(
+                    {"kind": "sequence", "sequence": board_sequence(ledger, beat)}
+                    if version.get("kind") == "sequence"
+                    and (ai.get("sequences", {}).get(beat.get("sequence")) or {}).get("version") == version["id"]
+                    else {}
+                ),
             }
         )
     return records
@@ -1834,6 +1845,10 @@ def run_worker(project, job_id, *, retrieve=False):
         _produce_worker(project, job_id)
     except (ValueError, OSError, KeyError) as exc:
         _store_terminal(project, job_id, {"state": "failed", "message": str(exc), "code": "worker"})
+    finally:
+        from .ai_sequences import assemble_for_job
+
+        assemble_for_job(project, job_id)
 
 
 def _is_reparse(path):

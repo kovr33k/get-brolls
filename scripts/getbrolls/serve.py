@@ -410,6 +410,8 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             handle_video,
         )
         from .ai_openrouter import handle_confirm, handle_prepare
+        from .ai_sequences import handle_launch as handle_launch_sequence
+        from .ai_sequences import handle_prepare as handle_prepare_sequence
         from .ai_state import sanitize_public_text
 
         project = Path(self.directory).parent
@@ -426,6 +428,8 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             "resume": handle_resume,
             "prepare-paid": handle_prepare,
             "confirm-paid": handle_confirm,
+            "prepare-sequence": handle_prepare_sequence,
+            "launch-sequence": handle_launch_sequence,
         }
         try:
             handler = handlers.get(action) if isinstance(action, str) else None

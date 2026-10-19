@@ -264,6 +264,9 @@ def validate_ai(data):
         _validate_version(key, version, ai)
     _validate_native_video(ai)
     _validate_groups(ai)
+    from .ai_sequences import validate_sequences
+
+    validate_sequences(ai)
 
 
 def _validate_native_video(ai):
@@ -286,6 +289,7 @@ def _validate_native_video(ai):
 
 
 def beat_for(ledger, beat_id, expected=None):
+    identifier(beat_id, "Beat id")
     beat = (ledger.data.get("ai") or {}).get("beats", {}).get(beat_id)
     if not isinstance(beat, dict) or not beat.get("active"):
         raise ValueError("This AI beat is not active in the current scenario plan.")
@@ -482,6 +486,8 @@ def confirm(ledger, job_ids, signatures, by):
         beat_for(ledger, job["request"]["beat"], job["request"]["inputs"])
         chosen.append(job)
     _require_full_groups(ai, chosen)
+    for sequence_id in {job["request"].get("sequence") for job in chosen} - {None}:
+        ai["sequences"][sequence_id]["launched"] = now()
     for job in chosen:
         job["confirmation"] = {"by": by, "at": now(), "fingerprint": job["fingerprint"]}
         job["state"] = "queued"
@@ -505,6 +511,10 @@ def _require_full_groups(ai, chosen):
         required.update(members)
     if required - chosen_ids:
         raise ValueError("Paid comparison confirmation must name every still in the frozen set.")
+    for job in chosen:
+        sequence_id = job["request"].get("sequence")
+        if sequence_id and not set(ai.get("sequences", {}).get(sequence_id, {}).get("jobs", [])) <= chosen_ids:
+            raise ValueError("Paid sequence confirmation must name every frozen clip.")
 
 
 def version_signature(version):
@@ -514,13 +524,17 @@ def version_signature(version):
 def checked_version(ledger, version_id, *, approved=False, kind=None):
     from .narration import _confine_existing_file
 
-    version = (ledger.data.get("ai") or {}).get("versions", {}).get(version_id)
+    version = (ledger.data.get("ai") or {}).get("versions", {}).get(identifier(version_id, "Version id"))
     if not version or (kind is not None and version["kind"] != kind):
         raise ValueError("Select an existing AI result of the required type.")
     beat_for(ledger, version["beat"], version["inputs"])
     path = _confine_existing_file(ledger.root, version["path"], ("previews/", "clips/"))
     if digest(path) != version["sha256"]:
         raise ValueError("The saved AI media changed; its previous approval cannot be reused.")
+    if version["kind"] == "sequence":
+        from .ai_sequences import checked_sequence_version
+
+        checked_sequence_version(ledger, version)
     approval = version["approval"]
     if approved and (approval["state"] != "approved" or approval.get("signature") != version_signature(version)):
         raise ValueError("Approve this exact AI image before video production.")
@@ -914,7 +928,7 @@ def public_job(job):
         "error": sanitize_public_text(message) or None,
         "remote": {"threadId": remote.get("threadId")} if remote and remote.get("threadId") else None,
     }
-    for name in ("group", "slot", "mode"):
+    for name in ("group", "slot", "mode", "sequence", "sequence_index"):
         if name in request and request.get(name) is not None:
             public[name] = request.get(name)
     if request.get("route") == "openrouter" and request.get("paid"):
@@ -944,7 +958,7 @@ def public_version(version):
         "approval": (version.get("approval") or {}).get("state"),
         "inputs": version.get("inputs"),
     }
-    if version.get("kind") != "video":
+    if version.get("kind") not in {"video", "sequence"}:
         return row
     approval = version.get("approval") if isinstance(version.get("approval"), dict) else {}
     comment = approval.get("comment") if isinstance(approval.get("comment"), str) else ""
@@ -959,4 +973,6 @@ def public_version(version):
         resolution=version.get("resolution"),
         still={"id": still.get("id"), "sha256": still.get("sha256")},
     )
+    if version.get("kind") == "sequence":
+        row.update({key: version.get(key) for key in ("frames", "clips", "preview", "profile")})
     return row

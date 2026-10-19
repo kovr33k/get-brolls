@@ -1,6 +1,7 @@
 """Public timing and exact-still video workflow. Native media stays refused."""
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -28,7 +29,7 @@ PEER = Path(__file__).parent / "fixtures/ai_app_server.py"
 SENTENCE = "A resource runs out."
 
 
-def _write_wav(path, seconds, rate=16000, amplitude=0):
+def _write_wav(path, seconds, rate=16000, amplitude=0, frequency=0):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     frames = int(seconds * rate)
@@ -37,7 +38,14 @@ def _write_wav(path, seconds, rate=16000, amplitude=0):
         handle.setnchannels(1)
         handle.setsampwidth(2)
         handle.setframerate(rate)
-        handle.writeframes(sample * frames)
+        handle.writeframes(
+            b"".join(
+                int(amplitude * math.sin(2 * math.pi * frequency * i / rate)).to_bytes(2, "little", signed=True)
+                for i in range(frames)
+            )
+            if frequency
+            else sample * frames
+        )
     return path
 
 
@@ -142,11 +150,11 @@ class PublicTimingTests(unittest.TestCase):
             path.relative_to(self.project / "brolls").as_posix() for path in root.rglob("*") if path.is_file()
         )
 
-    def plant(self, transcript, words, *, amplitude=0):
+    def plant(self, transcript, words, *, amplitude=0, frequency=0, seconds=9):
         root = self.project / "brolls"
         audio_rel = "narration/private/audio/rec-1.wav"
         result_rel = "narration/results/na-1.json"
-        audio = _write_wav(root / audio_rel, 9, amplitude=amplitude)
+        audio = _write_wav(root / audio_rel, seconds, amplitude=amplitude, frequency=frequency)
         payload = {"transcript": transcript, "words": words, "timing_resolved": True}
         artifact = root / result_rel
         artifact.parent.mkdir(parents=True, exist_ok=True)
@@ -162,7 +170,7 @@ class PublicTimingTests(unittest.TestCase):
                     "id": "rec-1",
                     "sha256": audio_sha,
                     "bytes": audio.stat().st_size,
-                    "duration_s": 9,
+                    "duration_s": seconds,
                     "format": "wav",
                     "codec": "pcm_s16le",
                     "channels": 1,

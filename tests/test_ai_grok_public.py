@@ -25,6 +25,9 @@ from getbrolls.ledger import Ledger
 
 @skip_unless_ffmpeg
 class GrokPublicTests(unittest.TestCase):
+    base: str
+    token: str
+
     call = timing_helpers.PublicTimingTests.call
     ai = timing_helpers.PublicTimingTests.ai
     plant = timing_helpers.PublicTimingTests.plant

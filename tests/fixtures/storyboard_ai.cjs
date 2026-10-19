@@ -1845,6 +1845,46 @@ async function drain() {
   const portablePaid = run({ live: false });
   assert.equal(portablePaid.card.querySelector("[data-ai-paid-image]").disabled, true);
 
+  const ordered = run({ live: true, boardCards: [aiCard({ withStill: true, approval: "approved", version: "still-v", signature: "sig-v" })] });
+  ordered.world.state = {
+    native_video: { model: "grok-imagine-video-1.5", tool: "reference_to_video" },
+    versions: [{ id: "still-v", signature: "sig-v", approval: "approved", kind: "image", beat: "beat-1" }],
+    jobs: [],
+    beats: [{ id: "beat-1", fingerprint: "fp-1", active: true, video_ready: true,
+      timing: { resolved: true, start_s: 0, end_s: 8, still: "still-v" },
+      sequence: { id: "seq-1", signature: "seq-fp", state: "planned", fps: 30, frames: 240, route: "grok-subscription", reasons: [],
+        clips: [{ start_frame: 0, end_frame: 180, still: { id: "still-v" }, job: { id: "clip-a", state: "awaiting_confirmation" } },
+          { start_frame: 180, end_frame: 240, still: { id: "still-v" }, job: { id: "clip-b", state: "awaiting_confirmation" } }], version: null } }],
+  };
+  await drain();
+  const sequenceBox = ordered.card.querySelector("[data-ai-sequence]");
+  assert.ok(sequenceBox, "A sequence has its own plan and review panel");
+  assert.ok(sequenceBox.textContent.includes("240 frames"));
+  assert.ok(sequenceBox.textContent.includes("2 clips"));
+  assert.equal(posted(ordered.world, "launch-sequence").length, 0, "Restoring a sequence plan never launches it");
+  const launchSequence = sequenceBox.querySelector("[data-ai-sequence-launch]");
+  launchSequence.click(); launchSequence.click();
+  ordered.world.state.beats[0].sequence.state = "running";
+  await drain();
+  assert.equal(posted(ordered.world, "launch-sequence").length, 1);
+  assert.equal(posted(ordered.world, "launch-sequence")[0].body.signature, "seq-fp");
+  ordered.world.state.beats[0].sequence.version = { id: "seq-media", kind: "sequence", signature: "seq-media-fp", path: "clips/ai-sequence.mp4", preview: { path: "previews/ai-sequence.mp4" }, approval: "pending", frames: 240, width: 854, height: 480, native_full_hd: false, clips: [] };
+  ordered.advance(1000); await drain();
+  const sequenceComment = sequenceBox.querySelector("[data-ai-sequence-comment]");
+  assert.ok(sequenceComment);
+  sequenceComment.value = "Keep this sequence draft";
+  sequenceComment.dispatchEvent({ type: "input" });
+  ordered.world.state.beats[0].sequence.state = "complete";
+  ordered.advance(1000); await drain();
+  assert.equal(sequenceBox.querySelector("[data-ai-sequence-comment]"), sequenceComment);
+  assert.equal(sequenceComment.value, "Keep this sequence draft");
+  sequenceBox.querySelector("[data-ai-sequence-decision='approved']").click();
+  await drain();
+  assert.equal(posted(ordered.world, "review").at(-1).body.version, "seq-media");
+  ordered.exportButton.click(); await drain();
+  assert.ok(JSON.parse(ordered.world.downloaded).ai.some((row) => row.version === "seq-media" && row.state === "approved"));
+  assert.equal(portablePaid.card.querySelector("[data-ai-sequence-prepare]").disabled, true);
+
   console.log("AI storyboard edits, exact paid confirmations and retained versions preserve local drafts");
 })().catch((error) => {
   console.error(error);

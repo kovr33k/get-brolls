@@ -585,7 +585,7 @@
       })
       .catch(() => aiNote(card, noteName, "The request was not saved."));
   }
-  function aiPaidPost(card, payload) {
+  function aiPaidPost(card, payload, noteName = "data-ai-paid-note") {
     const save = aiSaveConfig();
     return fetch(save.aiUrl, {
       method: "POST",
@@ -593,7 +593,7 @@
       body: JSON.stringify(payload),
     }).then((response) => response.json().then((body) => {
       if (!response.ok) throw new Error(body.error || "The paid request was not saved.");
-      aiNote(card, "data-ai-paid-note", "");
+      aiNote(card, noteName, "");
       aiPoll();
       aiEnsurePoll();
       return body;
@@ -669,7 +669,7 @@
     pending.textContent = "";
     const groups = new Map();
     selected.forEach((job) => {
-      const id = job.group || job.id;
+      const id = job.group || job.sequence || job.id;
       if (!groups.has(id)) groups.set(id, []);
       groups.get(id).push(job);
     });
@@ -811,6 +811,7 @@
     aiPaintPreview(card, timing);
     aiPaintVideoSetup(card);
     aiPaintVideoReview(card, beat && beat.video);
+    aiPaintSequence(card, beat && beat.sequence);
     aiLockModes(card);
   }
   function aiApprovedStill(card, draft) {
@@ -1116,6 +1117,169 @@
     aiVideoDecisionButton(box, "rejected", "Reject this video");
     aiBindVideoDecisions(card);
   }
+  function aiSequencePost(card, payload) {
+    const draft = aiDraftFor(card);
+    if (!aiLive() || !draft || draft.sequenceBusy || aiAttr(card, "data-ai-stale") === "true") return;
+    draft.sequenceBusy = true;
+    aiPaidPost(card, payload, "data-ai-sequence-note").catch((error) => {
+      aiNote(card, "data-ai-sequence-note", error.message);
+    }).finally(() => { draft.sequenceBusy = false; });
+  }
+  function aiPrepareSequence(card) {
+    const draft = aiDraftFor(card);
+    const still = draft && aiApprovedStill(card, draft);
+    if (!still || !draft.timing || !draft.timing.resolved) return;
+    const route = aiField(card, "data-ai-sequence-route") || "grok-subscription";
+    const payload = { action: "prepare-sequence", route, beat: draft.beat, expected: draft.fingerprint, version: still.id };
+    if (route === "grok-subscription") {
+      const setup = aiNativeSetup();
+      payload.model = aiField(card, "data-ai-video-model").trim() || setup.model;
+      payload.tool = aiField(card, "data-ai-video-tool") || setup.tool;
+      payload.resolution = aiField(card, "data-ai-video-resolution") || "480p";
+      payload.clip_duration_s = Number(aiField(card, "data-ai-sequence-duration") || 6);
+    }
+    ["speech", "music", "atmosphere", "effects"].forEach((name) => {
+      payload[name] = !!(card.querySelector("[data-ai-" + name + "]") || {}).checked;
+    });
+    const choices = [...card.querySelectorAll("[data-ai-sequence-still]")].map((field) => field.value);
+    const duration = route === "openrouter" ? (aiBoardBody.openrouter.video || {}).duration : payload.clip_duration_s;
+    if (choices.length && draft.sequence && draft.sequence.route === route && draft.sequence.clip_duration_s === duration) payload.stills = choices;
+    payload.requestId = "sequence-" + aiHash(JSON.stringify([payload, draft.timing, still.signature, aiBoardBody.openrouter || {}]));
+    aiSequencePost(card, payload);
+  }
+  function aiEnsureSequence(card) {
+    let box = card.querySelector("[data-ai-sequence]");
+    if (box) return box;
+    box = document.createElement("section");
+    box.setAttribute("data-ai-sequence", "");
+    const title = document.createElement("h4");
+    title.textContent = "Ordered AI sequence";
+    const route = document.createElement("select");
+    route.setAttribute("data-ai-sequence-route", "");
+    route.setAttribute("aria-label", "Sequence route");
+    [["grok-subscription", "Grok subscription"], ["openrouter", "OpenRouter paid"]].forEach(([value, label]) => {
+      const option = document.createElement("option"); option.value = value; option.textContent = label; route.append(option);
+    });
+    const duration = document.createElement("input");
+    duration.type = "number"; duration.value = "6"; duration.min = "1"; duration.max = "15";
+    duration.setAttribute("data-ai-sequence-duration", "");
+    duration.setAttribute("aria-label", "Native clip limit in seconds; paid route uses configured duration");
+    const prepare = document.createElement("button");
+    prepare.type = "button"; prepare.textContent = "Prepare ordered clip plan";
+    prepare.setAttribute("data-ai-sequence-prepare", "");
+    prepare.addEventListener("click", () => { if (!prepare.disabled) aiPrepareSequence(card); });
+    const plan = document.createElement("div"); plan.setAttribute("data-ai-sequence-plan", "");
+    const review = document.createElement("div"); review.setAttribute("data-ai-sequence-review", "");
+    const note = document.createElement("p"); note.setAttribute("data-ai-sequence-note", "");
+    box.append(title, route, duration, prepare, plan, review, note);
+    card.append(box);
+    return box;
+  }
+  function aiPaintSequence(card, sequence) {
+    const box = aiEnsureSequence(card);
+    const draft = aiDraftFor(card);
+    if (!draft) return;
+    draft.sequence = sequence;
+    card.setAttribute("data-ai-sequence-state", sequence && sequence.state || "");
+    box.querySelector("[data-ai-sequence-prepare]").disabled = !aiLive() || aiAttr(card, "data-ai-stale") === "true" || aiAttr(card, "data-ai-video-ready") !== "true";
+    const plan = box.querySelector("[data-ai-sequence-plan]");
+    const planKey = sequence && JSON.stringify([sequence.id, sequence.signature, sequence.state, sequence.clips, sequence.reasons, sequence.error]);
+    if (aiAttr(plan, "data-ai-sequence-key") !== (planKey || "")) {
+      plan.setAttribute("data-ai-sequence-key", planKey || "");
+      plan.textContent = "";
+      if (sequence) aiPaintSequencePlan(card, plan, sequence);
+    }
+    aiPaintSequenceReview(card, box.querySelector("[data-ai-sequence-review]"), sequence);
+  }
+  function aiPaintSequencePlan(card, plan, sequence) {
+    const draft = aiDraftFor(card);
+    const choiceKey = sequence.id + "\u001f" + sequence.signature;
+    const choices = (draft.sequenceChoices || {})[choiceKey] || sequence.clips.map((clip) => clip.still.id);
+    const label = document.createElement("p");
+    const states = { planned: "Plan awaits launch", running: "Generating and assembling", complete: "Assembled", partial: "Some clips need attention", incomplete: "Incomplete sequence", stale: "Inputs changed" };
+    const reasons = { profile_shortfall: "Below the agreed output profile", coverage_shortfall: "Missing video coverage", stale_inputs: "Review current inputs", assembly_failed: "Composition could not finish" };
+    label.textContent = sequence.clips.length + " clips · " + sequence.frames + " frames · " + sequence.fps + " fps · " + (states[sequence.state] || sequence.state) + " · " + (sequence.reasons || []).map((reason) => reasons[reason] || reason).join(", ") + (sequence.error ? " · " + sequence.error : "");
+    plan.append(label);
+    const frozen = document.createElement("p");
+    const scope = sequence.frozen || {};
+    const interval = scope.interval || {};
+    frozen.textContent = [scope.model, scope.resolution, interval.start_s == null ? "" : "Narration " + interval.start_s + "–" + interval.end_s + "s", "Sound: " + (Object.entries(scope.sound || {}).filter(([, on]) => on).map(([name]) => name).join(", ") || "none requested")].filter(Boolean).join(" · ");
+    plan.append(frozen);
+    const list = document.createElement("ol");
+    sequence.clips.forEach((clip, index) => {
+      const row = document.createElement("li");
+      row.textContent = "Clip " + (index + 1) + ": frames " + clip.start_frame + "–" + clip.end_frame + " · exact first frame " + clip.still.id + " · " + clip.job.state + (clip.job.error ? " · " + clip.job.error : "");
+      if (sequence.state === "planned") {
+        const select = document.createElement("select");
+        select.setAttribute("data-ai-sequence-still", "");
+        select.setAttribute("aria-label", "Approved starting image for clip " + (index + 1));
+        (aiBoardBody.versions || []).filter((v) => v.kind === "image" && v.beat === aiAttr(card, "data-ai-beat") && v.approval === "approved").forEach((v) => {
+          const option = document.createElement("option"); option.value = v.id; option.textContent = v.id; select.append(option);
+        });
+        select.value = choices[index] || clip.still.id;
+        select.disabled = index === 0 || !aiLive();
+        select.addEventListener("change", () => {
+          draft.sequenceChoices = draft.sequenceChoices || {};
+          draft.sequenceChoices[choiceKey] = [...plan.querySelectorAll("[data-ai-sequence-still]")].map((field) => field.value);
+          persist(); aiNote(card, "data-ai-sequence-note", "Prepare the changed order before launch."); plan.querySelectorAll("[data-ai-sequence-launch]").forEach((b) => { b.disabled = true; });
+        });
+        row.append(select);
+      }
+      list.append(row);
+    });
+    plan.append(list);
+    if (sequence.state === "planned" && sequence.route === "grok-subscription") {
+      const launch = document.createElement("button"); launch.type = "button";
+      launch.setAttribute("data-ai-sequence-launch", ""); launch.textContent = "Generate these " + sequence.clips.length + " clips";
+      launch.disabled = !aiLive() || aiAttr(card, "data-ai-stale") === "true" || choices.some((id, index) => id !== sequence.clips[index].still.id);
+      launch.addEventListener("click", () => { if (launch.disabled) return; launch.disabled = true; aiSequencePost(card, { action: "launch-sequence", sequence: sequence.id, signature: sequence.signature }); });
+      plan.append(launch);
+    }
+  }
+  function aiPaintSequenceReview(card, box, sequence) {
+    const draft = aiDraftFor(card);
+    const version = sequence && sequence.version;
+    box.hidden = !version;
+    if (!version) return;
+    const key = version.id + "\u001f" + version.signature;
+    draft.sequenceNotes = draft.sequenceNotes || {};
+    if (aiAttr(box, "data-ai-sequence-version-key") !== key) {
+      box.setAttribute("data-ai-sequence-version-key", key); box.textContent = "";
+      const media = document.createElement("video"); media.controls = true; media.preload = "metadata";
+      media.setAttribute("controls", ""); media.setAttribute("src", version.preview.path); media.setAttribute("preload", "metadata");
+      media.addEventListener("play", () => aiPauseOthers(media));
+      const original = document.createElement("a"); original.setAttribute("href", version.path); original.textContent = "Sequence for editing — scene sound, separate narration";
+      const metadata = document.createElement("p");
+      metadata.textContent = version.width + "×" + version.height + " · " + version.frames + " frames. Preview includes narration; originals, order and trims retained. " + (version.native_full_hd === false ? "Native Full HD requirement is unmet." : "");
+      const details = document.createElement("details");
+      const summary = document.createElement("summary"); summary.textContent = "Clip originals, actual durations and trims";
+      const clips = document.createElement("pre"); clips.textContent = JSON.stringify(version.clips, null, 2); details.append(summary, clips);
+      const field = document.createElement("textarea"); field.setAttribute("data-ai-sequence-comment", ""); field.setAttribute("aria-label", "Sequence review comment");
+      field.value = (draft.sequenceNotes[key] || {}).comment ?? version.comment ?? "";
+      field.addEventListener("input", () => { const note = draft.sequenceNotes[key] || {}; draft.sequenceNotes[key] = { ...note, version: version.id, signature: version.signature, comment: field.value, dirty: true }; persist(); });
+      const status = document.createElement("p"); status.setAttribute("data-ai-sequence-decision-label", "");
+      box.append(media, original, metadata, details, field, status);
+      [["approved", "Approve this sequence"], ["changes", "Request sequence changes"], ["rejected", "Reject this sequence"]].forEach(([decision, label]) => {
+        const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.setAttribute("data-ai-sequence-decision", decision);
+        button.addEventListener("click", () => { if (!button.disabled) aiReviewSequence(card, sequence, field.value, decision); }); box.append(button);
+      });
+    }
+    const note = draft.sequenceNotes[key] || {};
+    box.querySelector("[data-ai-sequence-decision-label]").textContent = (note.state || version.approval || "pending") + (note.save === "pending" || note.save === "failed" ? " · not saved" : "");
+    box.querySelectorAll("[data-ai-sequence-decision]").forEach((button) => { button.disabled = sequence.state === "stale" || aiAttr(card, "data-ai-stale") === "true"; });
+  }
+  function aiReviewSequence(card, sequence, comment, decision) {
+    const draft = aiDraftFor(card);
+    const version = sequence.version;
+    const key = version.id + "\u001f" + version.signature;
+    const note = { version: version.id, signature: version.signature, state: decision, comment, dirty: true, save: aiLive() ? "pending" : "local" };
+    draft.sequenceNotes[key] = note;
+    persist(); aiPaintSequenceReview(card, card.querySelector("[data-ai-sequence-review]"), sequence);
+    if (!aiLive()) return;
+    aiPaidPost(card, { action: "review", version: version.id, signature: version.signature, comment, decision, by: "Storyboard" }, "data-ai-sequence-note").then(() => {
+      note.save = "saved"; persist(); aiPoll();
+    }).catch((error) => { note.save = "failed"; persist(); aiNote(card, "data-ai-sequence-note", error.message); });
+  }
   function aiLaunchVideo(card, draft) {
     const button = card.querySelector("[data-ai-video]");
     if (!button || button.disabled || aiAttr(card, "data-ai-video-ready") !== "true") return;
@@ -1406,6 +1570,8 @@
       videoState: draft.videoState || "pending",
       videoSave: draft.videoSave || "",
       videoNotes: draft.videoNotes && typeof draft.videoNotes === "object" ? draft.videoNotes : {},
+      sequenceNotes: draft.sequenceNotes || {},
+      sequenceChoices: draft.sequenceChoices || {},
       instruction: typeof draft.instruction === "string" ? draft.instruction : "",
       instructionDirty: draft.instructionDirty === true,
       fileName: typeof draft.fileName === "string" ? draft.fileName : "",
@@ -1459,6 +1625,8 @@
       save: "",
       versions: stored && stored.fingerprint === fingerprint && stored.versions && typeof stored.versions === "object" ? stored.versions : {},
       videoNotes: stored && stored.fingerprint === fingerprint && stored.videoNotes && typeof stored.videoNotes === "object" && !Array.isArray(stored.videoNotes) ? stored.videoNotes : {},
+      sequenceNotes: stored && stored.fingerprint === fingerprint && stored.sequenceNotes && typeof stored.sequenceNotes === "object" && !Array.isArray(stored.sequenceNotes) ? stored.sequenceNotes : {},
+      sequenceChoices: stored && stored.fingerprint === fingerprint && stored.sequenceChoices && typeof stored.sequenceChoices === "object" && !Array.isArray(stored.sequenceChoices) ? stored.sequenceChoices : {},
       videoVersion: "",
       videoSignature: "",
       videoComment: "",
@@ -2071,7 +2239,7 @@
   function aiEnsurePoll() {
     if (typeof setInterval !== "function" || typeof clearInterval !== "function") return;
     const needs = aiLive() && aiCards().some((card) => (
-      AI_IN_FLIGHT.has(aiAttr(card, "data-ai-state")) || AI_IN_FLIGHT.has(aiAttr(card, "data-ai-video-state"))
+      AI_IN_FLIGHT.has(aiAttr(card, "data-ai-state")) || AI_IN_FLIGHT.has(aiAttr(card, "data-ai-video-state")) || aiAttr(card, "data-ai-sequence-state") === "running"
     ));
     if (!needs) {
       if (aiPollTimer) clearInterval(aiPollTimer);
@@ -2592,6 +2760,8 @@
       aiEnsureTimingControls(card, draft);
       aiEnsureVideoControls(card, draft);
       aiPaintPaid(card, []);
+      const savedSequence = aiRows.find((row) => row.beat === draft.beat && row.sequence);
+      aiPaintSequence(card, savedSequence && savedSequence.sequence);
     });
     if (aiLive()) aiPoll();
     aiEnsurePoll();
@@ -2639,6 +2809,9 @@
         if (!entry || !entry.version || seen.has(entry.version)) return;
         seen.add(entry.version);
         fromCards.push(aiVersionRow(card, draft, entry, true));
+      });
+      Object.values(draft.sequenceNotes || {}).forEach((entry) => {
+        if (entry.version && entry.signature) fromCards.push({ id: "ai:" + beat, project: data.project, beat, fingerprint: draft.fingerprint, kind: "sequence", version: entry.version, signature: entry.signature, comment: entry.comment || "", state: entry.state || "pending" });
       });
     });
     const used = new Set(fromCards.map((row) => row.beat + "\u001f" + row.version));
