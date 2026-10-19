@@ -2,13 +2,15 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-19
+updated: 2026-10-20
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+- AI recovery and bounded correction: expose attempt history, known-result retrieval and local sequence assembly in Storyboard without repeating generation. Preserve drafts, originals and exact approvals across interruption; serialize workers and report uncertain submissions, changed inputs and damaged media. Publish only intact committed AI media. An observed defect can receive one additional corrective generation per original operation, including a comparison or sequence; retain its intent and lineage, refuse chains, keep the approved video first frame and require separate exact confirmation for paid corrections.
 
 - Ordered AI sequences: prepare bounded native/OpenRouter clip sets from resolved recorded-narration timing, freeze each approved first frame and placement, and explicitly launch the native set or confirm every paid clip together. Retain originals, source jobs, hashes, actual durations, order and trims. Compose exact frame coverage with scene sound, keep project narration separate in the editing file, and mix it only into the sequence preview. Preserve partial failures and GET-only recovery; expose missing coverage and native profile shortfalls without hidden fill or upscale. Bind independent sequence review and portable decisions to exact media and current inputs; preserve comments and starting-frame choices through Storyboard refresh.
 

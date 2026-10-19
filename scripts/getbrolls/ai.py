@@ -66,6 +66,17 @@ WORKER_ENV = (
     "XAI_API_KEY",
     "GROK_API_KEY",
 )
+
+
+class _WorkerInterruptedError(Exception):
+    """Deterministic interruption at a durable boundary in synthetic fault tests."""
+
+
+def _interrupt_worker(point):
+    if os.environ.get(CRASH_ENV) == point:
+        raise _WorkerInterruptedError
+
+
 STILL_CODECS = {"png": ".png", "mjpeg": ".jpg"}
 MAX_ARTIFACT_PATH = 240
 MAX_REMOTE_ID = 200
@@ -160,7 +171,8 @@ def public_status(data, root=None):
                 "sequence": board_sequence(_ReadOnlyLedger(data, Path(root)), beat) if root is not None else None,
             }
         )
-    jobs = [public_job(job) for job in (ai.get("jobs") or {}).values() if isinstance(job, dict)]
+    view = _ReadOnlyLedger(data, Path(root)) if root is not None else None
+    jobs = [public_job(job, view) for job in (ai.get("jobs") or {}).values() if isinstance(job, dict)]
     versions = [public_version(row) for row in (ai.get("versions") or {}).values() if isinstance(row, dict)]
     style_value = ai.get("style")
     style = style_value if isinstance(style_value, dict) else {}
@@ -214,7 +226,8 @@ def _group_slots(ai, beat):
     jobs = ai.get("jobs") or {}
     versions = ai.get("versions") or {}
     slots = []
-    for job_id in group.get("jobs") or []:
+    for original_id in group.get("jobs") or []:
+        job_id = (group.get("corrections") or {}).get(original_id, original_id)
         job = jobs.get(job_id)
         if not isinstance(job, dict):
             continue
@@ -408,8 +421,8 @@ def _public_inspection_sources(sources):
     return public
 
 
-def _public_apply_job(job):
-    public = public_job(job)
+def _public_apply_job(job, ledger=None):
+    public = public_job(job, ledger)
     if not isinstance(job, dict):
         return public
     raw_request = job.get("request")
@@ -494,13 +507,13 @@ def public_board(ledger):
                 "mode": beat.get("mode"),
                 "selected": beat.get("selected"),
                 "comment": beat.get("comment") or "",
-                "job": _public_apply_job(job) if job else None,
+                "job": _public_apply_job(job, ledger) if job else None,
                 "version": public_version(version) if version else None,
                 "slots": _group_slots(ai, beat),
                 "timing": _public_timing(ledger, beat),
                 "video": _public_video(ledger, video),
                 "sequence": board_sequence(ledger, beat),
-                "video_job": public_job(video_job) if video_job else None,
+                "video_job": public_job(video_job, ledger) if video_job else None,
                 "video_ready": _video_ready(ledger, beat, versions),
                 "reference": _reference_card(ledger, beat, still_id) if still_id else None,
                 "guidance": _reference_card(ledger, beat, None),
@@ -508,7 +521,7 @@ def public_board(ledger):
         )
     return {
         "beats": beats,
-        "jobs": [_public_apply_job(job) for job in jobs.values() if isinstance(job, dict)],
+        "jobs": [_public_apply_job(job, ledger) for job in jobs.values() if isinstance(job, dict)],
         "versions": [public_version(row) for row in versions.values() if isinstance(row, dict)],
         "style": ((ai.get("style") or {}).get("prompt") if isinstance(ai.get("style"), dict) else None),
         "native_video": _native_video_status(ai),
@@ -685,12 +698,16 @@ def approve_command(ledger, args):
 
 
 def resume_command(ledger, args):
-    job = (ledger.data.get("ai") or {}).get("jobs", {}).get(args.job)
+    from .ai_recovery import check_inputs
+
+    job = (ledger.data.get("ai") or {}).get("jobs", {}).get(identifier(args.job, "Job id"))
     if not job:
         raise ValueError("This AI job is not in the current project.")
     project = str(_project_root(ledger))
     if job.get("state") == "complete" and job.get("result"):
+        checked_version(ledger, job["result"])
         return {"job": public_job(job), "resubmitted": False}
+    check_inputs(ledger, job)
     if job.get("state") == "queued" and job.get("submit_outcome") == "not_sent":
         return {"job": public_job(job), "resubmitted": False, "ai_dispatch": {"project": project, "job": job["id"]}}
     if job.get("state") == "running" and job.get("submit_outcome") == "not_sent":
@@ -1841,17 +1858,28 @@ def spawn_worker(project, job_id, *, retrieve=False):
 
 
 def run_worker(project, job_id, *, retrieve=False):
+    from .ai_recovery import worker_lock
+
+    with worker_lock(project, job_id):
+        _run_worker(project, job_id, retrieve=retrieve)
+
+
+def _run_worker(project, job_id, *, retrieve=False):
     try:
+        _interrupt_worker("before_submit")
         if retrieve:
             _retrieve_worker(project, job_id)
             return
         _produce_worker(project, job_id)
+    except _WorkerInterruptedError:
+        return
     except (ValueError, OSError, KeyError) as exc:
         _store_terminal(project, job_id, {"state": "failed", "message": str(exc), "code": "worker"})
     finally:
         from .ai_sequences import assemble_for_job
 
-        assemble_for_job(project, job_id)
+        if os.environ.get(CRASH_ENV) != "assembly":
+            assemble_for_job(project, job_id)
 
 
 def _is_reparse(path):
@@ -2548,6 +2576,7 @@ def _produce_worker(project, job_id):  # noqa: C901 - Dispatch retains separate 
             current["state"] = "downloading" if remote.get("phase") == "downloading" else "remote_pending"
             current["remote"] = dict(remote or {})
             ledger.save("ai-submitted")
+        _interrupt_worker("accepted")
 
     timeout = float(os.environ.get("GETBROLLS_AI_TIMEOUT") or TIMEOUT_S)
     if route == "gpt-subscription" and _visual_request(request):
@@ -2577,11 +2606,14 @@ def _grok_retrievable(job):
 
 
 def _retrieve_job(project, job_id):
+    from .ai_recovery import check_inputs
+
     with project_lock(project):
         ledger = Ledger(project)
         job = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         if not job or job.get("state") == "complete":
             return None
+        check_inputs(ledger, job)
         if (
             not _grok_retrievable(job)
             and not _openrouter_retrievable(job)
@@ -2592,12 +2624,16 @@ def _retrieve_job(project, job_id):
 
 
 def _retrieve_worker(project, job_id):
+    from .ai_recovery import checked_artifact
+
     job = _retrieve_job(project, job_id)
     if job is None:
         return
-    if (_grok_retrievable(job) or _openrouter_retrievable(job)) and not (job.get("remote") or {}).get(
-        "artifact_sha256"
-    ):
+    try:
+        found = checked_artifact(Ledger(project, recover=False), job)
+    except (ValueError, OSError):
+        found = None
+    if (_grok_retrievable(job) or _openrouter_retrievable(job)) and found is None:
         if _openrouter_retrievable(job):
             from .ai_openrouter import retrieve
         else:
@@ -2610,13 +2646,8 @@ def _retrieve_worker(project, job_id):
         return
     try:
         brolls = _brolls_root(project)
-        workdir = _job_dir(brolls, job_id)
-        artifact = _recorded_artifact(job)
-        if not artifact:
-            return
-        found = _confined_original(workdir, workdir / artifact)
-        if digest(found) != job["remote"]["artifact_sha256"]:
-            raise ValueError("The recorded native still changed before retrieval.")
+        if found is None:
+            raise ValueError("The recorded local AI result is missing or changed.")
         if (job.get("request") or {}).get("kind") == "video":
             version = _ingest_video(brolls, job, found)
         else:
@@ -2642,6 +2673,7 @@ def _commit_result(project, job_id, version, remote=None):
         _merge_remote(current, remote)
         attach_result(ledger, current, version)
         ledger.save("ai-complete")
+    _interrupt_worker("committed")
 
 
 def _finish_outcome(project, job, outcome):  # noqa: C901, PLR0911 - Terminal inspection/media/unknown outcomes keep separate durable transitions.
@@ -2671,11 +2703,8 @@ def _finish_outcome(project, job, outcome):  # noqa: C901, PLR0911 - Terminal in
                 if current.get("state") == "complete":
                     return
                 recorded = current.get("remote") or {}
-                if recorded.get("artifact_sha256") and (
-                    recorded["artifact_sha256"] != original_hash
-                    or recorded.get("artifact") != original.relative_to(workdir).as_posix()
-                ):
-                    return
+                if recorded.get("artifact_sha256") and recorded["artifact_sha256"] != original_hash:
+                    raise ValueError("The retrieved provider result differs from the recorded original.")
                 _merge_remote(current, remote)
                 current["remote"] = dict(current.get("remote") or {})
                 current["remote"]["artifact"] = original.relative_to(workdir).as_posix()
@@ -2683,6 +2712,7 @@ def _finish_outcome(project, job, outcome):  # noqa: C901, PLR0911 - Terminal in
                 current["state"] = "downloading"
                 current["submit_outcome"] = "accepted"
                 ledger.save("ai-result-received")
+            _interrupt_worker("artifact")
             if (job.get("request") or {}).get("kind") == "video":
                 version = _ingest_video(brolls, job, original)
             else:
@@ -2693,6 +2723,9 @@ def _finish_outcome(project, job, outcome):  # noqa: C901, PLR0911 - Terminal in
             )
             return
         _commit_result(project, job_id, version, remote)
+        return
+    if status == "pending":
+        _store_terminal(project, job_id, {"state": "remote_pending", "remote": remote})
         return
     if status == "unknown":
         _store_terminal(
@@ -2712,7 +2745,13 @@ def _finish_outcome(project, job, outcome):  # noqa: C901, PLR0911 - Terminal in
     _store_terminal(
         project,
         job_id,
-        {"state": "failed", "message": (outcome or {}).get("error") or status, "code": code, "remote": remote},
+        {
+            "state": "failed",
+            "message": (outcome or {}).get("error") or status,
+            "code": code,
+            "remote": remote,
+            "submit_outcome": (outcome or {}).get("submit_outcome"),
+        },
     )
 
 
@@ -2729,7 +2768,11 @@ def _store_terminal(project, job_id, fields):
             if state_name == "unknown" and not _grok_retrievable(job) and not _openrouter_retrievable(job)
             else job.get("submit_outcome") or "accepted"
         )
-        job["error"] = _error_payload(fields.get("message"), fields.get("code"))
+        if fields.get("submit_outcome") == "rejected":
+            job["submit_outcome"] = "rejected"
+        job["error"] = (
+            None if state_name == "remote_pending" else _error_payload(fields.get("message"), fields.get("code"))
+        )
         _merge_remote(job, fields.get("remote"))
         unexpected = fields.get("unexpected_media")
         if isinstance(unexpected, dict):

@@ -293,6 +293,8 @@ class OpenRouterPublicTests(unittest.TestCase):
         result = self.confirm(jobs)[0]
         self.assertEqual("failed", result["state"])
         self.assertEqual("quota", self.ai()["jobs"][result["id"]]["error"]["code"])
+        self.assertEqual("rejected", result["submit_outcome"])
+        self.assertEqual("rejected", result["recovery"]["reason"])
         self.assertFalse(self.ai()["versions"])
         self.assertTrue(all(r.full_url.startswith("https://openrouter.ai/") for r in self.requests))
 

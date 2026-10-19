@@ -317,7 +317,7 @@ def _poll(remote, workdir, token, deadline, on_submitted=None):
         if status not in {"pending", "in_progress"}:
             raise ValueError("Unknown OpenRouter status; retain the handle instead of resubmitting.")
         if _remaining(deadline) <= POLL_S:
-            raise TimeoutError
+            return {"status": "pending", "remote": remote}
         time.sleep(POLL_S)
 
 
@@ -332,19 +332,31 @@ def retrievable(job):
 
 def _failure(exc, *, sent=False, remote=None):
     status, code = "unknown" if sent and not remote else "failed", "transport"
+    rejected = False
     message = "OpenRouter media could not complete. Recover a retained result; no generation was retried."
     if isinstance(exc, HTTPError):
         number = exc.code
         exc.close()
-        status = "unknown" if sent and number >= HTTPStatus.INTERNAL_SERVER_ERROR else "failed"
+        status = (
+            "unknown"
+            if sent and (number >= HTTPStatus.INTERNAL_SERVER_ERROR or number == HTTPStatus.REQUEST_TIMEOUT)
+            else "failed"
+        )
         code = "auth" if number in {401, 403} else "quota" if number in {402, 429} else "http"
         outcome = "submission is uncertain" if status == "unknown" else "request was rejected"
         message = f"OpenRouter {outcome} (HTTP {number}). No retry or billing fallback."
+        rejected = (
+            sent
+            and not remote
+            and HTTPStatus.BAD_REQUEST <= number < HTTPStatus.INTERNAL_SERVER_ERROR
+            and number != HTTPStatus.REQUEST_TIMEOUT
+        )
     return {
         "status": status,
         "code": code,
         "error": message,
         "remote": remote,
+        "submit_outcome": "rejected" if rejected else None,
     }
 
 
@@ -567,6 +579,8 @@ def handle_confirm(project, data):
 
 
 def _check_launch_membership(ai, jobs, ids):
+    if len(jobs) == 1 and jobs[0].get("correction_of"):
+        return  # Its own fingerprint confirms exactly one retained corrective intent.
     sequence_ids = {job["request"].get("sequence") for job in jobs}
     if sequence_ids != {None}:
         sequences = ai.get("sequences") or {}

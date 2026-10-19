@@ -318,7 +318,7 @@ def _poll(workdir, remote, credentials, deadline):
             raise ValueError("Grok returned an unknown video status. Keep the recorded request; do not resubmit.")
         remaining = _remaining(deadline)
         if remaining <= POLL_S:
-            raise TimeoutError
+            return {"status": "pending", "remote": remote}
         time.sleep(POLL_S)
 
 
@@ -339,10 +339,18 @@ def _failure(exc, *, sent=False, remote=None):
             else "quota"
             if code == HTTPStatus.TOO_MANY_REQUESTS
             else "unknown"
-            if code >= HTTPStatus.INTERNAL_SERVER_ERROR
+            if code >= HTTPStatus.INTERNAL_SERVER_ERROR or code == HTTPStatus.REQUEST_TIMEOUT
             else "failed"
         )
-        return _status(status, f"Grok OAuth media rejected (HTTP {code}). No retry or billing fallback.", remote)
+        outcome = _status(status, f"Grok OAuth media rejected (HTTP {code}). No retry or billing fallback.", remote)
+        if (
+            sent
+            and not remote
+            and HTTPStatus.BAD_REQUEST <= code < HTTPStatus.INTERNAL_SERVER_ERROR
+            and code != HTTPStatus.REQUEST_TIMEOUT
+        ):
+            outcome["submit_outcome"] = "rejected"
+        return outcome
     if isinstance(exc, (OSError, URLError, TimeoutError)):
         return _status(
             "unknown" if sent or remote else "auth",

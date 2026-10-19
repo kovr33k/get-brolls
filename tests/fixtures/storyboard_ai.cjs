@@ -1885,7 +1885,53 @@ async function drain() {
   assert.ok(JSON.parse(ordered.world.downloaded).ai.some((row) => row.version === "seq-media" && row.state === "approved"));
   assert.equal(portablePaid.card.querySelector("[data-ai-sequence-prepare]").disabled, true);
 
-  console.log("AI storyboard edits, exact paid confirmations and retained versions preserve local drafts");
+  const recovery = run({ live: true, boardCards: [aiCard({ withStill: true, approval: "approved" })] });
+  recovery.world.state.jobs = [
+    { id: "known-job", beat: "beat-1", state: "unknown", kind: "video", recovery: { action: "retrieve", reason: "retrieval_failed" }, correction_count: 0 },
+    { id: "image-job", beat: "beat-1", state: "complete", kind: "image", result: "still-1", correction_count: 0, recovery: { action: null, reason: "complete" } },
+    { id: "lost-job", beat: "beat-1", state: "unknown", kind: "image", recovery: { action: null, reason: "unknown_submit" } },
+  ];
+  recovery.world.state.versions = [{ id: "still-1", kind: "image", signature: "sig-1", path: "previews/ai-still-1.png" }];
+  await drain();
+  const historyBox = recovery.card.querySelector("[data-ai-recovery]");
+  assert.ok(historyBox, "Known work has explicit recovery and attempt history");
+  assert.ok(historyBox.textContent.includes("Submission outcome unknown"));
+  const recoverKnown = historyBox.querySelector("[data-ai-recover='known-job']");
+  const defect = historyBox.querySelector("[data-ai-defect='image-job']");
+  const intent = historyBox.querySelector("[data-ai-correct-intent='image-job']");
+  defect.value = "The wall edge is duplicated"; defect.dispatchEvent({ type: "input" });
+  intent.value = "Remove the duplicate"; intent.dispatchEvent({ type: "input" });
+  recovery.card.querySelector("[data-ai-comment]").value = "Keep my later draft";
+  recovery.card.querySelector("[data-ai-comment]").dispatchEvent({ type: "input" });
+  recoverKnown.click(); recoverKnown.click(); await drain();
+  assert.equal(posted(recovery.world, "resume").length, 1);
+  assert.equal(posted(recovery.world, "resume")[0].body.job, "known-job");
+  assert.equal(defect.value, "The wall edge is duplicated");
+  assert.equal(recovery.card.querySelector("[data-ai-comment]").value, "Keep my later draft");
+  const correct = historyBox.querySelector("[data-ai-correct='image-job']");
+  correct.click(); correct.click(); await drain();
+  assert.equal(posted(recovery.world, "correct").length, 1);
+  const correction = posted(recovery.world, "correct")[0].body;
+  assert.equal(correction.signature, "sig-1");
+  assert.equal(correction.defect, "The wall edge is duplicated");
+  assert.equal(correction.instruction, "Remove the duplicate");
+  assert.equal(posted(recovery.world, "generate").length, 0);
+  const restoredRecovery = run({ live: true, saved: recovery.store, boardCards: [aiCard({ withStill: true, approval: "approved" })] });
+  restoredRecovery.world.state = recovery.world.state;
+  await drain();
+  assert.equal(restoredRecovery.card.querySelector("[data-ai-defect='image-job']").value, defect.value);
+  ordered.world.state.beats[0].sequence.version = null;
+  ordered.world.state.beats[0].sequence.state = "partial";
+  const partialSequence = run({ live: true });
+  partialSequence.world.state = ordered.world.state;
+  await drain();
+  const recoverSequence = partialSequence.card.querySelector("[data-ai-sequence-resume]");
+  assert.ok(recoverSequence);
+  recoverSequence.click(); recoverSequence.click(); await drain();
+  assert.equal(posted(partialSequence.world, "resume-sequence").length, 1);
+  assert.equal(posted(partialSequence.world, "resume-sequence")[0].body.signature, "seq-fp");
+
+  console.log("AI storyboard recovery, bounded correction and exact review preserve local drafts");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

@@ -660,21 +660,18 @@
       button.title = setup[kind] ? "Prepare scope for confirmation; no generation yet." : "Configure OpenRouter in the AI plan first.";
     });
     const pending = box.querySelector("[data-ai-paid-pending]");
-    const selected = jobs.filter((job) => job.beat === aiAttr(card, "data-ai-beat") && job.paid && (
-      job.state === "awaiting_confirmation" || (job.recoverable && ["failed", "unknown", "remote_pending", "downloading"].includes(job.state))
-    ));
+    const selected = jobs.filter((job) => job.beat === aiAttr(card, "data-ai-beat") && job.paid && job.state === "awaiting_confirmation");
     const key = JSON.stringify(selected);
     if (aiAttr(pending, "data-ai-paid-key") === key) return;
     pending.setAttribute("data-ai-paid-key", key);
     pending.textContent = "";
     const groups = new Map();
     selected.forEach((job) => {
-      const id = job.group || job.sequence || job.id;
+      const id = job.correction_of ? job.id : job.group || job.sequence || job.id;
       if (!groups.has(id)) groups.set(id, []);
       groups.get(id).push(job);
     });
     groups.forEach((rows) => {
-      const awaiting = rows.every((job) => job.state === "awaiting_confirmation");
       const group = document.createElement("div");
       const title = document.createElement("p");
       const known = rows.every((job) => job.paid.estimate && typeof job.paid.estimate.usd === "number");
@@ -693,15 +690,15 @@
       const button = document.createElement("button");
       button.setAttribute("type", "button");
       button.setAttribute("data-ai-paid-confirm", "");
-      button.textContent = awaiting ? "Confirm this paid " + rows.length + "-output launch" : "Recover saved video; no new generation";
+      button.textContent = "Confirm this paid " + rows.length + "-output launch";
       button.disabled = !aiLive() || aiAttr(card, "data-ai-stale") === "true";
       button.addEventListener("click", () => {
         if (button.disabled || !aiLive() || aiAttr(card, "data-ai-stale") === "true") return;
         button.disabled = true;
-        const payload = awaiting ? {
+        const payload = {
           action: "confirm-paid", jobs: rows.map((job) => job.id),
           signatures: Object.fromEntries(rows.map((job) => [job.id, job.paid.fingerprint])), by: "Storyboard",
-        } : { action: "resume", job: rows[0].id };
+        };
         aiPaidPost(card, payload).catch((error) => {
           button.disabled = false;
           aiNote(card, "data-ai-paid-note", error.message);
@@ -709,6 +706,78 @@
       });
       group.append(button);
       pending.append(group);
+    });
+  }
+  function aiRecoveryPost(card, key, payload) {
+    const draft = aiDraftFor(card);
+    if (!draft || !aiLive() || aiAttr(card, "data-ai-stale") === "true") return;
+    draft.recoveryBusy = draft.recoveryBusy || {};
+    if (draft.recoveryBusy[key]) return;
+    draft.recoveryBusy[key] = true;
+    aiPaintRecovery(card, aiBoardBody.jobs || []);
+    aiPaidPost(card, payload, "data-ai-recovery-note").catch((error) => {
+      aiNote(card, "data-ai-recovery-note", error.message);
+    }).finally(() => {
+      draft.recoveryBusy[key] = false;
+      aiPaintRecovery(card, aiBoardBody.jobs || []);
+    });
+  }
+  function aiPaintRecovery(card, jobs) {
+    const draft = aiDraftFor(card);
+    if (!draft) return;
+    let box = card.querySelector("[data-ai-recovery]");
+    if (!box) {
+      box = document.createElement("details"); box.setAttribute("data-ai-recovery", "");
+      const title = document.createElement("summary"); title.textContent = "Attempts, recovery and observed defects";
+      const note = document.createElement("p"); note.setAttribute("data-ai-recovery-note", "");
+      box.append(title, note); card.append(box);
+    }
+    const reasons = { unknown_submit: "Submission outcome unknown; no automatic resubmission", provider_processing: "Provider work retained", retrieval_failed: "Retrieval failed; retain the same provider result", local_handoff: "Original received; local publication unfinished", artifact_invalid: "Local result missing or changed", output_invalid: "Committed media missing or changed", inputs_changed: "Frozen inputs changed", before_submit: "Authorized request has not been sent", rejected: "Provider rejected the request" };
+    draft.recoveryNotes = draft.recoveryNotes || {};
+    jobs.filter((job) => job.beat === draft.beat).forEach((job) => {
+      let row = box.querySelector("[data-ai-attempt='" + job.id + "']");
+      if (!row) {
+        row = document.createElement("details"); row.setAttribute("data-ai-attempt", job.id);
+        const summary = document.createElement("summary"); summary.setAttribute("data-ai-attempt-summary", "");
+        const status = document.createElement("p"); status.setAttribute("data-ai-attempt-status", "");
+        const result = document.createElement("a"); result.setAttribute("data-ai-attempt-result", "");
+        const recover = document.createElement("button"); recover.type = "button"; recover.setAttribute("data-ai-recover", job.id);
+        recover.addEventListener("click", () => { if (!recover.disabled) aiRecoveryPost(card, job.id, { action: "resume", job: job.id }); });
+        const form = document.createElement("div"); form.setAttribute("data-ai-correct-form", "");
+        const defect = document.createElement("textarea"); defect.setAttribute("data-ai-defect", job.id); defect.setAttribute("aria-label", "Observed defect in this exact result"); defect.placeholder = "Describe the visible defect you observed"; defect.maxLength = 8000;
+        const intent = document.createElement("textarea"); intent.setAttribute("data-ai-correct-intent", job.id); intent.setAttribute("aria-label", "Desired correction"); intent.placeholder = "What should be corrected?"; intent.maxLength = 8000;
+        const saved = draft.recoveryNotes[job.id] || {};
+        defect.value = saved.defect || ""; intent.value = saved.instruction || "";
+        [defect, intent].forEach((field) => field.addEventListener("input", () => {
+          draft.recoveryNotes[job.id] = { defect: defect.value, instruction: intent.value }; persist(); aiPaintRecovery(card, aiBoardBody.jobs || []);
+        }));
+        const correct = document.createElement("button"); correct.type = "button"; correct.setAttribute("data-ai-correct", job.id);
+        correct.addEventListener("click", () => {
+          if (correct.disabled) return;
+          const current = (aiBoardBody.jobs || []).find((item) => item.id === job.id);
+          const version = (aiBoardBody.versions || []).find((item) => item.id === (current || {}).result);
+          if (!version) return;
+          const payload = { action: "correct", job: job.id, signature: version.signature, defect: defect.value.trim(), instruction: intent.value.trim(), by: "Storyboard" };
+          payload.requestId = "correct-" + aiHash(JSON.stringify(payload));
+          aiRecoveryPost(card, job.id, payload);
+        });
+        form.append(defect, intent, correct); row.append(summary, status, result, recover, form); box.append(row);
+      }
+      const recovery = job.recovery || {};
+      const version = (aiBoardBody.versions || []).find((item) => item.id === job.result);
+      const busy = !!(draft.recoveryBusy || {})[job.id];
+      const disabled = busy || !aiLive() || aiAttr(card, "data-ai-stale") === "true";
+      row.querySelector("[data-ai-attempt-summary]").textContent = job.kind + " · " + job.state + " · " + job.id + (job.correction_of ? " · correction of " + job.correction_of : "");
+      row.querySelector("[data-ai-attempt-status]").textContent = (reasons[recovery.reason] || recovery.reason || "") + (job.error ? " · " + job.error : "") + (job.correction ? " · Observed: " + job.correction.defect + " · Correction: " + job.correction.instruction : "");
+      const link = row.querySelector("[data-ai-attempt-result]"); link.hidden = !version; link.textContent = version ? "Saved result · " + version.id + " · " + (version.approval || "pending") : "";
+      if (version) link.setAttribute("href", version.path);
+      const recover = row.querySelector("[data-ai-recover]"); recover.hidden = !recovery.action;
+      recover.disabled = disabled || !recovery.action; recover.textContent = recovery.action === "continue" ? "Continue this authorized request" : "Recover saved result; no new generation";
+      const correctible = job.state === "complete" && version && !job.correction_of && !job.correction_count && !job.operation_correction_count && !["inputs_changed", "output_invalid"].includes(recovery.reason);
+      row.querySelector("[data-ai-correct-form]").hidden = !correctible;
+      const correct = row.querySelector("[data-ai-correct]");
+      correct.textContent = job.route === "openrouter" ? "Prepare one paid correction for confirmation" : "Generate one correction of this defect";
+      correct.disabled = disabled || !correctible || !row.querySelector("[data-ai-defect]").value.trim() || !row.querySelector("[data-ai-correct-intent]").value.trim();
     });
   }
   function aiCandidateRows(timing) {
@@ -1190,6 +1259,17 @@
       if (sequence) aiPaintSequencePlan(card, plan, sequence);
     }
     aiPaintSequenceReview(card, box.querySelector("[data-ai-sequence-review]"), sequence);
+    let history = box.querySelector("[data-ai-sequence-history]");
+    if (!history) { history = document.createElement("details"); history.setAttribute("data-ai-sequence-history", ""); box.append(history); }
+    const prior = sequence && sequence.history || [];
+    const historyKey = JSON.stringify(prior);
+    if (aiAttr(history, "data-ai-history-key") !== historyKey) {
+      history.setAttribute("data-ai-history-key", historyKey); history.textContent = ""; history.hidden = !prior.length;
+      const title = document.createElement("summary"); title.textContent = "Earlier retained sequence versions"; history.append(title);
+      prior.forEach((version) => {
+        const row = document.createElement("p"); row.textContent = version.id + " · " + version.approval + " · " + version.width + "×" + version.height + " · " + version.frames + " frames. Earlier clip set retained; this decision does not apply to the current assembly."; history.append(row);
+      });
+    }
   }
   function aiPaintSequencePlan(card, plan, sequence) {
     const draft = aiDraftFor(card);
@@ -1228,6 +1308,13 @@
       list.append(row);
     });
     plan.append(list);
+    if (sequence.state !== "planned" && sequence.state !== "stale" && !sequence.version) {
+      const recover = document.createElement("button"); recover.type = "button";
+      recover.setAttribute("data-ai-sequence-resume", ""); recover.textContent = "Recover saved clips and assembly";
+      recover.disabled = !aiLive() || aiAttr(card, "data-ai-stale") === "true";
+      recover.addEventListener("click", () => { if (recover.disabled) return; recover.disabled = true; aiSequencePost(card, { action: "resume-sequence", sequence: sequence.id, signature: sequence.signature }); });
+      plan.append(recover);
+    }
     if (sequence.state === "planned" && sequence.route === "grok-subscription") {
       const launch = document.createElement("button"); launch.type = "button";
       launch.setAttribute("data-ai-sequence-launch", ""); launch.textContent = "Generate these " + sequence.clips.length + " clips";
@@ -1572,6 +1659,7 @@
       videoNotes: draft.videoNotes && typeof draft.videoNotes === "object" ? draft.videoNotes : {},
       sequenceNotes: draft.sequenceNotes || {},
       sequenceChoices: draft.sequenceChoices || {},
+      recoveryNotes: draft.recoveryNotes || {},
       instruction: typeof draft.instruction === "string" ? draft.instruction : "",
       instructionDirty: draft.instructionDirty === true,
       fileName: typeof draft.fileName === "string" ? draft.fileName : "",
@@ -1627,6 +1715,7 @@
       videoNotes: stored && stored.fingerprint === fingerprint && stored.videoNotes && typeof stored.videoNotes === "object" && !Array.isArray(stored.videoNotes) ? stored.videoNotes : {},
       sequenceNotes: stored && stored.fingerprint === fingerprint && stored.sequenceNotes && typeof stored.sequenceNotes === "object" && !Array.isArray(stored.sequenceNotes) ? stored.sequenceNotes : {},
       sequenceChoices: stored && stored.fingerprint === fingerprint && stored.sequenceChoices && typeof stored.sequenceChoices === "object" && !Array.isArray(stored.sequenceChoices) ? stored.sequenceChoices : {},
+      recoveryNotes: stored && stored.fingerprint === fingerprint && stored.recoveryNotes && typeof stored.recoveryNotes === "object" && !Array.isArray(stored.recoveryNotes) ? stored.recoveryNotes : {},
       videoVersion: "",
       videoSignature: "",
       videoComment: "",
@@ -2065,6 +2154,7 @@
       const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
       if (!draft) return;
       aiPaintPaid(card, Array.isArray(body.jobs) ? body.jobs : []);
+      aiPaintRecovery(card, Array.isArray(body.jobs) ? body.jobs : []);
       draft.sharedReferences = shared.map((row) => row.context_id || row.error || "").sort().join("\u001f");
       let sharedNote = card.querySelector("[data-ai-shared-reference-note]");
       if (!sharedNote && shared.length) {

@@ -85,7 +85,7 @@ SUMMARIES = {
     "ai-timing": "Match one AI beat to a completed narration analysis; does not transcribe or generate",
     "ai-timing-resolve": "Record an explicit candidate or bounded interval correction; does not pick the first candidate",
     "ai-generate-video": "Freeze one exact approved still and the resolved narration interval into one native video job",
-    "ai-resume": "Resume a saved AI still job without silently resubmitting an unknown outcome",
+    "ai-resume": "Recover a saved AI image/video job without resubmitting an unknown outcome",
 }
 
 # Subcomandos que `execute()` (commands.py) de fato leva até

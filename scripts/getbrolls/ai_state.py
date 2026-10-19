@@ -141,6 +141,36 @@ def _validate_job(key, job, ai):
     if outcome == "unknown" and job["state"] not in ("unknown", "failed", "complete"):
         raise ValueError("An unknown AI submit must stay unknown until it is reconciled.")
     _validate_job_group(key, request, ai)
+    _validate_correction(job, ai)
+
+
+def _validate_correction(job, ai):
+    if not job.get("correction_of"):
+        return
+    parent = ai["jobs"].get(job["correction_of"])
+    children = [j for j in ai["jobs"].values() if j.get("correction_of") == job["correction_of"]]
+    if not parent or parent.get("correction_of") or parent["correction_count"] != 1 or len(children) != 1:
+        raise ValueError("Invalid AI corrective attempt lineage or allowance.")
+    intent = job["request"].get("correction")
+    if intent is not None:
+        from .ai_recovery import correction_request
+
+        version = ai["versions"].get(parent.get("result"))
+        if (
+            not version
+            or intent.get("original") != parent["id"]
+            or intent.get("version") != version["id"]
+            or intent.get("signature") != version_signature(version)
+            or job["request"] != correction_request(parent, intent, job["nonce"])
+        ):
+            raise ValueError("The corrective intent or original frozen scope changed.")
+        for key in ("defect", "instruction", "by"):
+            text(intent.get(key), "Corrective " + key, 200 if key == "by" else 8000)
+        record = (ai.get("sequences") or {}).get(parent["request"].get("sequence")) or (ai.get("groups") or {}).get(
+            parent["request"].get("group")
+        )
+        if record and (record.get("corrections") or {}).get(parent["id"]) != job["id"]:
+            raise ValueError("The corrective attempt lost its original operation allowance.")
 
 
 def _validate_job_group(key, request, ai):
@@ -203,6 +233,20 @@ def _validate_groups(ai):
     for key, group in groups.items():
         jobs, alt_ids = _validate_group_scope(key, group)
         _validate_group_members(ai, key, jobs, alt_ids, seen)
+        seen.update(validate_operation_corrections(ai, group, seen))
+
+
+def validate_operation_corrections(ai, record, seen=()):
+    corrections = record.get("corrections") or {}
+    if not isinstance(corrections, dict) or len(corrections) > 1:
+        raise ValueError("An operation allows one additional corrective generation.")
+    for parent_id, child_id in corrections.items():
+        if parent_id not in record["jobs"] or ai["jobs"][child_id].get("correction_of") != parent_id:
+            raise ValueError("The corrective attempt lost its original operation.")
+    children = set(corrections.values())
+    if children & set(seen):
+        raise ValueError("A corrective result cannot belong to two operations.")
+    return children
 
 
 def _validate_group_scope(key, group):
@@ -487,7 +531,8 @@ def confirm(ledger, job_ids, signatures, by):
         chosen.append(job)
     _require_full_groups(ai, chosen)
     for sequence_id in {job["request"].get("sequence") for job in chosen} - {None}:
-        ai["sequences"][sequence_id]["launched"] = now()
+        if not ai["sequences"][sequence_id].get("launched"):
+            ai["sequences"][sequence_id]["launched"] = now()
     for job in chosen:
         job["confirmation"] = {"by": by, "at": now(), "fingerprint": job["fingerprint"]}
         job["state"] = "queued"
@@ -513,7 +558,11 @@ def _require_full_groups(ai, chosen):
         raise ValueError("Paid comparison confirmation must name every still in the frozen set.")
     for job in chosen:
         sequence_id = job["request"].get("sequence")
-        if sequence_id and not set(ai.get("sequences", {}).get(sequence_id, {}).get("jobs", [])) <= chosen_ids:
+        if (
+            sequence_id
+            and not job.get("correction_of")
+            and not set(ai.get("sequences", {}).get(sequence_id, {}).get("jobs", [])) <= chosen_ids
+        ):
             raise ValueError("Paid sequence confirmation must name every frozen clip.")
 
 
@@ -911,7 +960,9 @@ def sanitize_public_text(value, limit=500):
     return text[:limit]
 
 
-def public_job(job):
+def public_job(job, ledger=None):
+    from .ai_recovery import recovery_state
+
     request = job.get("request") or {}
     error = job.get("error")
     message = str(error.get("message") or error.get("code") or "") if isinstance(error, dict) else str(error or "")
@@ -927,6 +978,24 @@ def public_job(job):
         "result": job.get("result"),
         "error": sanitize_public_text(message) or None,
         "remote": {"threadId": remote.get("threadId")} if remote and remote.get("threadId") else None,
+        "correction_of": job.get("correction_of"),
+        "correction_count": job.get("correction_count", 0),
+        "operation_correction_count": len(
+            (
+                (ledger.data["ai"].get("sequences") or {}).get(request.get("sequence"))
+                or (ledger.data["ai"].get("groups") or {}).get(request.get("group"))
+                or {}
+            ).get("corrections")
+            or {}
+        )
+        if ledger is not None
+        else job.get("correction_count", 0),
+        "correction": {
+            key: sanitize_public_text(value, limit=8000) for key, value in (request.get("correction") or {}).items()
+        }
+        or None,
+        "recovery": recovery_state(job, ledger),
+        "error_code": sanitize_public_text(error.get("code")) if isinstance(error, dict) else None,
     }
     for name in ("group", "slot", "mode", "sequence", "sequence_index"):
         if name in request and request.get(name) is not None:
@@ -935,10 +1004,7 @@ def public_job(job):
         from .ai_openrouter import public_launch
 
         public["paid"] = public_launch(job)
-        remote = job.get("remote") or {}
-        public["recoverable"] = bool(
-            remote.get("requestId") or (remote.get("artifact") and remote.get("artifact_sha256"))
-        )
+    public["recoverable"] = public["recovery"]["action"] is not None
     return public
 
 

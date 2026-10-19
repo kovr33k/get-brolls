@@ -136,6 +136,18 @@ class AIWorkflowTests(unittest.TestCase):
         self.assertEqual(1, self.turn_count())
         self.assertFalse(self.ai()["versions"])
 
+    def test_gpt_local_handoff_recovers_after_interruption_without_another_native_turn(self):
+        self.select()
+        self.env["GETBROLLS_AI_TEST_CRASH"] = "artifact"
+        launched = self.launch()
+        self.assertEqual("downloading", launched["job"]["state"], launched)
+        self.env.pop("GETBROLLS_AI_TEST_CRASH")
+        self.call("review")
+        resumed = self.call("ai-resume", "--job", launched["job"]["id"])
+        self.assertEqual("complete", resumed["job"]["state"], resumed)
+        self.assertEqual(1, self.turn_count())
+        self.assertEqual(0, resumed["job"]["correction_count"])
+
     def test_portable_exact_still_review_import_checks_signature_and_media_bytes(self):
         self.env["GETBROLLS_AI_FIXTURE"] = "slow_ack"
         self.select()

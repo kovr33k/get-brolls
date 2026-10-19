@@ -542,7 +542,7 @@
       ]
     },
     "ai-resume": {
-      "help": "Resume a saved AI still job without silently resubmitting an unknown outcome",
+      "help": "Recover a saved AI image/video job without resubmitting an unknown outcome",
       "options": [
         {
           "action": "_HelpAction",

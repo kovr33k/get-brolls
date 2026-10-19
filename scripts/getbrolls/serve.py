@@ -234,6 +234,11 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         target = _resolve_allowed_target(base, parts, relative)
         if target is None:
             return False
+        if parts[1].startswith("ai-"):
+            from .ai_recovery import admitted_media
+
+            if not admitted_media(base.parent, relative.as_posix()):
+                return False
         folder, resolved = target
         return folder in resolved.parents
 
@@ -410,8 +415,10 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             handle_video,
         )
         from .ai_openrouter import handle_confirm, handle_prepare
+        from .ai_recovery import handle_correct
         from .ai_sequences import handle_launch as handle_launch_sequence
         from .ai_sequences import handle_prepare as handle_prepare_sequence
+        from .ai_sequences import handle_resume as handle_resume_sequence
         from .ai_state import sanitize_public_text
 
         project = Path(self.directory).parent
@@ -430,6 +437,8 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             "confirm-paid": handle_confirm,
             "prepare-sequence": handle_prepare_sequence,
             "launch-sequence": handle_launch_sequence,
+            "resume-sequence": handle_resume_sequence,
+            "correct": handle_correct,
         }
         try:
             handler = handlers.get(action) if isinstance(action, str) else None

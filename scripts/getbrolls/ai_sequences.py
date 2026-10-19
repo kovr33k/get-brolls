@@ -20,6 +20,7 @@ from .ai_state import (
     public_version,
     sanitize_public_text,
     text,
+    validate_operation_corrections,
     version_signature,
 )
 from .ai_timing import _motion, _profile, _video_prompt, checked_video_input, preview_for_view, video_request
@@ -146,11 +147,16 @@ def _clip_request(record, index):
     return request
 
 
+def clip_jobs(record):
+    replacements = record.get("corrections") or {}
+    return [replacements.get(key, key) for key in record["jobs"]]
+
+
 def public_sequence(ledger, record):
     ai = ledger.data["ai"]
     scope = record["scope"]
     clips = []
-    for clip, job_id in zip(scope["clips"], record["jobs"], strict=True):
+    for clip, job_id in zip(scope["clips"], clip_jobs(record), strict=True):
         clips.append({**clip, "job": public_job(ai["jobs"][job_id])})
     version = ai["versions"].get(record.get("version"))
     reasons = _context_reasons(ledger, record, version)
@@ -181,6 +187,12 @@ def public_sequence(ledger, record):
         "reasons": reasons,
         "error": sanitize_public_text(record.get("error")) if record.get("error") else None,
         "ready": bool(version and not reasons and version["approval"]["state"] == "approved"),
+        "correction_count": len(record.get("corrections") or {}),
+        "history": [
+            public_version(row)
+            for row in ai["versions"].values()
+            if row.get("sequence") == record["id"] and row["id"] != record.get("version")
+        ],
     }
 
 
@@ -226,6 +238,7 @@ def _validate_record(ai, key, record, seen):
         if job_id in seen or ai["jobs"][job_id]["request"] != _clip_request(record, index):
             raise ValueError("Sequence membership or frozen clip inputs changed.")
         seen.add(job_id)
+    seen.update(validate_operation_corrections(ai, record, seen))
     if (
         cursor != scope["frames"]
         or cursor != scope["request"]["interval"]["end_frame"] - scope["request"]["interval"]["start_frame"]
@@ -269,7 +282,7 @@ def checked_child(ledger, request):
     index = request.get("sequence_index")
     if not record or type(index) is not int or not 0 <= index < len(record["jobs"]):
         raise ValueError("The frozen sequence membership changed.")
-    job = ai["jobs"].get(record["jobs"][index])
+    job = ai["jobs"].get(clip_jobs(record)[index])
     if not job or job["request"] != request or record["fingerprint"] != request.get("sequence_scope"):
         raise ValueError("The frozen sequence clip changed.")
     beat = beat_for(ledger, request["beat"], request["inputs"])
@@ -288,7 +301,7 @@ def handle_launch(project, data):
             raise ValueError("Launch the exact displayed sequence plan.")
         if record["scope"]["request"]["route"] != "grok-subscription":
             raise ValueError("Confirm the full paid sequence through its frozen paid launch.")
-        jobs = [ledger.data["ai"]["jobs"][key] for key in record["jobs"]]
+        jobs = [ledger.data["ai"]["jobs"][key] for key in clip_jobs(record)]
         _checked_inputs(ledger, record)
         if not record["launched"]:
             record["launched"] = now()
@@ -309,7 +322,7 @@ def checked_sequence_version(ledger, version):
     if not record or record["version"] != version["id"] or record["fingerprint"] != version.get("sequence_scope"):
         raise ValueError("The exact sequence version is no longer current.")
     _checked_inputs(ledger, record)
-    for job_id, clip in zip(record["jobs"], version["clips"], strict=True):
+    for job_id, clip in zip(clip_jobs(record), version["clips"], strict=True):
         job = ledger.data["ai"]["jobs"][job_id]
         source, _path = checked_version(ledger, job["result"], kind="video")
         if source["id"] != clip["version"] or source["sha256"] != clip["sha256"]:
@@ -320,6 +333,31 @@ def checked_sequence_version(ledger, version):
         raise ValueError("The sequence preview changed; review the exact bytes.")
 
 
+def handle_resume(project, data):
+    from argparse import Namespace
+
+    from .ai import dispatch_after_audit, resume_command
+
+    with project_lock(project):
+        ledger = Ledger(project)
+        record = (ledger.data.get("ai", {}).get("sequences") or {}).get(identifier(data.get("sequence"), "Sequence id"))
+        if not record or record["fingerprint"] != data.get("signature") or not record.get("launched"):
+            raise ValueError("Recover the exact previously launched sequence.")
+        _checked_inputs(ledger, record)
+        results = []
+        for job_id in clip_jobs(record):
+            job = ledger.data["ai"]["jobs"][job_id]
+            if job.get("result"):
+                checked_version(ledger, job["result"], kind="video")
+            results.append(resume_command(ledger, Namespace(job=job_id)))
+    for result in results:
+        dispatch_after_audit(result)
+    # Also covers a crash after the last child commit, before local composition.
+    assemble_for_job(project, record["jobs"][0])
+    current = Ledger(project, recover=False)
+    return {"sequence": public_sequence(current, current.data["ai"]["sequences"][record["id"]])}
+
+
 def assemble_for_job(project, job_id):
     """Serialize local composition; successful originals never turn into failed jobs."""
     with project_lock(project):
@@ -328,7 +366,7 @@ def assemble_for_job(project, job_id):
         record = (ledger.data.get("ai", {}).get("sequences") or {}).get((job or {}).get("request", {}).get("sequence"))
         if not record or record.get("version") or not record.get("launched"):
             return
-        jobs = [ledger.data["ai"]["jobs"][key] for key in record["jobs"]]
+        jobs = [ledger.data["ai"]["jobs"][key] for key in clip_jobs(record)]
         if any(child["state"] != "complete" for child in jobs):
             return
         try:

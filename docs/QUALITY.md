@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-19
+updated: 2026-10-20
 tags: [get-brolls, quality, qa, evidence]
 ---
 
@@ -97,6 +97,12 @@ A separate real project received exact-version chat approvals for an image-guide
 The acceptance scope was explicitly amended to remove an additional human video-reference demonstration. Video upload/persistence, requested intervals, actual inclusion, retained direction, shared scope and recovery remain covered by the existing automated/browser/native evidence. General cinematic video-style correspondence is not claimed as human-accepted. The [checkpoint](GRAPHICS-REFERENCES-ACCEPTANCE.md) preserves this boundary for all 55 stories and 13 criteria.
 
 Required [Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/38971486563) passed for executable revision `7e54263`: **1,635 tests, 26 skips, no failures, 1,245.798 seconds**, plus the maintained tooling checks, with a matching verification tree. The final documentation-only PR revision still requires its own required check before integration. Separate AI-generation changes are outside this evidence.
+
+## AI recovery and corrective attempts — 2026-10-20 (issue #89)
+
+Authenticated Storyboard workflows use mocked subscription/API transports and real synthetic image, video and narration files. Fault checks cover saved intent before submission, accepted remote identity, received local originals before publication, completed journal state before a client retry and failed review regeneration. Known-result retrieval and sequence composition retain original jobs/bytes without another generation POST; unknown submissions remain unresolved. Concurrent recovery is exclusive per job while state refresh stays read-only. Damaged/uncommitted AI media is refused by the serving boundary.
+
+Correction checks retain the observed defect, original operation, exact version signature, frozen route and approved video first frame. One additional generation survives restart without chains or allowance reset; sequence correction reuses intact clips. Paid corrections await their own fingerprint-bound confirmation and known/unknown estimate. Browser interaction checks cover explicit recovery, exact correction requests and preservation/restoration of unsent text. These are synthetic technical checks, not new provider access, paid generation, editorial quality or Resolve acceptance. Final required Windows verification must cover the combined submitted tree.
 
 ## Ordered AI sequences — 2026-10-19 (issue #88)
 
