@@ -69,6 +69,20 @@ class OpenRouterTransportTests(unittest.TestCase):
             self.assertIn("OPENROUTER_API_KEY", result["error"])
         self.assertFalse(self.calls)
 
+    def test_image_format_respects_the_frozen_endpoint_capabilities(self):
+        for formats, expected in [(None, None), (["jpeg"], None), (["png", "jpeg"], "png")]:
+            with self.subTest(formats=formats):
+                job = self.job()
+                job["request"]["paid"]["parameters"] = (
+                    {"output_format": {"type": "enum", "values": formats}} if formats else {}
+                )
+                body = provider._payload(self.root, job, self.root)
+                self.assertEqual(expected, body.get("output_format"))
+                self.assertEqual(1, body["n"])
+                self.assertEqual(["test-provider"], body["provider"]["only"])
+                self.assertFalse(body["provider"]["allow_fallbacks"])
+        self.assertFalse(self.calls)
+
     def test_http_rejection_uncertainty_and_redirects_never_retry_or_leak(self):
         for code, expected in [(401, "failed"), (402, "failed"), (429, "failed"), (503, "unknown"), (302, "failed")]:
             with self.subTest(code=code):

@@ -234,9 +234,11 @@ def _payload(project, job, workdir):
     if request["kind"] == "image":
         body.update(
             n=1,
-            output_format="png",
             provider={"only": [paid["provider"]], "allow_fallbacks": False, "require_parameters": True},
         )
+        formats = (paid.get("parameters") or {}).get("output_format") or {}
+        if "png" in formats.get("values", []):
+            body["output_format"] = "png"
         if inputs:
             body["input_references"] = inputs
     else:

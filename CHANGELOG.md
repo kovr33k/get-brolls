@@ -2,13 +2,15 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-20
+updated: 2026-10-21
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+- AI background writes: wait up to ten seconds for a competing project write when claiming a job, retaining provider progress/results or composing a sequence. A three-image launch no longer loses unsent workers to a sibling's brief ledger write. Keep normal command locking fail-fast, per-job exclusivity and no provider resubmission. OpenRouter requests PNG only when the frozen endpoint advertises it, otherwise retaining its validated PNG/JPEG default.
 
 - Native GPT results: accept bounded file-backed image notifications with large duplicate inline payloads, retain originals from the exact native thread/item location and recover a saved image from its existing thread without another inference or generation. Recognize Windows short/long path spellings after checking both original paths for links/junctions; refuse outside hardlinks. Keep strict control-message limits, prompt/turn and production-phase bindings, original hashes and damaged-file refusal. Storyboard watches an explicitly requested asynchronous recovery for a bounded interval. Record one real subscription still and exact-version human approval separately from the interrupted handoff and remaining pilot gates.
 

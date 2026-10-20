@@ -360,7 +360,7 @@ def handle_resume(project, data):
 
 def assemble_for_job(project, job_id):
     """Serialize local composition; successful originals never turn into failed jobs."""
-    with project_lock(project):
+    with project_lock(project, timeout=10):
         ledger = Ledger(project)
         job = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         record = (ledger.data.get("ai", {}).get("sequences") or {}).get((job or {}).get("request", {}).get("sequence"))

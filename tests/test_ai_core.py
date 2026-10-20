@@ -4,6 +4,7 @@ import copy
 import os
 import subprocess
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -12,7 +13,7 @@ import _isolation  # noqa: F401
 import _paths  # noqa: F401
 from _media import skip_unless_ffmpeg, synth_image
 
-from getbrolls import ai, ai_provider
+from getbrolls import ai, ai_provider, runtime
 from getbrolls.ai_state import import_plan, new_job, review, version_signature
 from getbrolls.ledger import Ledger, digest
 
@@ -65,6 +66,67 @@ class AICoreTests(unittest.TestCase):
 
     def finish(self, remote=None):
         ai._finish_outcome(self.project, self.job, {"status": "complete", "path": str(self.image), "remote": remote})
+
+    def test_worker_waits_for_competing_project_write_before_first_submission(self):
+        self.contended_worker("claim")
+
+    def test_worker_retains_generated_result_after_competing_project_write(self):
+        self.contended_worker("result")
+
+    def contended_worker(self, stage):
+        attempted = threading.Event()
+        produced = threading.Event()
+        proceed = threading.Event()
+        errors = []
+        acquire = runtime._acquire_lock
+
+        def noticed(stream, *args, **kwargs):
+            try:
+                return acquire(stream, *args, **kwargs)
+            except BlockingIOError:
+                attempted.set()
+                raise
+
+        def run():
+            try:
+                ai.run_worker(self.project, self.job["id"])
+            except (ValueError, OSError, KeyError) as exc:
+                errors.append(exc)
+
+        def result(*args, **kwargs):
+            produced.set()
+            if not proceed.wait(3):
+                raise TimeoutError("The synthetic provider was not released")
+            return {"status": "complete", "path": str(self.image)}
+
+        with (
+            patch("getbrolls.runtime._acquire_lock", side_effect=noticed),
+            patch.object(ai, "generate_still", side_effect=result) as produce,
+        ):
+            worker = threading.Thread(target=run)
+            if stage == "result":
+                worker.start()
+                self.assertTrue(produced.wait(2))
+            with runtime.project_lock(self.project):
+                proceed.set()
+                if stage == "claim":
+                    worker.start()
+                collided = attempted.wait(2)
+            worker.join(5)
+            self.assertTrue(collided, "The worker must contend with an actual project writer")
+            self.assertFalse(worker.is_alive())
+            self.assertFalse(errors, errors)
+            self.assertEqual("complete", self.stored()["jobs"][self.job["id"]]["state"])
+            self.assertEqual(1, produce.call_count)
+
+    def test_project_lock_remains_fail_fast_by_default_and_bounds_opt_in_wait(self):
+        with runtime.project_lock(self.project):
+            with self.assertRaisesRegex(ValueError, "Outro comando"), runtime.project_lock(self.project):
+                self.fail("A competing writer must never enter")
+            with self.assertRaisesRegex(ValueError, "Outro comando"), runtime.project_lock(self.project, timeout=0.05):
+                self.fail("A lock timeout must never enter the critical section")
+        with runtime.project_lock(self.project, timeout=0.05):
+            self.assertEqual("queued", self.stored()["jobs"][self.job["id"]]["state"])
 
     def directory_link(self, link, target):
         try:

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -123,6 +124,21 @@ class AIWorkflowTests(unittest.TestCase):
         self.launch()
         self.assertEqual(1, self.turn_count())
         self.assertEqual("approved", self.ai()["versions"][version["id"]]["approval"]["state"])
+
+    def test_background_comparison_finishes_all_three_jobs_with_one_turn_each(self):
+        self.call("ai-select", "--beat", "scarcity", "--mode", "images")
+        self.env.pop("GETBROLLS_AI_INLINE")
+        launched = self.call("ai-generate-comparison", "--beat", "scarcity", "--request-id", "background-three")
+        ids = [job["id"] for job in launched["jobs"]]
+        deadline = time.monotonic() + 20
+        while True:
+            jobs = [self.ai()["jobs"][key] for key in ids]
+            if all(job["state"] == "complete" for job in jobs) or time.monotonic() >= deadline:
+                break
+            time.sleep(0.1)
+        self.assertEqual(["complete"] * 3, [job["state"] for job in jobs], jobs)
+        self.assertEqual(3, len(self.ai()["versions"]))
+        self.assertEqual(3, self.turn_count())
 
     def test_unknown_submit_survives_restart_without_second_native_turn(self):
         self.select()

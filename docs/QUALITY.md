@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-20
+updated: 2026-10-21
 tags: [get-brolls, quality, qa, evidence]
 ---
 
@@ -117,6 +117,8 @@ The live handoff initially failed: the image notification exceeded the former 1 
 Synthetic tests cover large file-backed notifications, thread/turn/prompt binding, refused ambiguous history, preserved originals, changed local hashes, reference/comparison recovery without another production turn, and bounded Storyboard polling. The pilot's stop-on-first-error condition remained in effect: the three comparison images were not launched in this first-still pilot. At this checkpoint, real reference-edit fidelity, three-image comparison and Resolve use had not yet been verified; each remains a separate acceptance step. No paid API fallback or video launch occurred in the corrected pilot.
 
 The first combined Windows CI for native result handling exercised 1,875 tests with 26 skips and found three failures caused by short/long Windows path spellings. Retention now checks both uncollapsed source chains before comparing canonical paths and returns a consistent canonical retained path. Regressions cover actual Windows short-name aliases and refusal of outside hardlinks and linked/junction source paths. Required final CI must verify this corrected revision.
+
+A later combined Windows run passed 1,877 tests with 26 skips on the corrected native-path revision. A separately authorized three-image Storyboard comparison then saved its first PNG, **1672×941**, and displayed it without a reload. Two sibling workers exited before submission and left their jobs `queued/not_sent`; no remote identity or image was recorded for either. A deterministic synthetic contention regression reproduced a worker abandoning its initial submission while another writer held the project lock. Background worker state writes now wait a bounded ten seconds; regressions cover contention before first submission and after image production, default fail-fast locking, timeout and a real three-process synthetic comparison with one turn per image. A new final Windows check and completion of the retained live comparison remain required for this revision.
 
 ## Recorded-narration live pilot — 2026-10-20 (issue #91, incomplete)
 

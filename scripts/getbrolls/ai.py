@@ -2018,7 +2018,7 @@ def _merge_remote(job, remote):
 
 
 def _claim(project, job_id):
-    with project_lock(project):
+    with project_lock(project, timeout=10):
         ledger = Ledger(project)
         job = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         if not job:
@@ -2302,7 +2302,7 @@ def _stage_video_reference(ledger, workdir, ref, source):
 def _stage_apply_rows(project, job, workdir):
     request = job.get("request") if isinstance(job.get("request"), dict) else {}
     rows = []
-    with project_lock(project):
+    with project_lock(project, timeout=10):
         ledger = Ledger(project, recover=False)
         target = request.get("target") if isinstance(request.get("target"), dict) else None
         if target is not None:
@@ -2437,7 +2437,7 @@ def _bind_inspection(project, job_id, request, inspection):
         context = obs.get("context_id")
         if isinstance(context, str) and context:
             by_context.setdefault(context, []).append(obs)
-    with project_lock(project):
+    with project_lock(project, timeout=10):
         ledger = Ledger(project)
         current = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         if not current or current.get("state") == "complete":
@@ -2603,7 +2603,7 @@ def _produce_worker(project, job_id):  # noqa: C901 - Dispatch retains separate 
     workdir.mkdir(parents=True, exist_ok=True)
 
     def on_submitted(remote):
-        with project_lock(project):
+        with project_lock(project, timeout=10):
             ledger = Ledger(project)
             current = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
             if not current:
@@ -2647,7 +2647,7 @@ def _grok_retrievable(job):
 def _retrieve_job(project, job_id):
     from .ai_recovery import check_inputs
 
-    with project_lock(project):
+    with project_lock(project, timeout=10):
         ledger = Ledger(project)
         job = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         if not job or job.get("state") == "complete":
@@ -2701,7 +2701,7 @@ def _retrieve_worker(project, job_id):
 
 
 def _commit_result(project, job_id, version, remote=None):
-    with project_lock(project):
+    with project_lock(project, timeout=10):
         ledger = Ledger(project)
         current = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         if not current or current.get("state") == "complete":
@@ -2720,7 +2720,7 @@ def _commit_result(project, job_id, version, remote=None):
 
 def _finish_outcome(project, job, outcome):  # noqa: C901, PLR0911 - Terminal inspection/media/unknown outcomes keep separate durable transitions.
     job_id = job["id"]
-    with project_lock(project):
+    with project_lock(project, timeout=10):
         ledger = Ledger(project)
         current = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         if not current or current.get("state") == "complete":
@@ -2739,7 +2739,7 @@ def _finish_outcome(project, job, outcome):  # noqa: C901, PLR0911 - Terminal in
             workdir = _job_dir(brolls, job_id)
             original = _native_still_original(job, workdir, outcome)
             original_hash = digest(original)
-            with project_lock(project):
+            with project_lock(project, timeout=10):
                 ledger = Ledger(project)
                 current = ledger.data["ai"]["jobs"][job_id]
                 if current.get("state") == "complete":
@@ -2798,7 +2798,7 @@ def _finish_outcome(project, job, outcome):  # noqa: C901, PLR0911 - Terminal in
 
 
 def _store_terminal(project, job_id, fields):
-    with project_lock(project):
+    with project_lock(project, timeout=10):
         ledger = Ledger(project)
         job = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         if not job or job.get("state") == "complete":
@@ -2865,7 +2865,7 @@ def _retain_unexpected_media(project, job_id, outcome):
 
 
 def _store_inspected(project, job_id, outcome):
-    with project_lock(project):
+    with project_lock(project, timeout=10):
         ledger = Ledger(project)
         job = (ledger.data.get("ai") or {}).get("jobs", {}).get(job_id)
         if not job or job.get("state") == "complete":

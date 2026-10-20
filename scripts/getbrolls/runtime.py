@@ -190,17 +190,25 @@ def stderr_tail(stderr, limit=6):
 
 
 @contextlib.contextmanager
-def project_lock(project):
+def project_lock(project, *, timeout: float = 0):
     if not project:
         yield
         return
     root = Path(project).resolve() / "brolls"
     root.mkdir(parents=True, exist_ok=True)
     with (root / ".command.lock").open("a+", encoding="utf-8") as lock:
-        try:
-            _acquire_lock(lock)
-        except BlockingIOError:
-            raise ValueError("Outro comando está usando este projeto. Aguarde terminar antes de repetir.") from None
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                _acquire_lock(lock)
+                break
+            except BlockingIOError:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ValueError(
+                        "Outro comando está usando este projeto. Aguarde terminar antes de repetir."
+                    ) from None
+                time.sleep(min(0.05, remaining))
         try:
             yield
         finally:
