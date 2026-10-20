@@ -28,9 +28,12 @@ TIMEOUT_S = 120
 CLIENT_NAME = "get-brolls"
 OPENAI_PROVIDER = "openai"
 MAX_LINE = 1_048_576
+MAX_IMAGE_BYTES = 32 * 1024 * 1024
+MAX_IMAGE_BASE64 = ((MAX_IMAGE_BYTES + 2) // 3) * 4
+MAX_WIRE_LINE = MAX_IMAGE_BASE64 + MAX_LINE
 MAX_EVENTS = 32
 MAX_INBOX = 64
-READ_CHUNK = 4096
+READ_CHUNK = 65536
 TEST_ENV = ("GETBROLLS_AI_FIXTURE", "GETBROLLS_AI_INLINE", "GETBROLLS_AI_TEST_CRASH")
 BILLING_KEYS = ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY")
 QUOTA_INFO = frozenset({"usageLimitExceeded", "rateLimitExceeded", "sessionBudgetExceeded"})
@@ -101,12 +104,41 @@ def _close_stream(stream):
 
 
 def _decode_line(line):
-    if len(line) > MAX_LINE:
+    if len(line) > MAX_WIRE_LINE:
         raise ValueError(_OVERSIZED)
     data = json.loads(line.decode("utf-8"))
     if not isinstance(data, dict):
         raise ValueError("Native app-server sent a non-object JSONL message.")
+    compacted = _compact_image_results(data)
+    if len(line) > MAX_LINE and (not compacted or len(_encode(data)) > MAX_LINE):
+        raise ValueError(_OVERSIZED)
     return data
+
+
+def _compact_image_results(message):
+    """Keep file-backed image metadata, dropping the bounded duplicate base64 before queuing."""
+    removed = False
+    for body in (message.get("params"), message.get("result")):
+        if not isinstance(body, dict):
+            continue
+        items = [body.get("item")]
+        turns = [body.get("turn")]
+        thread = body.get("thread")
+        if isinstance(thread, dict) and isinstance(thread.get("turns"), list):
+            turns.extend(thread["turns"])
+        for turn in turns:
+            if isinstance(turn, dict) and isinstance(turn.get("items"), list):
+                items.extend(turn["items"])
+        for item in items:
+            if not isinstance(item, dict) or item.get("type") != "imageGeneration":
+                continue
+            encoded = item.get("result")
+            if isinstance(encoded, str) and encoded:
+                if len(encoded) > MAX_IMAGE_BASE64:
+                    raise ValueError(_OVERSIZED)
+                item["result"] = ""
+                removed = True
+    return removed
 
 
 def _split_jsonl(buf):
@@ -119,7 +151,7 @@ def _split_jsonl(buf):
         buf = buf[newline + 1 :]
         if line.strip():
             messages.append(_decode_line(line))
-    if len(buf) > MAX_LINE:
+    if len(buf) > MAX_WIRE_LINE:
         raise ValueError(_OVERSIZED)
     return messages, buf
 
@@ -476,7 +508,7 @@ def _image_outcome(item, remote):
     return {
         "status": COMPLETE,
         "path": str(path),
-        "remote": remote,
+        "remote": {**remote, "imageItemId": item.get("id")},
         "revised_prompt": item.get("revisedPrompt"),
     }
 
@@ -789,7 +821,11 @@ def _run_turn(session, thread, turn):
     expect = turn["expect"]
     on_submitted = turn["on_submitted"]
     state = turn["state"]
-    remote = {"threadId": thread}
+    remote = {
+        "threadId": thread,
+        "phase": "inspection" if expect == "findings" else "generation",
+        "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+    }
     state["submitted"] = True
     state["remote"] = remote
     params = {"threadId": thread, "input": _turn_input(prompt, images), "approvalPolicy": "never"}
@@ -807,7 +843,7 @@ def _run_turn(session, thread, turn):
         return {"status": status, "error": text, "code": "turn", "remote": remote}
     turn = _nested_id(turn_msg, "turn")
     if turn:
-        remote = {"threadId": thread, "turnId": turn}
+        remote = {**remote, "turnId": turn}
         state["remote"] = remote
         _call_on_submitted(on_submitted, remote)
     if expect == "findings":
@@ -918,3 +954,87 @@ def inspect_images(  # noqa: PLR0913 - Inspection shares the explicit session ch
             "session_model": session_model,
         },
     )
+
+
+def retrievable(job):
+    """A native thread handle permits history reconciliation, never another inference turn."""
+    request, remote = job.get("request") or {}, job.get("remote") or {}
+    state = job.get("state")
+    eligible = state in {"unknown", "remote_pending", "downloading"} or (
+        state == "failed" and (job.get("error") or {}).get("code") == "artifact"
+    )
+    visual = request.get("operation") or request.get("references") or request.get("target")
+    bound = remote.get("phase") == "generation" and isinstance(remote.get("prompt_sha256"), str)
+    return bool(
+        eligible
+        and request.get("route") == "gpt-subscription"
+        and request.get("kind") == "image"
+        and remote.get("threadId")
+        and remote.get("phase") != "inspection"
+        and not (remote.get("artifact") and remote.get("artifact_sha256"))
+        and (bound or not visual)
+    )
+
+
+def _history_image(thread, job):  # noqa: PLR0911 - Malformed history, exact turn/prompt binding and a unique completed image each fail closed.
+    remote, request = job.get("remote") or {}, job.get("request") or {}
+    if not isinstance(thread, dict) or thread.get("id") != remote.get("threadId"):
+        return _uncertain(remote)
+    turns = thread.get("turns")
+    if not isinstance(turns, list):
+        return _uncertain(remote)
+    if remote.get("turnId"):
+        turns = [turn for turn in turns if isinstance(turn, dict) and turn.get("id") == remote["turnId"]]
+    if len(turns) != 1 or not isinstance(turns[0], dict):
+        return _uncertain(remote)
+    turn = turns[0]
+    items = turn.get("items")
+    if not isinstance(items, list):
+        return _uncertain(remote)
+    users = [item for item in items if isinstance(item, dict) and item.get("type") == "userMessage"]
+    if len(users) != 1:
+        return _uncertain(remote)
+    content = users[0].get("content")
+    if not isinstance(content, list):
+        return _uncertain(remote)
+    prompt = "\n".join(
+        item["text"]
+        for item in content
+        if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str)
+    )
+    expected = remote.get("prompt_sha256") or hashlib.sha256((request.get("prompt") or "").encode("utf-8")).hexdigest()
+    if not prompt or hashlib.sha256(prompt.encode("utf-8")).hexdigest() != expected:
+        return _uncertain(remote)
+    images = [
+        item
+        for item in items
+        if isinstance(item, dict) and item.get("type") == "imageGeneration" and item.get("status") == "completed"
+    ]
+    if len(images) != 1:
+        return _uncertain(remote)
+    return _image_outcome(images[0], {**remote, "turnId": turn.get("id")})
+
+
+def retrieve_still(job, workdir, *, timeout: float = TIMEOUT_S):
+    """Read one saved native thread. No thread/start, turn/start, tool call or generation POST."""
+    remote = job.get("remote") or {}
+    if not retrievable(job):
+        return _uncertain(remote)
+    session = None
+    try:
+        session = AppServer(_spawn(_command(inspection=True), Path(workdir)), timeout=timeout)
+        error = _initialize(session) or _read_account(session)
+        if error:
+            return _uncertain(remote)
+        error, response = _rpc(
+            session, "thread/read", {"threadId": remote["threadId"], "includeTurns": True}, "history"
+        )
+        result = response.get("result")
+        if error or not isinstance(result, dict):
+            return _uncertain(remote)
+        return _history_image(result.get("thread"), job)
+    except (_TransportEndedError, _DeadlineExceededError, ValueError, OSError):
+        return _uncertain(remote)
+    finally:
+        if session is not None:
+            session.close()

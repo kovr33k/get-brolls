@@ -15,7 +15,8 @@ from html import escape
 from pathlib import Path
 
 from .ai_openrouter import retrievable as _openrouter_retrievable
-from .ai_provider import APP_SERVER_ENV, COMPLETE, TIMEOUT_S, generate_still, inspect_images
+from .ai_provider import APP_SERVER_ENV, COMPLETE, MAX_IMAGE_BYTES, TIMEOUT_S, generate_still, inspect_images
+from .ai_provider import retrievable as _gpt_retrievable
 from .ai_state import (
     ALTERNATIVE_COUNT,
     FULL_HD_HEIGHT,
@@ -728,6 +729,7 @@ def resume_command(ledger, args):
     if (
         (_recorded_artifact(job) and (job.get("remote") or {}).get("artifact_sha256"))
         or _grok_retrievable(job)
+        or _gpt_retrievable(job)
         or _openrouter_retrievable(job)
     ) and job.get("state") in {"remote_pending", "downloading", "unknown", "failed"}:
         return {
@@ -1998,7 +2000,7 @@ def _merge_remote(job, remote):
     if not isinstance(remote, dict):
         return
     info = dict(job.get("remote") or {})
-    for key in ("threadId", "turnId", "tool", "sessionId", "model", "requestId", "transport"):
+    for key in ("threadId", "turnId", "imageItemId", "tool", "sessionId", "model", "requestId", "transport"):
         value = remote.get(key)
         if (
             isinstance(value, str)
@@ -2653,6 +2655,7 @@ def _retrieve_job(project, job_id):
         check_inputs(ledger, job)
         if (
             not _grok_retrievable(job)
+            and not _gpt_retrievable(job)
             and not _openrouter_retrievable(job)
             and (not _recorded_artifact(job) or not (job.get("remote") or {}).get("artifact_sha256"))
         ):
@@ -2670,9 +2673,11 @@ def _retrieve_worker(project, job_id):
         found = checked_artifact(Ledger(project, recover=False), job)
     except (ValueError, OSError):
         found = None
-    if (_grok_retrievable(job) or _openrouter_retrievable(job)) and found is None:
+    if (_gpt_retrievable(job) or _grok_retrievable(job) or _openrouter_retrievable(job)) and found is None:
         if _openrouter_retrievable(job):
             from .ai_openrouter import retrieve
+        elif _gpt_retrievable(job):
+            from .ai_provider import retrieve_still as retrieve
         else:
             from .ai_grok import retrieve
 
@@ -2732,7 +2737,7 @@ def _finish_outcome(project, job, outcome):  # noqa: C901, PLR0911 - Terminal in
         try:
             brolls = _brolls_root(project)
             workdir = _job_dir(brolls, job_id)
-            original = _confined_original(workdir, Path(outcome["path"]))
+            original = _native_still_original(job, workdir, outcome)
             original_hash = digest(original)
             with project_lock(project):
                 ledger = Ledger(project)
@@ -2877,6 +2882,38 @@ def _refuse_link(path):
     if path.is_symlink() or not path.is_file():
         raise ValueError("The native still is missing, a symlink, or not a regular file.")
     return path
+
+
+def _native_still_original(job, workdir, outcome):
+    """Retain a native Codex original from its exact thread/item location, without moving it."""
+    saved = Path(outcome["path"])
+    if job["request"]["route"] != "gpt-subscription" or saved.is_relative_to(workdir):
+        return _confined_original(workdir, saved)
+    remote = outcome.get("remote") or {}
+    thread = identifier(remote.get("threadId"), "Native thread")
+    item = identifier(remote.get("imageItemId"), "Native image item")
+    native_home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex").absolute()
+    expected = native_home / "generated_images" / thread / (item + ".png")
+    if os.path.normcase(str(saved.absolute())) != os.path.normcase(str(expected)):
+        raise ValueError("The native image is outside its recorded thread/item location.")
+    _chain_inside(native_home, expected)
+    with expected.open("rb") as stream:
+        data = stream.read(MAX_IMAGE_BYTES + 1)
+    if not data or len(data) > MAX_IMAGE_BYTES or not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("The native original must be a bounded PNG image.")
+    actual = hashlib.sha256(data).hexdigest()
+    dest = workdir / ("native-" + item + ".png")
+    _chain_inside(workdir, dest)
+    if dest.exists():
+        if digest(_confined_original(workdir, dest)) != actual:
+            raise ValueError("The retained native image differs from the original; no file was overwritten.")
+        return dest
+    with dest.open("xb") as stream:
+        stream.write(data)
+    retained = _confined_original(workdir, dest)
+    if digest(retained) != actual:
+        raise ValueError("The native image changed while being retained.")
+    return retained
 
 
 def _confined_original(workdir, saved):

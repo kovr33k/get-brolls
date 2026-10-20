@@ -79,11 +79,11 @@ def checked_artifact(ledger, job):
 
 
 def recovery_state(job, ledger=None):  # noqa: PLR0911 - distinguish durable outcome, current input/output integrity and retrieval availability.
-    from .ai import _grok_retrievable, _openrouter_retrievable, _recorded_artifact
+    from .ai import _gpt_retrievable, _grok_retrievable, _openrouter_retrievable, _recorded_artifact
 
     state = job.get("state")
     artifact = bool(_recorded_artifact(job) and (job.get("remote") or {}).get("artifact_sha256"))
-    remote = _grok_retrievable(job) or _openrouter_retrievable(job)
+    remote = _gpt_retrievable(job) or _grok_retrievable(job) or _openrouter_retrievable(job)
     code = (job.get("error") or {}).get("code")
     if ledger is not None:
         if job.get("result"):

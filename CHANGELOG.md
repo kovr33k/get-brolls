@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Native GPT results: accept bounded file-backed image notifications with large duplicate inline payloads, retain originals from the exact native thread/item location and recover a saved image from its existing thread without another inference or generation. Keep strict control-message limits, prompt/turn and production-phase bindings, original hashes and damaged-file refusal. Storyboard watches an explicitly requested asynchronous recovery for a bounded interval. Record one real subscription still and exact-version human approval separately from the interrupted handoff and remaining pilot gates.
+
 - Storyboard AI launches: include the configured subscription route and image/session models in economy, comparison and Apply request identities. A newly authorized launch after a setup change no longer collides with a previous frozen request; unchanged defaults, reopening and double-click protection retain their existing identities. Preserve prior failed/unknown jobs without automatic regeneration.
 
 - Native GPT configuration: optionally freeze `still_provider.session_model` in the project plan for economy, comparison and reference Apply requests. Use that explicit Codex session model for inspection and generation, show it in Storyboard/provenance, retain saved choices across setup changes and refuse a changed native response before submitting a turn. Keep the image model separate, preserve global CLI settings and forbid model/provider fallback. Record the first live model rejection without claiming image acceptance or launching the remaining comparison.

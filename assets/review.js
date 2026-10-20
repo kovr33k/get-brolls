@@ -720,8 +720,14 @@
     draft.recoveryBusy = draft.recoveryBusy || {};
     if (draft.recoveryBusy[key]) return;
     draft.recoveryBusy[key] = true;
+    if (payload.action === "resume") {
+      draft.recoveryWatches = draft.recoveryWatches || {};
+      draft.recoveryWatches[key] = 150; // Bound status-only watching while a 120s retrieval and local handoff finish.
+      aiEnsurePoll();
+    }
     aiPaintRecovery(card, aiBoardBody.jobs || []);
     aiPaidPost(card, payload, "data-ai-recovery-note").catch((error) => {
+      if (draft.recoveryWatches) delete draft.recoveryWatches[key];
       aiNote(card, "data-ai-recovery-note", error.message);
     }).finally(() => {
       draft.recoveryBusy[key] = false;
@@ -778,7 +784,7 @@
       const link = row.querySelector("[data-ai-attempt-result]"); link.hidden = !version; link.textContent = version ? "Saved result · " + version.id + " · " + (version.approval || "pending") : "";
       if (version) link.setAttribute("href", version.path);
       const recover = row.querySelector("[data-ai-recover]"); recover.hidden = !recovery.action;
-      recover.disabled = disabled || !recovery.action; recover.textContent = recovery.action === "continue" ? "Continue this authorized request" : "Recover saved result; no new generation";
+      recover.disabled = disabled || !recovery.action || (draft.recoveryWatches || {})[job.id] > 0; recover.textContent = recovery.action === "continue" ? "Continue this authorized request" : "Recover saved result; no new generation";
       const correctible = job.state === "complete" && version && !job.correction_of && !job.correction_count && !job.operation_correction_count && !["inputs_changed", "output_invalid"].includes(recovery.reason);
       row.querySelector("[data-ai-correct-form]").hidden = !correctible;
       const correct = row.querySelector("[data-ai-correct]");
@@ -2203,6 +2209,10 @@
     aiCards().forEach((card) => {
       const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
       if (!draft) return;
+      Object.keys(draft.recoveryWatches || {}).forEach((key) => {
+        const job = (body.jobs || []).find((row) => row.id === key);
+        if (job && job.state === "complete") delete draft.recoveryWatches[key];
+      });
       aiPaintPaid(card, Array.isArray(body.jobs) ? body.jobs : []);
       aiPaintRecovery(card, Array.isArray(body.jobs) ? body.jobs : []);
       draft.sharedReferences = shared.map((row) => row.context_id || row.error || "").sort().join("\u001f");
@@ -2365,6 +2375,15 @@
   }
   function aiPoll() {
     if (!aiLive()) return;
+    aiCards().forEach((card) => {
+      const draft = aiDrafts[aiAttr(card, "data-ai-beat")];
+      if (!draft || !draft.recoveryWatches) return;
+      Object.keys(draft.recoveryWatches).forEach((key) => {
+        if (--draft.recoveryWatches[key] <= 0) delete draft.recoveryWatches[key];
+      });
+      aiPaintRecovery(card, aiBoardBody.jobs || []);
+    });
+    aiEnsurePoll();
     const save = aiSaveConfig();
     fetch(String(save.aiUrl).replace(/\/$/, "") + "/state", {
       method: "GET",
@@ -2380,7 +2399,7 @@
   function aiEnsurePoll() {
     if (typeof setInterval !== "function" || typeof clearInterval !== "function") return;
     const needs = aiLive() && aiCards().some((card) => (
-      AI_IN_FLIGHT.has(aiAttr(card, "data-ai-state")) || AI_IN_FLIGHT.has(aiAttr(card, "data-ai-video-state")) || aiAttr(card, "data-ai-sequence-state") === "running"
+      AI_IN_FLIGHT.has(aiAttr(card, "data-ai-state")) || AI_IN_FLIGHT.has(aiAttr(card, "data-ai-video-state")) || aiAttr(card, "data-ai-sequence-state") === "running" || Object.values((aiDrafts[aiAttr(card, "data-ai-beat")] || {}).recoveryWatches || {}).some((remaining) => remaining > 0)
     ));
     if (!needs) {
       if (aiPollTimer) clearInterval(aiPollTimer);

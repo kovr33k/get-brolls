@@ -12,7 +12,7 @@ import _isolation  # noqa: F401
 import _paths  # noqa: F401
 from _media import skip_unless_ffmpeg, synth_image
 
-from getbrolls import ai
+from getbrolls import ai, ai_provider
 from getbrolls.ai_state import import_plan, new_job, review, version_signature
 from getbrolls.ledger import Ledger, digest
 
@@ -113,8 +113,12 @@ class AICoreTests(unittest.TestCase):
         job = ledger.data["ai"]["jobs"][self.job["id"]]
         job.update(state="unknown", submit_outcome="unknown", remote={"threadId": "thread"})
         ledger.save("test-unknown")
-        with patch.object(ai, "generate_still", side_effect=AssertionError("Recovery must not generate")):
+        with (
+            patch.object(ai, "generate_still", side_effect=AssertionError("Recovery must not generate")),
+            patch.object(ai_provider, "retrieve_still", return_value={"status": "unknown"}) as retrieve,
+        ):
             ai.run_worker(self.project, job["id"], retrieve=True)
+        retrieve.assert_called_once()
         self.assertFalse(self.stored()["versions"])
         self.assertEqual("unknown", self.stored()["jobs"][job["id"]]["state"])
 
@@ -144,7 +148,8 @@ class AICoreTests(unittest.TestCase):
     def test_changed_recorded_artifact_is_rejected_without_attaching_result(self):
         self.record_received()
         self.image.write_bytes(b"replaced result")
-        ai.run_worker(self.project, self.job["id"], retrieve=True)
+        with patch.object(ai_provider, "retrieve_still", side_effect=AssertionError("Keep the recorded original")):
+            ai.run_worker(self.project, self.job["id"], retrieve=True)
         stored = self.stored()
         self.assertFalse(stored["versions"])
         self.assertEqual("failed", stored["jobs"][self.job["id"]]["state"])

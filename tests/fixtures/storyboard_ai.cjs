@@ -364,6 +364,7 @@ function run({ live = false, withStill = false, approval = "pending", saved = nu
         })));
         return { ok: true, blob: async () => ({ parts: ["preview-bytes"] }), json: async () => ({}) };
       }
+      if (method === "GET" && world.failStateRead) throw new Error("Synthetic status transport failure");
       if (method === "GET") return { ok: true, json: async () => world.state };
       if (body && body.action === "select" && world.holdSelect) {
         return new Promise((resolve) => {
@@ -1956,6 +1957,51 @@ async function drain() {
   reopenedUse.world.state.beats[0].delivery = delivery;
   await drain();
   assert.equal(reopenedUse.card.querySelector("[data-ai-use-conditions]").value, "Only this project");
+
+  const nativeRecovery = run({ live: true });
+  const unknownNative = { id: "native-unknown", beat: "beat-1", state: "unknown", kind: "image", recovery: { action: "retrieve", reason: "retrieval_failed" } };
+  nativeRecovery.world.state.jobs = [unknownNative];
+  nativeRecovery.world.state.beats[0].job = unknownNative;
+  await drain();
+  nativeRecovery.card.querySelector("[data-ai-recover='native-unknown']").click();
+  await drain();
+  const nativeVersion = { id: "native-saved", kind: "image", path: "previews/native.png", signature: "native-sig", approval: "pending", width: 1600, height: 900, codec: "png" };
+  const completeNative = { ...unknownNative, state: "complete", result: nativeVersion.id, recovery: { action: null, reason: "complete" } };
+  nativeRecovery.world.state.jobs = [completeNative];
+  nativeRecovery.world.state.beats[0].job = completeNative;
+  nativeRecovery.world.state.beats[0].version = nativeVersion;
+  nativeRecovery.world.state.versions = [nativeVersion];
+  nativeRecovery.advance(1000); await drain();
+  assert.equal(nativeRecovery.card.querySelector("[data-ai-result] img")?.getAttribute("src"), "previews/native.png", "An asynchronous unknown-result recovery appears without reload");
+  assert.equal(nativeRecovery.world.reloads, 0);
+  assert.equal(posted(nativeRecovery.world, "resume").length, 1);
+  assert.equal(posted(nativeRecovery.world, "generate").length, 0);
+
+  const stuckRecovery = run({ live: true });
+  stuckRecovery.world.state.jobs = [unknownNative];
+  stuckRecovery.world.state.beats[0].job = unknownNative;
+  await drain();
+  stuckRecovery.card.querySelector("[data-ai-recover='native-unknown']").click(); await drain();
+  for (let minute = 0; minute < 6; minute += 1) { stuckRecovery.advance(30000); await drain(); }
+  const observedReads = stuckRecovery.world.calls.filter((call) => call.method === "GET").length;
+  stuckRecovery.advance(30000); await drain();
+  assert.equal(stuckRecovery.world.calls.filter((call) => call.method === "GET").length, observedReads, "An unresolved recovery stops its bounded read-only watch");
+  assert.equal(posted(stuckRecovery.world, "resume").length, 1);
+  assert.equal(posted(stuckRecovery.world, "generate").length, 0);
+
+  const disconnectedRecovery = run({ live: true });
+  disconnectedRecovery.world.state.jobs = [unknownNative];
+  disconnectedRecovery.world.state.beats[0].job = unknownNative;
+  await drain();
+  disconnectedRecovery.card.querySelector("[data-ai-recover='native-unknown']").click(); await drain();
+  disconnectedRecovery.world.failStateRead = true;
+  for (let minute = 0; minute < 6; minute += 1) { disconnectedRecovery.advance(30000); await drain(); }
+  const failedReads = disconnectedRecovery.world.calls.filter((call) => call.method === "GET").length;
+  disconnectedRecovery.advance(30000); await drain();
+  assert.equal(disconnectedRecovery.world.calls.filter((call) => call.method === "GET").length, failedReads, "Failed status reads must also exhaust the recovery watch");
+  assert.equal(disconnectedRecovery.card.querySelector("[data-ai-recover='native-unknown']").disabled, false);
+  assert.equal(posted(disconnectedRecovery.world, "resume").length, 1);
+  assert.equal(posted(disconnectedRecovery.world, "generate").length, 0);
 
   for (const mode of ["economy", "images", "apply"]) {
     async function providerLaunch(stillProvider, saved = null) {

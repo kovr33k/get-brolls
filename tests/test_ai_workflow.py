@@ -37,6 +37,7 @@ class AIWorkflowTests(unittest.TestCase):
             "GETBROLLS_AI_INLINE": "1",
             # Successful workflows include subprocess startup and durable ledger writes on Windows.
             "GETBROLLS_AI_TIMEOUT": "8",
+            "CODEX_HOME": str(Path(self.temp.name) / "native-home"),
         }
         self.call("init-rules")
         plan = {
@@ -135,6 +136,32 @@ class AIWorkflowTests(unittest.TestCase):
         self.launch()
         self.assertEqual(1, self.turn_count())
         self.assertFalse(self.ai()["versions"])
+
+    def test_native_large_result_is_retained_from_codex_home(self):
+        self.select()
+        self.env["GETBROLLS_AI_FIXTURE"] = "large_external_image"
+        launched = self.launch()
+        self.assertEqual("complete", launched["job"]["state"], launched)
+        version = self.ai()["versions"][launched["job"]["result"]]
+        original = Path(self.env["CODEX_HOME"]) / "generated_images/thr_getbrolls_test/item_image.png"
+        self.assertGreater(original.stat().st_size, 1_048_576)
+        self.assertEqual(original.read_bytes(), (self.project / "brolls" / version["path"]).read_bytes())
+        self.assertEqual(1, self.turn_count())
+
+    def test_native_saved_history_recovers_unknown_without_a_new_turn(self):
+        self.select()
+        self.env["GETBROLLS_AI_FIXTURE"] = "lost_image_result"
+        self.env["GETBROLLS_AI_TIMEOUT"] = "1"
+        launched = self.launch()
+        self.assertEqual("unknown", launched["job"]["state"])
+        self.env["GETBROLLS_AI_FIXTURE"] = "success"
+        self.env["GETBROLLS_AI_TIMEOUT"] = "8"
+        resumed = self.call("ai-resume", "--job", launched["job"]["id"])
+        self.assertEqual("complete", resumed["job"]["state"], resumed)
+        self.assertFalse(resumed["resubmitted"])
+        self.assertEqual(1, self.turn_count())
+        self.assertEqual(1, len(self.ai()["jobs"]))
+        self.assertEqual(0, resumed["job"]["correction_count"])
 
     def test_gpt_local_handoff_recovers_after_interruption_without_another_native_turn(self):
         self.select()

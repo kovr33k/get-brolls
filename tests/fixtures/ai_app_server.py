@@ -7,6 +7,7 @@ Rejects LSP Content-Length framing and requests sent before `initialized`.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -262,6 +263,35 @@ def _image_item(path=None, failure=None):
     return item
 
 
+def _external_image_item(prompt, images):
+    source = Path(_still_path(prompt, images))
+    home = Path(os.environ["CODEX_HOME"])
+    path = home / "generated_images" / THREAD_ID / "item_image.png"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = b"Comment\0" + b"synthetic transport fixture " * 80000
+    chunk = b"tEXt" + text
+    padding = struct.pack(">I", len(text)) + chunk + struct.pack(">I", zlib.crc32(chunk) & 0xFFFFFFFF)
+    data = source.read_bytes()
+    path.write_bytes(data[:-12] + padding + data[-12:])
+    item = _image_item(str(path.resolve()))
+    item["result"] = base64.b64encode(path.read_bytes()).decode("ascii")
+    history = {
+        "id": THREAD_ID,
+        "turns": [
+            {
+                "id": TURN_ID,
+                "status": "interrupted",
+                "items": [
+                    {"id": "user-1", "type": "userMessage", "content": [{"type": "text", "text": prompt}]},
+                    item,
+                ],
+            }
+        ],
+    }
+    (_cwd() / "native-history.json").write_text(json.dumps(history), encoding="utf-8")
+    return item
+
+
 def _turn_completed(thread_id=THREAD_ID, turn_id=TURN_ID, items=None, status="completed", error=None):
     turn = {"id": turn_id, "items": items or [], "status": status}
     if error is not None:
@@ -371,10 +401,16 @@ def _handle_turn_start(ident, mode, prompt="", images=None):
         _result(ident, _turn_result())
         _emit_turn("text_only", prompt)
         return
-    if mode == "early_image":
-        _item_completed(_image_item(_still_path(prompt, images)))
-        _result(ident, _turn_result())
-        _turn_completed()
+    if mode in {"early_image", "large_external_image", "lost_image_result"}:
+        item = (
+            _image_item(_still_path(prompt, images)) if mode == "early_image" else _external_image_item(prompt, images)
+        )
+        if mode == "lost_image_result":
+            time.sleep(30)
+        else:
+            _item_completed(item)
+            _result(ident, _turn_result())
+            _turn_completed()
         return
     if mode == "turn_quota":
         _result(ident, _turn_result())
@@ -465,6 +501,13 @@ def _handle_request(message, mode):
         return
     if method == "turn/start":
         _handle_turn(ident, mode, params)
+        return
+    if method == "thread/read":
+        path = _cwd() / "native-history.json"
+        if path.is_file():
+            _result(ident, {"thread": json.loads(path.read_text(encoding="utf-8"))})
+        else:
+            _error(ident, "No saved native history")
         return
     _error(ident, f"Unexpected method {method}.")
 
