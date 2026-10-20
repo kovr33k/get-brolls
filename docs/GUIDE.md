@@ -1320,6 +1320,8 @@ For native GPT stills, an optional explicit session model can be recorded in the
 
 The selection is frozen into economy, comparison and Apply requests, shown in Storyboard and retained in delivery provenance. Inspection and production use the same frozen choice. The adapter passes it only to `thread/start`, leaves global CLI configuration untouched, disables provider/model fallback and refuses a changed returned session model before starting a turn. Changing the project setting does not change saved jobs; a replay with changed frozen scope is refused. A rejected or unsupported model does not select another model or start another generation. Keep exact launch authorization and the saved failure when preparing a new model choice.
 
+Storyboard includes the selected subscription route, image-model setting and explicit session-model setting in the identity of economy, comparison and Apply launches. After a setup change, reopen the regenerated review before making a new explicitly authorized launch. Unchanged setup preserves the identity across reopening and duplicate clicks; changing setup never starts work by itself or resubmits a saved job.
+
 ### Explicit paid OpenRouter launches
 
 OpenRouter is a separate paid choice. Keep `OPENROUTER_API_KEY` in the private environment or `.env`, never in an AI plan. For a separate private file, pass `--env-file /path/to/private.env` before the command; an already exported value takes precedence. Loading a key does not authorize generation or change a subscription route. Add explicit model profiles to that plan before running `ai-plan`; for example:

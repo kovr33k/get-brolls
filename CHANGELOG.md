@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Storyboard AI launches: include the configured subscription route and image/session models in economy, comparison and Apply request identities. A newly authorized launch after a setup change no longer collides with a previous frozen request; unchanged defaults, reopening and double-click protection retain their existing identities. Preserve prior failed/unknown jobs without automatic regeneration.
+
 - Native GPT configuration: optionally freeze `still_provider.session_model` in the project plan for economy, comparison and reference Apply requests. Use that explicit Codex session model for inspection and generation, show it in Storyboard/provenance, retain saved choices across setup changes and refuse a changed native response before submitting a turn. Keep the image model separate, preserve global CLI settings and forbid model/provider fallback. Record the first live model rejection without claiming image acceptance or launching the remaining comparison.
 
 - Narration upload: stream the validated multipart recording with its known exact `Content-Length`, avoiding implicit chunked framing. Keep config before audio, one submission and unchanged unknown-result recovery guards. Clarify that a new analysis name cannot resubmit an unknown recording/settings pair. Record the bounded live STT transport failure separately from local framing checks and successful transcription acceptance.

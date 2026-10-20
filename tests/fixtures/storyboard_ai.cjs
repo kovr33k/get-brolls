@@ -220,7 +220,7 @@ function aiCard({
   return card;
 }
 
-function run({ live = false, withStill = false, approval = "pending", saved = null, rows = null, generateState = "queued", failReview = false, holdReview = false, boardCards = null } = {}) {
+function run({ live = false, withStill = false, approval = "pending", saved = null, rows = null, generateState = "queued", failReview = false, holdReview = false, boardCards = null, stillProvider = null } = {}) {
   const store = saved ? { ...saved } : {};
   const tasks = [];
   let nextTimer = 1;
@@ -444,6 +444,7 @@ function run({ live = false, withStill = false, approval = "pending", saved = nu
     jobs: [],
     versions: [],
     style: "Agreed style",
+    ...(stillProvider ? { still_provider: stillProvider } : {}),
   };
   vm.runInNewContext(fs.readFileSync(process.argv[2], "utf8"), context);
   const card = board.querySelector(".ai-card");
@@ -1955,6 +1956,39 @@ async function drain() {
   reopenedUse.world.state.beats[0].delivery = delivery;
   await drain();
   assert.equal(reopenedUse.card.querySelector("[data-ai-use-conditions]").value, "Only this project");
+
+  for (const mode of ["economy", "images", "apply"]) {
+    async function providerLaunch(stillProvider, saved = null) {
+      const fixture = run({ live: true, boardCards: mode === "apply" ? [applyCard()] : null, generateState: "failed", stillProvider, saved });
+      await drain();
+      const card = fixture.card;
+      if (mode === "apply") {
+        const instruction = card.querySelector("[data-ai-instruction]");
+        instruction.value = "Preserve the composition and improve the light";
+        instruction.dispatchEvent({ type: "input" });
+      } else if (mode === "images") {
+        const control = card.querySelector("[data-ai-mode]");
+        control.value = "images";
+        control.dispatchEvent({ type: "change" });
+      }
+      const button = card.querySelector(mode === "apply" ? "[data-ai-apply]" : "[data-ai-generate]");
+      button.click(); button.click(); await drain();
+      const launches = posted(fixture.world, mode === "apply" ? "apply" : "generate");
+      assert.equal(launches.length, 1, mode + " retains double-click protection");
+      return { nonce: launches[0].body.requestId, store: fixture.store };
+    }
+    const legacy = await providerLaunch(null);
+    const oldSession = await providerLaunch({ route: "gpt-subscription", session_model: "fixture-old" }, legacy.store);
+    const nextSession = await providerLaunch({ route: "gpt-subscription", session_model: "fixture-next" }, oldSession.store);
+    assert.notEqual(oldSession.nonce, legacy.nonce, mode + " distinguishes an explicit session from the legacy default");
+    assert.notEqual(nextSession.nonce, oldSession.nonce, mode + " uses a new identity after the session model changes");
+    const reopened = await providerLaunch({ route: "gpt-subscription", session_model: "fixture-next" }, nextSession.store);
+    assert.equal(reopened.nonce, nextSession.nonce, mode + " preserves replay identity on reopen");
+    const grok = await providerLaunch({ route: "grok-subscription", model: "fixture-image" }, nextSession.store);
+    assert.notEqual(grok.nonce, nextSession.nonce, mode + " distinguishes a changed subscription route");
+    const defaultSetup = await providerLaunch({ route: "gpt-subscription", model: null }, legacy.store);
+    assert.equal(defaultSetup.nonce, legacy.nonce, mode + " preserves old default identities");
+  }
 
   console.log("AI storyboard recovery, material use and exact review preserve version-bound drafts");
 })().catch((error) => {

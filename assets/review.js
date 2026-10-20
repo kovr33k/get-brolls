@@ -445,8 +445,14 @@
     if (!chosen) return "";
     return chosen.value || aiAttr(chosen, "value");
   }
+  function aiStillProviderKey() {
+    const setup = aiBoardBody.still_provider || {};
+    const route = setup.route || "gpt-subscription";
+    if (route === "gpt-subscription" && !setup.model && !setup.session_model) return "";
+    return JSON.stringify([route, setup.model || "", setup.session_model || ""]);
+  }
   function aiNonce(draft, alternative, comment) {
-    const guidance = [draft.referenceId || "", draft.sharedReferences || ""].filter(Boolean);
+    const guidance = [draft.referenceId || "", draft.sharedReferences || "", aiStillProviderKey()].filter(Boolean);
     const raw = ["still", draft.beat, draft.fingerprint, alternative, comment, "economy", ...guidance].join("\u001f");
     let hash = 2166136261;
     for (let i = 0; i < raw.length; i++) {
@@ -459,7 +465,7 @@
     const ids = [...card.querySelectorAll("[data-ai-alternative]")]
       .map((radio) => radio.value || aiAttr(radio, "value"))
       .filter(Boolean);
-    const guidance = [draft.referenceId || "", draft.sharedReferences || ""].filter(Boolean);
+    const guidance = [draft.referenceId || "", draft.sharedReferences || "", aiStillProviderKey()].filter(Boolean);
     const raw = [draft.beat, draft.fingerprint, ...ids, comment, "3", ...guidance].join("\u001f");
     let hash = 2166136261;
     for (let i = 0; i < raw.length; i++) {
@@ -2731,6 +2737,7 @@
     const nonce = "apply-" + aiHash([
       "apply", draft.beat, draft.fingerprint, stillId, signature, frozen.referenceId || "", instruction,
       JSON.stringify(scoped), String(frozen.uploadEpoch || 0),
+      ...[aiStillProviderKey()].filter(Boolean),
     ].join("\u001f"));
     if (aiLaunched.has(nonce)) return;
     aiLaunched.add(nonce);
