@@ -1367,6 +1367,48 @@
       note.save = "saved"; persist(); aiPoll();
     }).catch((error) => { note.save = "failed"; persist(); aiNote(card, "data-ai-sequence-note", error.message); });
   }
+  function aiPaintDelivery(card, row) {
+    let box = card.querySelector("[data-ai-delivery]");
+    if (!box) { box = document.createElement("fieldset"); box.setAttribute("data-ai-delivery", ""); card.append(box); }
+    const draft = aiDraftFor(card);
+    const key = row && row.version && row.version + "\u001f" + row.signature;
+    if (!key) { box.textContent = "AI handoff: coverage is missing."; box.removeAttribute("data-version-key"); return; }
+    draft.useNotes = draft.useNotes || {};
+    const use = row.material_use || {};
+    if (aiAttr(box, "data-version-key") !== key) {
+      box.setAttribute("data-version-key", key); box.textContent = "";
+      const title = document.createElement("legend"); title.textContent = "AI handoff — " + row.version;
+      const status = document.createElement("p"); status.setAttribute("data-ai-delivery-status", "");
+      const warning = document.createElement("p"); warning.textContent = "Editorial approval and material-use conditions are separate. Reference access does not grant reuse rights. Save use conditions here; run deliver in the CLI to build the package.";
+      box.append(title, status, warning);
+      const values = draft.useNotes[key] || use;
+      [["state", "Use state: permitted / blocked / unresolved"], ["by", "Responsible editor"], ["conditions", "Conditions for generated output and guided inputs"], ["evidence", "Basis for this declaration"]].forEach(([name, label]) => {
+        const field = document.createElement(name === "state" ? "select" : "textarea");
+        field.setAttribute("data-ai-use-" + name, ""); field.setAttribute("aria-label", label);
+        if (name === "state") ["unresolved", "permitted", "blocked"].forEach((value) => { const option = document.createElement("option"); option.value = value; option.textContent = value; field.append(option); });
+        field.value = values[name] || (name === "state" ? "unresolved" : "");
+        field.addEventListener("input", () => {
+          draft.useNotes[key] = Object.fromEntries(["state", "by", "conditions", "evidence"].map((name) => [name, aiField(card, "data-ai-use-" + name)]));
+          persist();
+        });
+        const caption = document.createElement("label"); caption.textContent = label; caption.append(field); box.append(caption);
+      });
+      const button = document.createElement("button"); button.type = "button"; button.textContent = "Save conditions for this version"; button.setAttribute("data-ai-use-save", "");
+      const note = document.createElement("p"); note.setAttribute("data-ai-use-note", "");
+      button.addEventListener("click", () => {
+        if (button.disabled || !aiLive()) return;
+        const values = Object.fromEntries(["state", "by", "conditions", "evidence"].map((name) => [name, aiField(card, "data-ai-use-" + name)]));
+        if (["by", "conditions", "evidence"].some((name) => !values[name].trim())) { note.textContent = "Enter the responsible editor, conditions and evidence."; return; }
+        button.disabled = true;
+        aiPaidPost(card, { action: "material-use", version: row.version, signature: row.signature, ...values }, "data-ai-use-note")
+          .then(() => { note.textContent = "Saved for this version."; aiPoll(); })
+          .catch((error) => { note.textContent = error.message; })
+          .finally(() => { button.disabled = !aiLive(); });
+      });
+      button.disabled = !aiLive(); box.append(button, note);
+    }
+    box.querySelector("[data-ai-delivery-status]").textContent = "Editorial: " + row.approval + " · use: " + (use.state || "unresolved") + " · " + row.delivery_state + (row.reasons.length ? " · " + row.reasons.join(", ") : " · ready");
+  }
   function aiLaunchVideo(card, draft) {
     const button = card.querySelector("[data-ai-video]");
     if (!button || button.disabled || aiAttr(card, "data-ai-video-ready") !== "true") return;
@@ -1660,6 +1702,7 @@
       sequenceNotes: draft.sequenceNotes || {},
       sequenceChoices: draft.sequenceChoices || {},
       recoveryNotes: draft.recoveryNotes || {},
+      useNotes: draft.useNotes || {},
       instruction: typeof draft.instruction === "string" ? draft.instruction : "",
       instructionDirty: draft.instructionDirty === true,
       fileName: typeof draft.fileName === "string" ? draft.fileName : "",
@@ -1716,6 +1759,7 @@
       sequenceNotes: stored && stored.fingerprint === fingerprint && stored.sequenceNotes && typeof stored.sequenceNotes === "object" && !Array.isArray(stored.sequenceNotes) ? stored.sequenceNotes : {},
       sequenceChoices: stored && stored.fingerprint === fingerprint && stored.sequenceChoices && typeof stored.sequenceChoices === "object" && !Array.isArray(stored.sequenceChoices) ? stored.sequenceChoices : {},
       recoveryNotes: stored && stored.fingerprint === fingerprint && stored.recoveryNotes && typeof stored.recoveryNotes === "object" && !Array.isArray(stored.recoveryNotes) ? stored.recoveryNotes : {},
+      useNotes: stored && stored.fingerprint === fingerprint && stored.useNotes && typeof stored.useNotes === "object" && !Array.isArray(stored.useNotes) ? stored.useNotes : {},
       videoVersion: "",
       videoSignature: "",
       videoComment: "",
@@ -2245,6 +2289,7 @@
       aiPaintDecision(card, draft);
       aiApplyBeatTiming(card, draft, beat);
       aiKeepApplyDraft(card, draft, beat);
+      aiPaintDelivery(card, beat.delivery);
     });
     aiEnsurePoll();
     paintGallery();

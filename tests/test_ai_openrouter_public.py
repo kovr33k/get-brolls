@@ -57,6 +57,8 @@ def video_capabilities():
 
 @skip_unless_ffmpeg
 class OpenRouterPublicTests(unittest.TestCase):
+    base: str
+    token: str
     call = grok_helpers.GrokPublicTests.call
     ai = grok_helpers.GrokPublicTests.ai
     plant = grok_helpers.GrokPublicTests.plant

@@ -17,11 +17,11 @@ def digest(path):
     return h.hexdigest()
 
 
-def atomic_write(path, text):
+def atomic_write(path, text, *, newline=None):
     path = Path(path)
     temp = path.with_name(path.name + ".tmp")
     try:
-        with temp.open("w", encoding="utf-8") as f:
+        with temp.open("w", encoding="utf-8", newline=newline) as f:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())

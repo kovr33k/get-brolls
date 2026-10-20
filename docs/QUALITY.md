@@ -98,6 +98,12 @@ The acceptance scope was explicitly amended to remove an additional human video-
 
 Required [Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/38971486563) passed for executable revision `7e54263`: **1,635 tests, 26 skips, no failures, 1,245.798 seconds**, plus the maintained tooling checks, with a matching verification tree. The final documentation-only PR revision still requires its own required check before integration. Separate AI-generation changes are outside this evidence.
 
+## Shared AI handoff — 2026-10-20 (issue #90)
+
+Synthetic public workflows exercise authenticated material-use declarations, independent exact media review and the shared `deliver`/read-only `status` paths. Real FFmpeg fixtures cover Full HD single-video and ordered sequence packages, separate bounded narration, frame placement and tail trims, retained originals, inherited reference/instruction provenance, native profile and coverage shortfalls, changed recordings/media/profile, use revocation, new versions, repeat delivery, foreign or edited files and link/junction destinations. A mixed project retains documentary and graphics delivery when its AI recording becomes stale. Browser interaction checks retain version-bound declaration drafts across polling and reopening; portable review keeps a frozen readiness snapshot.
+
+These checks establish technical packaging behavior with mocked providers and synthetic declarations. They do not establish provider licenses, paid-service access, production media quality, successful Resolve use or complete-module acceptance. Issue #91 remains the real provider/narration/Resolve acceptance gate. The required final Windows check must cover the combined PR tree before integration.
+
 ## AI recovery and corrective attempts — 2026-10-20 (issue #89)
 
 Authenticated Storyboard workflows use mocked subscription/API transports and real synthetic image, video and narration files. Fault checks cover saved intent before submission, accepted remote identity, received local originals before publication, completed journal state before a client retry and failed review regeneration. Known-result retrieval and sequence composition retain original jobs/bytes without another generation POST; unknown submissions remain unresolved. Concurrent recovery is exclusive per job while state refresh stays read-only. Damaged/uncommitted AI media is refused by the serving boundary.

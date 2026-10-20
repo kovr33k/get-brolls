@@ -593,7 +593,7 @@ def _ours(rel, path, owned, brolls_root):
     """
     if rel in owned or rel == INDEX:
         return True
-    if rel == GRAPHICS_DIR or rel.startswith(GRAPHICS_DIR + "/"):
+    if rel.split("/", 1)[0] in {GRAPHICS_DIR, "ai"}:
         return False
     name = path.name
     parent = path.parent.name
@@ -775,7 +775,7 @@ def _entrega_rel(project_relative):
     return project_relative[len(prefix) :]
 
 
-def _retained_graphics_rels(graphics):
+def _retained_graphics_rels(graphics, folder=GRAPHICS_DIR):
     rels = set()
     versions = graphics.get("versions") if isinstance(graphics, dict) else None
     if not isinstance(versions, dict):
@@ -798,7 +798,7 @@ def _retained_graphics_rels(graphics):
             rels.add(media_rel)
             rels.update(_ancestor_rels(media_rel))
     if rels:
-        rels.add(GRAPHICS_DIR)
+        rels.add(folder)
     return rels
 
 
@@ -1913,7 +1913,7 @@ def _put_generated_text(dest, text):
     from .ledger import atomic_write
 
     dest.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write(dest, text)
+    atomic_write(dest, text, newline="\n")
     return "copy"
 
 
@@ -2311,6 +2311,11 @@ def build_delivery(project, dry_run=False, ledger=None, for_human=None):  # noqa
     graphics_items, graphics_skipped, graphics_rows, graphics_changed, graphics_conflicts, graphics_conflicted = (
         _deliver_graphics(ledger, root, dry_run, expected)
     )
+    from .ai_delivery import deliver as deliver_ai
+    from .ai_delivery import readme_lines as ai_readme_lines
+
+    ai_items, ai_skipped, ai_conflicts, ai_changed = deliver_ai(ledger, root, dry_run, expected)
+    conflicts.extend(ai_conflicts)
     conflicts.extend(graphics_conflicts)
     conflicted.extend(graphics_conflicted)
     expected.add(INDEX)
@@ -2323,6 +2328,7 @@ def build_delivery(project, dry_run=False, ledger=None, for_human=None):  # noqa
         copies = bool(listed) and all(i["method"] == "copy" for i in listed)
         lines = _delivery_index_preamble(rows, _created_in(index), copies)
         lines += _graphics_readme_lines(graphics_rows, graphics_skipped)
+        lines += ai_readme_lines(ai_items, ai_skipped)
         lines += _delivery_index_tail(conflicted, text)
         atomic_write(index, "\n".join(lines))
     owned = {
@@ -2332,7 +2338,7 @@ def build_delivery(project, dry_run=False, ledger=None, for_human=None):  # noqa
     }
     owned.update(_retained_graphics_rels(ledger.data.get("graphics")))
     removed, kept = _sweep(root, expected, dry_run, owned, ledger.root)
-    if changed or graphics_changed:
+    if changed or graphics_changed or ai_changed:
         ledger.save_many("deliver", changed)
     if conflicts:
         raise ValueError(" ".join(conflicts))
@@ -2347,4 +2353,6 @@ def build_delivery(project, dry_run=False, ledger=None, for_human=None):  # noqa
         "skipped": skipped,
         "graphics": graphics_items,
         "graphics_skipped": graphics_skipped,
+        "ai": ai_items,
+        "ai_skipped": ai_skipped,
     }

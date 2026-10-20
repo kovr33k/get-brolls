@@ -306,11 +306,34 @@ def validate_ai(data):
         _validate_job(key, job, ai)
     for key, version in ai["versions"].items():
         _validate_version(key, version, ai)
+    _validate_material_use(ai)
     _validate_native_video(ai)
     _validate_groups(ai)
     from .ai_sequences import validate_sequences
 
     validate_sequences(ai)
+
+
+def _validate_material_use(ai):
+    uses = ai.get("material_use", {})
+    if not isinstance(uses, dict):
+        raise ValueError("Invalid AI material-use records; preserve the manifest.")
+    for key, use in uses.items():
+        version = ai["versions"].get(key)
+        if (
+            not version
+            or version["kind"] not in {"video", "sequence"}
+            or not isinstance(use, dict)
+            or use.get("version") != key
+            or use.get("signature") != version_signature(version)
+            or use.get("state") not in {"permitted", "blocked", "unresolved"}
+            or not isinstance(use.get("profile"), dict)
+            or any(
+                not isinstance(use.get(field), str) or not use[field].strip()
+                for field in ("by", "conditions", "evidence", "at")
+            )
+        ):
+            raise ValueError("Invalid AI material-use declaration; preserve the manifest.")
 
 
 def _validate_native_video(ai):

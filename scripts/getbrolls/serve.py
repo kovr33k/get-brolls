@@ -414,6 +414,7 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             handle_timing_resolve,
             handle_video,
         )
+        from .ai_delivery import handle_use
         from .ai_openrouter import handle_confirm, handle_prepare
         from .ai_recovery import handle_correct
         from .ai_sequences import handle_launch as handle_launch_sequence
@@ -439,6 +440,7 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             "launch-sequence": handle_launch_sequence,
             "resume-sequence": handle_resume_sequence,
             "correct": handle_correct,
+            "material-use": handle_use,
         }
         try:
             handler = handlers.get(action) if isinstance(action, str) else None

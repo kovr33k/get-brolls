@@ -134,6 +134,28 @@ def _graphics_delivery_action(state):
             command=None,
             blocking_human=True,
         )
+    if state.get("ai_undelivered"):
+        return _action(
+            "deliver",
+            "Approved AI coverage is ready for the shared handoff.",
+            "Há cobertura AI aprovada para organizar em `entrega/` com `deliver`: vídeo, locução separada e timing.",
+            state,
+        )
+    if state.get("ai_pending"):
+        return _action(
+            "ai-review",
+            "AI media, profile, timing, editorial approval or material use needs action.",
+            "Confira a cobertura AI no Storyboard: mídia, perfil, timing, aprovação e condições de uso.",
+            state,
+            blocking_human=True,
+        )
+    if state.get("ai_present") and not (state.get("counts") or {}).get("candidates"):
+        return _action(
+            "done",
+            "Current AI coverage is organized in entrega/; Resolve acceptance remains separate.",
+            "A cobertura AI atual está organizada em `entrega/`. A aceitação no Resolve continua separada.",
+            state,
+        )
     return None
 
 
@@ -352,6 +374,10 @@ def next_action(state):  # noqa: C901, PLR0911, PLR0912 - existing size; one bra
     counts = _counts(state)
     brief = state.get("brief")
     conflicts = list((brief or {}).get("conflicts") or [])
+    if brief is None and state.get("ai_present") and not counts["candidates"]:
+        generated = _graphics_delivery_action(state)
+        if generated:
+            return generated
     if brief is None:
         return _action(
             "init-brief",

@@ -52,7 +52,7 @@ SUMMARIES = {
     "browser-plan": "Planejar a captura de uma página pelo navegador autorizado",
     "queue": "Enfileirar URLs sociais e ditar o ritmo do lote (add, next, mark, status)",
     "serve": "Servir brolls/review.html em 127.0.0.1 para abrir o Storyboard no navegador",
-    "deliver": "Organize collected clips and approved graphics packages in entrega/",
+    "deliver": "Organize collected clips, approved graphics and permitted reviewed AI coverage in entrega/",
     "graphics-doctor": "Diagnose the optional local Remotion graphics runtime without changing a project",
     "graphics-style": "Record a proposed documentary graphics style revision; does not approve a scene",
     "graphics-assign": "Register an explicit graphics occurrence from original scenario fields",
@@ -86,6 +86,7 @@ SUMMARIES = {
     "ai-timing-resolve": "Record an explicit candidate or bounded interval correction; does not pick the first candidate",
     "ai-generate-video": "Freeze one exact approved still and the resolved narration interval into one native video job",
     "ai-resume": "Recover a saved AI image/video job without resubmitting an unknown outcome",
+    "ai-material-use": "Record material-use conditions for one exact AI video or sequence, separately from editorial approval",
 }
 
 # Subcomandos que `execute()` (commands.py) de fato leva até
@@ -213,6 +214,7 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         "ai-timing-resolve",
         "ai-generate-video",
         "ai-resume",
+        "ai-material-use",
     ):
         p = sub.add_parser(name, help=SUMMARIES[name], description=SUMMARIES[name])
         p.add_argument(
@@ -1046,6 +1048,15 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
                 help="Stable identity for this three-still launch; a repeated identical request reuses the saved jobs",
             )
             p.add_argument("--expected", help="Saved beat fingerprint; refuse if the scenario or style changed")
+        if name == "ai-material-use":
+            p.add_argument("--version", required=True, help="Exact saved AI video or sequence version")
+            p.add_argument("--signature", required=True, help="Displayed immutable version signature")
+            p.add_argument("--state", required=True, choices=["permitted", "blocked", "unresolved"])
+            p.add_argument("--by", required=True, help="Responsible editor")
+            p.add_argument("--conditions", required=True, help="Conditions covering generated output and guided inputs")
+            p.add_argument(
+                "--evidence", required=True, help="Basis for this declaration; reference access is not a reuse license"
+            )
         if name == "ai-approve":
             p.add_argument(
                 "--version",

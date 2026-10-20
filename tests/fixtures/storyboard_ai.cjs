@@ -1931,7 +1931,32 @@ async function drain() {
   assert.equal(posted(partialSequence.world, "resume-sequence").length, 1);
   assert.equal(posted(partialSequence.world, "resume-sequence")[0].body.signature, "seq-fp");
 
-  console.log("AI storyboard recovery, bounded correction and exact review preserve local drafts");
+  const handoff = run({ live: true, boardCards: [aiCard({ withStill: true, approval: "approved" })] });
+  const delivery = { beat: "beat-1", version: "video-1", signature: "video-signature", approval: "approved", material_use: {}, delivery_state: "not_delivered", reasons: ["material_use_unresolved"] };
+  handoff.world.state.beats[0].delivery = delivery;
+  handoff.world.state.beats[0].job = { id: "running-fixture", state: "running", beat: "beat-1" };
+  await drain();
+  const useBox = handoff.card.querySelector("[data-ai-delivery]");
+  for (const [name, value] of Object.entries({ state: "permitted", by: "Editor", conditions: "Only this project", evidence: "Fixture declaration" })) {
+    const input = useBox.querySelector("[data-ai-use-" + name + "]");
+    input.value = value; input.dispatchEvent({ type: "input" });
+  }
+  const conditions = useBox.querySelector("[data-ai-use-conditions]");
+  handoff.advance(1000); await drain();
+  assert.equal(useBox.querySelector("[data-ai-use-conditions]"), conditions);
+  assert.equal(posted(handoff.world, "material-use").length, 0);
+  useBox.querySelector("[data-ai-use-save]").click(); await drain();
+  assert.equal(posted(handoff.world, "material-use")[0].body.signature, "video-signature");
+  assert.equal(posted(handoff.world, "material-use")[0].body.conditions, "Only this project");
+  handoff.world.state.beats[0].delivery = { ...delivery, version: "video-2", signature: "new-signature" };
+  handoff.advance(1000); await drain();
+  assert.equal(useBox.querySelector("[data-ai-use-conditions]").value, "");
+  const reopenedUse = run({ live: true, saved: handoff.store, boardCards: [aiCard({ withStill: true, approval: "approved" })] });
+  reopenedUse.world.state.beats[0].delivery = delivery;
+  await drain();
+  assert.equal(reopenedUse.card.querySelector("[data-ai-use-conditions]").value, "Only this project");
+
+  console.log("AI storyboard recovery, material use and exact review preserve version-bound drafts");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

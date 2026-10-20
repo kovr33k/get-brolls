@@ -151,6 +151,7 @@ def _status_timing(data, root, beat):
 
 
 def public_status(data, root=None):
+    from .ai_delivery import progress
     from .ai_sequences import board_sequence
 
     ai = data.get("ai")
@@ -182,6 +183,7 @@ def public_status(data, root=None):
         "beats": beats,
         "jobs": jobs,
         "versions": versions,
+        "delivery": progress(view) if view else None,
     }
 
 
@@ -482,11 +484,14 @@ def _reference_card(ledger, beat, still_id):
 
 
 def public_board(ledger):
+    from .ai_delivery import progress
     from .ai_sequences import board_sequence
 
     ai = ledger.data.get("ai") or {}
     jobs = ai.get("jobs") or {}
     versions = ai.get("versions") or {}
+    delivery = progress(ledger)
+    delivery_beats = {row["beat"]: row for row in delivery["beats"]}
     beats = []
     for beat in (ai.get("beats") or {}).values():
         if not isinstance(beat, dict):
@@ -517,6 +522,7 @@ def public_board(ledger):
                 "video_ready": _video_ready(ledger, beat, versions),
                 "reference": _reference_card(ledger, beat, still_id) if still_id else None,
                 "guidance": _reference_card(ledger, beat, None),
+                "delivery": delivery_beats.get(beat["id"]),
             }
         )
     return {
@@ -528,6 +534,7 @@ def public_board(ledger):
         "still_provider": ai.get("still_provider") or {"route": "gpt-subscription", "model": None},
         "shared_references": _shared_reference_cards(ledger),
         "openrouter": ai.get("openrouter") or {},
+        "delivery": delivery,
     }
 
 
@@ -1455,12 +1462,15 @@ def _import_row(ledger, row, by):
 
 
 def storyboard_section(ledger):
+    from .ai_delivery import progress
+
     ai = ledger.data.get("ai")
     if not isinstance(ai, dict) or not ai.get("plan"):
         return ""
     style = (ai.get("style") or {}).get("prompt") or ""
     jobs = ai.get("jobs") or {}
     versions = ai.get("versions") or {}
+    delivery = {row["beat"]: row for row in progress(ledger)["beats"]}
     parts = [
         '<section class="ai-board" aria-label="AI production">',
         "<h2>AI stills</h2>",
@@ -1495,6 +1505,7 @@ def storyboard_section(ledger):
                     "video_job": _latest_video_job(jobs, beat),
                     "video_ready": _video_ready(ledger, beat, versions),
                     "ledger": ledger,
+                    "delivery": delivery.get(beat["id"]),
                 },
             )
         )
@@ -1748,8 +1759,24 @@ def _beat_card(beat, job, version, board):
         '<button type="button" data-ai-decision="rejected">Reject</button>'
         "</div>"
         f"{_video_markup(video, context_current=_video_context_current(ledger, video) if ledger is not None and video else True)}"
+        f"{_delivery_markup(board.get('delivery'))}"
         f'<details class="ai-details"><summary>Details</summary>{details}</details>'
         "</article>"
+    )
+
+
+def _delivery_markup(row):
+    if not row:
+        return ""
+    use = row.get("material_use") or {}
+    return (
+        "<fieldset data-ai-delivery><legend>AI handoff</legend>"
+        f"<p>Version: {_esc(row.get('version') or 'none')} · editorial: {_esc(row.get('approval') or 'pending')}"
+        f" · use: {_esc(use.get('state') or 'unresolved')} · {_esc(row['delivery_state'])}</p>"
+        f"<p>{_esc(', '.join(row['reasons']))}</p>"
+        "<p>Material use is separate from editorial approval. Reference access does not grant reuse rights. "
+        "Use the live Storyboard or ai-material-use CLI to record conditions, then run deliver. "
+        "This portable snapshot does not publish a package or change conditions.</p></fieldset>"
     )
 
 
