@@ -3,9 +3,12 @@
 import base64
 import hashlib
 import json
+import os
 import subprocess
+import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
@@ -20,6 +23,9 @@ class AIDeliveryPublicTests(unittest.TestCase):
         self.media = paid_helpers.OpenRouterPublicTests()
         self.addCleanup(self.media.doCleanups)
         self.media.setUp()
+        # Bound positive Full HD fixtures while allowing HTTP acknowledgement and durable Windows writes.
+        self.enterContext(patch.dict(os.environ, {"GETBROLLS_AI_TIMEOUT": "8"}))
+        self.media.env["GETBROLLS_AI_TIMEOUT"] = "8"
         self.media.ready_video()
         self.launch_count = 0
         self.clip_count = 0
@@ -186,7 +192,15 @@ class AIDeliveryPublicTests(unittest.TestCase):
 
     def test_material_use_cli_binds_exact_version_and_revocation_preserves_prior_package(self):
         media = self.media
-        version = self.launch()
+
+        def delayed_ack(request, **kwargs):
+            if request.get_method() == "POST" and request.full_url.endswith("/videos"):
+                time.sleep(1.1)
+            return media.reply(request, **kwargs)
+
+        with patch("getbrolls.ai_openrouter._opener") as transport:
+            transport.return_value.open.side_effect = delayed_ack
+            version = self.launch()
         self.approve(version)
         args = (
             "ai-material-use",

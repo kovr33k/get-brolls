@@ -560,7 +560,7 @@
           ],
           "default": null,
           "dest": "state",
-          "help": null,
+          "help": "Explicit material-use declaration for this exact version; independent of editorial approval",
           "nargs": null,
           "option_strings": [
             "--state"

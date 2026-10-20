@@ -1051,7 +1051,12 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
         if name == "ai-material-use":
             p.add_argument("--version", required=True, help="Exact saved AI video or sequence version")
             p.add_argument("--signature", required=True, help="Displayed immutable version signature")
-            p.add_argument("--state", required=True, choices=["permitted", "blocked", "unresolved"])
+            p.add_argument(
+                "--state",
+                required=True,
+                choices=["permitted", "blocked", "unresolved"],
+                help="Explicit material-use declaration for this exact version; independent of editorial approval",
+            )
             p.add_argument("--by", required=True, help="Responsible editor")
             p.add_argument("--conditions", required=True, help="Conditions covering generated output and guided inputs")
             p.add_argument(
