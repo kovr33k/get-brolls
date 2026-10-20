@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -19,9 +20,10 @@ def digest(path):
 
 def atomic_write(path, text, *, newline=None):
     path = Path(path)
-    temp = path.with_name(path.name + ".tmp")
+    descriptor, name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)
+    temp = Path(name)
     try:
-        with temp.open("w", encoding="utf-8", newline=newline) as f:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline=newline) as f:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())

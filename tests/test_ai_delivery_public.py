@@ -397,6 +397,21 @@ class AIDeliveryPublicTests(unittest.TestCase):
         self.assertEqual([foreign], list(package.iterdir()))
         self.assertEqual("User file", foreign.read_text(encoding="utf-8"))
 
+    def test_atomic_metadata_publication_preserves_foreign_temporary_names(self):
+        media = self.media
+        version = self.launch()
+        self.approve(version)
+        self.permit(version)
+        entry = media.call("deliver", "--dry-run")["ai"][0]
+        package = media.project / entry["package_dir"]
+        package.mkdir(parents=True)
+        foreign = [package / "provenance.json.tmp", media.project / "entrega/README.md.tmp"]
+        for path in foreign:
+            path.write_text("User-owned temporary notes", encoding="utf-8")
+        self.assertEqual(1, len(media.call("deliver")["ai"]))
+        for path in foreign:
+            self.assertEqual("User-owned temporary notes", path.read_text(encoding="utf-8"))
+
     def test_new_version_and_changed_project_profile_never_reuse_prior_readiness(self):
         from test_graphics_delivery import _assign_explicit
 
