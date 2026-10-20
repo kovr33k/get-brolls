@@ -10,7 +10,7 @@ tags: [get-brolls]
 
 ## Unreleased
 
-- Native GPT results: accept bounded file-backed image notifications with large duplicate inline payloads, retain originals from the exact native thread/item location and recover a saved image from its existing thread without another inference or generation. Keep strict control-message limits, prompt/turn and production-phase bindings, original hashes and damaged-file refusal. Storyboard watches an explicitly requested asynchronous recovery for a bounded interval. Record one real subscription still and exact-version human approval separately from the interrupted handoff and remaining pilot gates.
+- Native GPT results: accept bounded file-backed image notifications with large duplicate inline payloads, retain originals from the exact native thread/item location and recover a saved image from its existing thread without another inference or generation. Recognize Windows short/long path spellings after checking both original paths for links/junctions; refuse outside hardlinks. Keep strict control-message limits, prompt/turn and production-phase bindings, original hashes and damaged-file refusal. Storyboard watches an explicitly requested asynchronous recovery for a bounded interval. Record one real subscription still and exact-version human approval separately from the interrupted handoff and remaining pilot gates.
 
 - Storyboard AI launches: include the configured subscription route and image/session models in economy, comparison and Apply request identities. A newly authorized launch after a setup change no longer collides with a previous frozen request; unchanged defaults, reopening and double-click protection retain their existing identities. Preserve prior failed/unknown jobs without automatic regeneration.
 

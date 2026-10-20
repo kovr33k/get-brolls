@@ -2886,7 +2886,7 @@ def _refuse_link(path):
 
 def _native_still_original(job, workdir, outcome):
     """Retain a native Codex original from its exact thread/item location, without moving it."""
-    saved = Path(outcome["path"])
+    saved = Path(outcome["path"]).absolute()
     if job["request"]["route"] != "gpt-subscription" or saved.is_relative_to(workdir):
         return _confined_original(workdir, saved)
     remote = outcome.get("remote") or {}
@@ -2894,9 +2894,11 @@ def _native_still_original(job, workdir, outcome):
     item = identifier(remote.get("imageItemId"), "Native image item")
     native_home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex").absolute()
     expected = native_home / "generated_images" / thread / (item + ".png")
-    if os.path.normcase(str(saved.absolute())) != os.path.normcase(str(expected)):
-        raise ValueError("The native image is outside its recorded thread/item location.")
+    # Reject uncollapsed links in either spelling before expanding Windows short names.
     _chain_inside(native_home, expected)
+    _chain_inside(saved.parent.parent.parent, saved)
+    if os.path.normcase(str(saved.resolve())) != os.path.normcase(str(expected.resolve())):
+        raise ValueError("The native image is outside its recorded thread/item location.")
     with expected.open("rb") as stream:
         data = stream.read(MAX_IMAGE_BYTES + 1)
     if not data or len(data) > MAX_IMAGE_BYTES or not data.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -2905,9 +2907,10 @@ def _native_still_original(job, workdir, outcome):
     dest = workdir / ("native-" + item + ".png")
     _chain_inside(workdir, dest)
     if dest.exists():
-        if digest(_confined_original(workdir, dest)) != actual:
+        retained = _confined_original(workdir, dest)
+        if digest(retained) != actual:
             raise ValueError("The retained native image differs from the original; no file was overwritten.")
-        return dest
+        return retained
     with dest.open("xb") as stream:
         stream.write(data)
     retained = _confined_original(workdir, dest)

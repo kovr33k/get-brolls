@@ -1,8 +1,10 @@
 """Bounded native image frames, exact saved-history reconciliation and confined retention."""
 
 import copy
+import ctypes
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -132,3 +134,35 @@ class NativeResultTests(unittest.TestCase):
         self.assertEqual(b"foreign copy", retained.read_bytes())
         with self.assertRaises(ValueError):
             ai._native_still_original(self.job, self.workdir, {**result, "path": str(self.root / "other.png")})
+
+    @unittest.skipUnless(os.name == "nt", "Windows path aliases")
+    def test_native_windows_short_and_long_paths_identify_the_same_original(self):
+        buffer = ctypes.create_unicode_buffer(32768)
+        length = ctypes.windll.kernel32.GetShortPathNameW(str(self.native_home), buffer, len(buffer))
+        self.assertGreater(length, 0)
+        with patch.dict("os.environ", {"CODEX_HOME": buffer.value}):
+            result = ai_provider._history_image(self.thread, self.job)
+            result["path"] = str(self.original.resolve())
+            retained = ai._native_still_original(self.job, self.workdir, result)
+        self.assertEqual(self.original.read_bytes(), retained.read_bytes())
+
+    def test_native_source_cannot_enter_through_a_link_or_an_outside_hardlink(self):
+        result = ai_provider._history_image(self.thread, self.job)
+        outside = self.root / "image-1.png"
+        os.link(self.original, outside)
+        with self.assertRaises(ValueError):
+            ai._native_still_original(self.job, self.workdir, {**result, "path": str(outside)})
+        link = self.root / "linked-images"
+        if os.name == "nt":
+            done = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(link), str(self.original.parent.parent)],
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(0, done.returncode, done.stderr)
+            self.addCleanup(link.rmdir)
+        else:
+            link.symlink_to(self.original.parent.parent, target_is_directory=True)
+            self.addCleanup(link.unlink)
+        with self.assertRaisesRegex(ValueError, "symlink or junction"):
+            ai._native_still_original(self.job, self.workdir, {**result, "path": str(link / "thread-1/image-1.png")})
