@@ -1094,7 +1094,7 @@ def submit_async(snapshot_path, config):
     filename = Path(snapshot_path).name.replace('"', "")
     body = _MultipartBody(config_bytes, snapshot_path, filename, boundary)
     url = api_base() + STT_PATH
-    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}", "Content-Length": str(body.length)}
     try:
         status, raw = _request(
             url,

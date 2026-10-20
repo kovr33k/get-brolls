@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Narration upload: stream the validated multipart recording with its known exact `Content-Length`, avoiding implicit chunked framing. Keep config before audio, one submission and unchanged unknown-result recovery guards. Clarify that a new analysis name cannot resubmit an unknown recording/settings pair. Record the bounded live STT transport failure separately from local framing checks and successful transcription acceptance.
+
 - OpenRouter configuration: accept the documented private `OPENROUTER_API_KEY` in `.env` or `--env-file`, preserving exported-value precedence and read-only commands. Loading a credential does not authorize paid work or switch subscription routes.
 
 - AI shared delivery: include current intact approved video/sequence coverage in protected `entrega/ai/` packages, with separate narration, frame timing, source originals and reference/instruction provenance. Record exact-version material-use conditions independently in Storyboard or `ai-material-use`. Report missing coverage, native profile shortfalls, stale inputs and unresolved use without blocking unrelated sources or graphics. Keep prior packages and foreign files; refuse changed files and destination links/junctions. Atomic writes use unique exclusive temporary files, preserving occupied `.tmp` names. Read-only status and portable review distinguish readiness, intact delivery and modified/missing packages; Resolve acceptance remains separate.
