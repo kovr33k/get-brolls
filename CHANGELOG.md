@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- OpenRouter configuration: accept the documented private `OPENROUTER_API_KEY` in `.env` or `--env-file`, preserving exported-value precedence and read-only commands. Loading a credential does not authorize paid work or switch subscription routes.
+
 - AI shared delivery: include current intact approved video/sequence coverage in protected `entrega/ai/` packages, with separate narration, frame timing, source originals and reference/instruction provenance. Record exact-version material-use conditions independently in Storyboard or `ai-material-use`. Report missing coverage, native profile shortfalls, stale inputs and unresolved use without blocking unrelated sources or graphics. Keep prior packages and foreign files; refuse changed files and destination links/junctions. Atomic writes use unique exclusive temporary files, preserving occupied `.tmp` names. Read-only status and portable review distinguish readiness, intact delivery and modified/missing packages; Resolve acceptance remains separate.
 
 - AI recovery and bounded correction: expose attempt history, known-result retrieval and local sequence assembly in Storyboard without repeating generation. Preserve drafts, originals and exact approvals across interruption; serialize workers and report uncertain submissions, changed inputs and damaged media. Publish only intact committed AI media. An observed defect can receive one additional corrective generation per original operation, including a comparison or sequence; retain its intent and lineage, refuse chains, keep the approved video first frame and require separate exact confirmation for paid corrections.

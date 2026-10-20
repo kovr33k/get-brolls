@@ -1316,7 +1316,7 @@ Public tests use a synthetic native-transport fixture and synthetic PNG/JPEG/MP4
 
 ### Explicit paid OpenRouter launches
 
-OpenRouter is a separate paid choice. Keep `OPENROUTER_API_KEY` in the private environment or `.env`, never in an AI plan. Add explicit model profiles to that plan before running `ai-plan`; for example:
+OpenRouter is a separate paid choice. Keep `OPENROUTER_API_KEY` in the private environment or `.env`, never in an AI plan. For a separate private file, pass `--env-file /path/to/private.env` before the command; an already exported value takes precedence. Loading a key does not authorize generation or change a subscription route. Add explicit model profiles to that plan before running `ai-plan`; for example:
 
 ```json
 "openrouter": {
