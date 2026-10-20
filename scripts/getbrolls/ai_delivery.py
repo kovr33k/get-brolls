@@ -217,6 +217,7 @@ def _source(ledger, version):
                 "job": parent_job["id"],
                 "route": parent.get("route"),
                 "model": parent.get("model"),
+                **({"session_model": parent["session_model"]} if parent.get("session_model") is not None else {}),
                 "prompt": parent.get("prompt"),
                 "target": parent.get("target"),
                 "instruction": parent.get("instruction"),

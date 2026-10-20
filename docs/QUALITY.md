@@ -104,6 +104,12 @@ Synthetic public workflows exercise authenticated material-use declarations, ind
 
 These checks establish technical packaging behavior with mocked providers and synthetic declarations. They do not establish provider licenses, paid-service access, production media quality, successful Resolve use or complete-module acceptance. Issue #91 remains the real provider/narration/Resolve acceptance gate. The required final Windows check must cover the combined PR tree before integration.
 
+## Native GPT still pilot — 2026-10-20 (issue #91, incomplete)
+
+One explicitly authorized first still was launched directly from Storyboard through the installed native ChatGPT session. The provider rejected its configured session model with HTTP 400: that model was not supported for this account. The separately read native catalog did not list the configured model. No image artifact was produced; the three-image comparison was not launched because the pilot's stop-on-first-error condition applied. The retained failed job, native thread/turn identities and browser error are live failure evidence, not subscription image acceptance. No paid API/provider fallback, retry or video launch occurred.
+
+An optional project-bound `still_provider.session_model` now freezes an explicit orchestration-model choice into economy, comparison and Apply jobs. Synthetic native protocol tests verify the thread parameter, no fallback, refusal of a changed returned model before a turn, frozen worker inputs after setup changes and matching inspection/production choices. Native catalog metadata remains a candidate list only. Successful real GPT stills, reference fidelity and Resolve use remain unverified and need the next concretely authorized pilot.
+
 ## Recorded-narration live pilot — 2026-10-20 (issue #91, incomplete)
 
 Two individually authorized asynchronous Inworld STT submission attempts used separate complete supplied recordings: 43.037792 seconds of 48 kHz mono PCM WAV and 42.917313 seconds of 16 kHz mono PCM WAV. Both remain `unknown` without an operation handle or transcript. A private observer on the second attempt recorded `URLError` with a `ConnectionAbortedError` cause before an HTTP status was available. An authenticated catalog GET returned HTTP 200; that establishes read access only, not STT write access or successful processing. Acceptance, metering and charges for the two attempts remain unverified. Neither attempt was automatically resubmitted; local recovery of the first retained its unknown state with zero transport or submission calls.

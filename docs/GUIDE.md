@@ -1314,6 +1314,12 @@ References default to **This beat**. Choose **Shared style** only when explicitl
 
 Public tests use a synthetic native-transport fixture and synthetic PNG/JPEG/MP4. That is not live ChatGPT entitlement, image quality or Resolve acceptance. Do not run `codex login`/`logout` or paid image jobs from this workflow until a separately authorized pilot.
 
+### Explicit native GPT session model
+
+For native GPT stills, an optional explicit session model can be recorded in the AI plan as `"still_provider": {"route": "gpt-subscription", "session_model": "MODEL_FROM_YOUR_NATIVE_CATALOG"}`. This selects the Codex model that operates the native image tool; it does not name or replace the image model behind that tool. Read the installed client's `model/list` for a candidate and verify actual access with a separately authorized generation. A catalog entry or `imageGeneration=true` is not proof of account entitlement. If omitted, the existing CLI session default remains in use.
+
+The selection is frozen into economy, comparison and Apply requests, shown in Storyboard and retained in delivery provenance. Inspection and production use the same frozen choice. The adapter passes it only to `thread/start`, leaves global CLI configuration untouched, disables provider/model fallback and refuses a changed returned session model before starting a turn. Changing the project setting does not change saved jobs; a replay with changed frozen scope is refused. A rejected or unsupported model does not select another model or start another generation. Keep exact launch authorization and the saved failure when preparing a new model choice.
+
 ### Explicit paid OpenRouter launches
 
 OpenRouter is a separate paid choice. Keep `OPENROUTER_API_KEY` in the private environment or `.env`, never in an AI plan. For a separate private file, pass `--env-file /path/to/private.env` before the command; an already exported value takes precedence. Loading a key does not authorize generation or change a subscription route. Add explicit model profiles to that plan before running `ai-plan`; for example:

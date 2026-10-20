@@ -126,6 +126,7 @@ def _validate_job(key, job, ai):
         raise ValueError("Invalid AI job beat or route.")
     if request.get("kind") not in ("image", "video") or fingerprint(request) != job.get("fingerprint"):
         raise ValueError("AI job inputs changed after being frozen.")
+    _validate_request_session(request)
     if type(job.get("correction_count")) is not int or job["correction_count"] not in (0, 1):
         raise ValueError("Invalid AI correction allowance.")
     confirmation = job.get("confirmation")
@@ -451,7 +452,12 @@ def _import_still_provider(working, payload):
         working.pop("still_provider", None)
     elif isinstance(provider, dict):
         route, model = _image_route(provider, allow_openrouter=False)
+        session_model = _native_session_model(provider.get("session_model"))
+        if session_model is not None and route != "gpt-subscription":
+            raise ValueError("A GPT session model cannot change another provider's route.")
         working["still_provider"] = {"route": route, "model": model}
+        if session_model is not None:
+            working["still_provider"]["session_model"] = session_model
     else:
         raise ValueError("Still provider setup must name a subscription route.")
 
@@ -503,6 +509,8 @@ def select(ledger, payload):
 
 def new_job(ledger, request, nonce, *, correction_of=None):
     ai = state(ledger.data)
+    if not correction_of:
+        request = _with_session_model(ledger, request)
     nonce = text(nonce, "Request identity", 160)
     prior = next((j for j in ai["jobs"].values() if j["nonce"] == nonce), None)
     frozen = fingerprint(request)
@@ -697,6 +705,30 @@ def _image_route(payload, *, allow_openrouter, setup=None):
     return route, model
 
 
+def _native_session_model(value):
+    if value is not None and (
+        not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,199}", value)
+    ):
+        raise ValueError("Use an explicit GPT session model id, without a URL or whitespace.")
+    return value
+
+
+def _validate_request_session(request):
+    model = _native_session_model(request.get("session_model"))
+    if model is not None and (request.get("route"), request.get("kind")) != ("gpt-subscription", "image"):
+        raise ValueError("A GPT session model belongs only to native GPT image requests.")
+
+
+def _with_session_model(ledger, request):
+    if request.get("route") != "gpt-subscription" or request.get("session_model") is not None:
+        return request
+    provider = (ledger.data.get("ai") or {}).get("still_provider") or {}
+    model = (
+        _native_session_model(provider.get("session_model")) if provider.get("route") == "gpt-subscription" else None
+    )
+    return {**request, "session_model": model} if model is not None else request
+
+
 def _session_id(nonce, material):
     return str(uuid.UUID(fingerprint({"nonce": nonce, "material": material})[:32]))
 
@@ -830,6 +862,8 @@ def _comparison_request(beat, row, scope, binding):
         "slot": binding["slot"],
         "prompt": _guided_prompt(still_prompt({**beat, "comment": comment}, row, scope["style"], quality), references),
     }
+    if scope.get("session_model") is not None:
+        request["session_model"] = scope["session_model"]
     if references:
         request["references"] = references
     if scope.get("paid"):
@@ -913,7 +947,7 @@ def launch_comparison(ledger, payload, nonce, *, paid=None):
     agreed = _agreed_style(ledger)
     comment = _launch_comment(beat, payload)
     references = _ordinary_references(ledger, beat, nonce, route, allow_paid=bool(paid))
-    scope = _comparison_scope(beat, agreed, comment, (route, model), references)
+    scope = _with_session_model(ledger, _comparison_scope(beat, agreed, comment, (route, model), references))
     if paid:
         scope.update(paid=paid, resolution=paid["resolution"])
     elif model:
@@ -1020,7 +1054,7 @@ def public_job(job, ledger=None):
         "recovery": recovery_state(job, ledger),
         "error_code": sanitize_public_text(error.get("code")) if isinstance(error, dict) else None,
     }
-    for name in ("group", "slot", "mode", "sequence", "sequence_index"):
+    for name in ("group", "slot", "mode", "sequence", "sequence_index", "session_model"):
         if name in request and request.get(name) is not None:
             public[name] = request.get(name)
     if request.get("route") == "openrouter" and request.get("paid"):

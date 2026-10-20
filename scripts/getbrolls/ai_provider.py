@@ -641,21 +641,31 @@ def _read_inspection_gate(session):
     return None
 
 
-def _start_thread(session, workdir):
+def _start_thread(session, workdir, session_model=None):
+    params = {
+        "cwd": str(workdir.resolve()),
+        "approvalPolicy": "never",
+        "sandbox": "workspace-write",
+        "modelProvider": OPENAI_PROVIDER,
+        "allowProviderModelFallback": False,
+    }
+    if session_model is not None:
+        params["model"] = session_model
     error, message = _rpc(
         session,
         "thread/start",
-        {
-            "cwd": str(workdir.resolve()),
-            "approvalPolicy": "never",
-            "sandbox": "workspace-write",
-            "modelProvider": OPENAI_PROVIDER,
-            "allowProviderModelFallback": False,
-        },
+        params,
         "thread",
     )
     if error:
         return None, error
+    result = message.get("result")
+    if session_model is not None and (not isinstance(result, dict) or result.get("model") != session_model):
+        return None, {
+            "status": UNSUPPORTED,
+            "error": "The native session did not retain the explicitly selected model. Nothing was submitted.",
+            "code": "session_model",
+        }
     thread = _nested_id(message, "thread")
     if thread:
         return thread, None
@@ -817,7 +827,7 @@ def _run_session(session, workdir, turn):
         error = _read_inspection_gate(session)
         if error:
             return error
-    thread, error = _start_thread(session, workdir)
+    thread, error = _start_thread(session, workdir, turn.get("session_model"))
     if error:
         return error
     return _run_turn(session, thread, turn)
@@ -856,6 +866,7 @@ def _execute(prompt, workdir, options):
                 "expect": expect,
                 "on_submitted": on_submitted,
                 "state": state,
+                "session_model": options.get("session_model"),
             },
         )
     except (
@@ -873,7 +884,9 @@ def _execute(prompt, workdir, options):
         session.close()
 
 
-def generate_still(prompt, workdir, *, images=None, timeout: float = TIMEOUT_S, on_submitted=None):
+def generate_still(  # noqa: PLR0913 - Optional frozen session choice preserves existing image, deadline and durable-submit controls.
+    prompt, workdir, *, images=None, timeout: float = TIMEOUT_S, on_submitted=None, session_model=None
+):
     """Run one bounded native still. Image files travel as localImage items, never as a fallback provider."""
     return _execute(
         prompt,
@@ -884,11 +897,14 @@ def generate_still(prompt, workdir, *, images=None, timeout: float = TIMEOUT_S, 
             "expect": "still",
             "timeout": timeout,
             "on_submitted": on_submitted,
+            "session_model": session_model,
         },
     )
 
 
-def inspect_images(prompt, workdir, images, *, timeout: float = TIMEOUT_S, on_submitted=None):
+def inspect_images(  # noqa: PLR0913 - Inspection shares the explicit session choice without changing its generation-disable gate.
+    prompt, workdir, images, *, timeout: float = TIMEOUT_S, on_submitted=None, session_model=None
+):
     """One bounded inspection turn. It must not be treated as media generation."""
     return _execute(
         prompt,
@@ -899,5 +915,6 @@ def inspect_images(prompt, workdir, images, *, timeout: float = TIMEOUT_S, on_su
             "expect": "findings",
             "timeout": timeout,
             "on_submitted": on_submitted,
+            "session_model": session_model,
         },
     )

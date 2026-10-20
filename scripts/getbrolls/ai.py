@@ -1715,6 +1715,8 @@ def _beat_card(beat, job, version, board):
     native = _native_video_status(ledger.data.get("ai") if ledger is not None else None)
     provider = ((ledger.data.get("ai") or {}).get("still_provider") or {}) if ledger is not None else {}
     provider_label = "Grok subscription" if provider.get("route") == "grok-subscription" else "GPT subscription"
+    if provider.get("route") == "gpt-subscription" and provider.get("session_model"):
+        provider_label += " · session " + provider["session_model"]
     details = _details(beat, job, version, native)
     ready_attr = ' data-ai-video-ready="true"' if video_ready else ""
     video_job = board.get("video_job")
@@ -1813,6 +1815,8 @@ def _details(beat, job, version, native=None):
         ),
     ]
     setup = native if isinstance(native, dict) else {}
+    if public.get("session_model"):
+        lines.append(f"<p>GPT session {_esc(public['session_model'])}</p>")
     lines.append(
         "<p>Native video route "
         f"{_esc(setup.get('route') or 'grok-subscription')} · model {_esc(setup.get('model') or 'not recorded')} · "
@@ -2490,6 +2494,7 @@ def _failed_visual(message, code, remote=None):
 def _produce_visual(project, job, workdir, timeout, on_submitted):  # noqa: PLR0911 - Inspection refusal, unknown submission and media completion are distinct terminal outcomes.
     """Stage frozen bytes, inspect through the pre-submit gate, then generate only after a clean inspection."""
     request = job.get("request") if isinstance(job.get("request"), dict) else {}
+    session_options = {"session_model": request["session_model"]} if request.get("session_model") else {}
     operation = request.get("operation") or "apply"
     try:
         rows = _stage_apply_rows(project, job, workdir)
@@ -2516,6 +2521,7 @@ def _produce_visual(project, job, workdir, timeout, on_submitted):  # noqa: PLR0
             _local_items(inspect_rows),
             timeout=timeout,
             on_submitted=on_submitted,
+            **session_options,
         )
         if not isinstance(outcome, dict):
             return _failed_visual("Inspection did not return a result. Nothing further was submitted.", "inspection")
@@ -2552,6 +2558,7 @@ def _produce_visual(project, job, workdir, timeout, on_submitted):  # noqa: PLR0
         images=_local_items(rows) or None,
         timeout=timeout,
         on_submitted=on_submitted,
+        **session_options,
     )
 
 
@@ -2609,7 +2616,10 @@ def _produce_worker(project, job_id):  # noqa: C901 - Dispatch retains separate 
     if route == "gpt-subscription" and _visual_request(request):
         outcome = _produce_visual(project, job, workdir, timeout, on_submitted)
     elif route == "gpt-subscription":
-        outcome = generate_still(request.get("prompt") or "", workdir, timeout=timeout, on_submitted=on_submitted)
+        session_options = {"session_model": request["session_model"]} if request.get("session_model") else {}
+        outcome = generate_still(
+            request.get("prompt") or "", workdir, timeout=timeout, on_submitted=on_submitted, **session_options
+        )
     elif route == "openrouter":
         from .ai_openrouter import produce
 

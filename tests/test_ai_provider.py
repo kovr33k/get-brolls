@@ -192,6 +192,22 @@ class NativeProviderTests(unittest.TestCase):
         self.assertEqual("initialized", methods[1])
         self.assertEqual("account/read", methods[2])
 
+    def test_explicit_session_model_is_used_without_fallback(self):
+        result = generate_still(PROMPT, self.workdir, timeout=8, session_model="fixture-session-model")
+        self.assertEqual("complete", result["status"])
+        start = next(row for row in self.received() if row.get("method") == "thread/start")
+        self.assertEqual("fixture-session-model", start["params"]["model"])
+        self.assertIs(False, start["params"]["allowProviderModelFallback"])
+
+    def test_explicit_session_model_mismatch_stops_before_turn(self):
+        for mode in ("model_mismatch", "model_malformed"):
+            with self.subTest(mode=mode):
+                os.environ["GETBROLLS_AI_FIXTURE"] = mode
+                result = generate_still(PROMPT, self.workdir, timeout=8, session_model="fixture-session-model")
+                self.assertEqual("unsupported", result["status"])
+                self.assertEqual("session_model", result["code"])
+                self.assertNotIn("turn/start", self.methods())
+
     def test_fixture_rejects_lsp_framing(self):
         proc = subprocess.Popen(
             [sys.executable, str(FIXTURE)],

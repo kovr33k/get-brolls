@@ -206,12 +206,12 @@ def _capabilities(mode):
     }
 
 
-def _thread_result(cwd):
+def _thread_result(cwd, model=None):
     return {
         "approvalPolicy": "never",
         "approvalsReviewer": "user",
         "cwd": cwd,
-        "model": "gpt-5",
+        "model": model or "gpt-5",
         "modelProvider": "openai",
         "sandbox": {"type": "workspaceWrite", "writableRoots": [cwd], "networkAccess": False},
         "thread": {
@@ -456,7 +456,9 @@ def _handle_request(message, mode):
         return
     if method == "thread/start":
         cwd = params.get("cwd") or str(_cwd().resolve())
-        _result(ident, _thread_result(cwd))
+        model = None if mode == "model_mismatch" else params.get("model")
+        result = ["malformed thread response"] if mode == "model_malformed" else _thread_result(cwd, model)
+        _result(ident, result)
         _notify("thread/started", {"thread": {"id": THREAD_ID}})
         if mode in {"blocked_write", "hang_ack"}:
             time.sleep(60)

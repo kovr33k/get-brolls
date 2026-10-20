@@ -415,6 +415,23 @@ class InspectionWorkerTests(unittest.TestCase):
         self.assertEqual("inspected", context["inspection"]["state"])
         self.assertIn(sentence, context["inspection"]["findings"])
 
+    def test_explicit_session_model_reaches_both_inspection_and_production(self):
+        ledger = Ledger(self.project)
+        plan = _plan()
+        plan["still_provider"] = {"route": "gpt-subscription", "session_model": "fixture-session-model"}
+        import_plan(ledger, plan)
+        result = self._apply("explicit-session-apply")
+        job_id = result["job"]["id"]
+        self.assertEqual("complete", self._job(job_id)["state"])
+        self.assertEqual("fixture-session-model", self._stored_request(job_id)["session_model"])
+        rows = [
+            json.loads(line)
+            for line in (self._workdir(job_id) / "received.jsonl").read_text(encoding="utf-8").splitlines()
+        ]
+        starts = [row["params"] for row in rows if row.get("method") == "thread/start"]
+        self.assertEqual(["fixture-session-model"] * 2, [row["model"] for row in starts])
+        self.assertTrue(all(row["allowProviderModelFallback"] is False for row in starts))
+
     def test_mismatch_refuses_before_production_and_does_not_mark_inspected(self):
         modes = (
             "inspection_wrong_role",
