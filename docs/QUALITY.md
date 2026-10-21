@@ -190,6 +190,16 @@ Actual local-browser observations cover native PNG file selection and transfer, 
 
 The broader regression initially found two tests that searched the entire inline HTML/JavaScript for the word `autoplay`, including assignments that disable it. Their corrected checks parse audio/video attributes; a separate regression rejects both `autoplay` and `autoplay="false"`. The two affected public media workflows and that check pass together.
 
+## Reference revision acceptance — 2026-10-21 (issue #91, incomplete)
+
+A bounded GPT subscription pilot retained three decoded **1672×941 PNGs** from five native turns: a prompt-only roof-color change, unfinished-concrete/scaffolding guidance from an actual saved image, and elevated camera guidance from the requested **1–4-second** interval of an actual video. The editor explicitly approved the exact final still; intermediate revisions remain unapproved and earlier approved originals/history remain intact. The video served as camera guidance, not a new animation request. Live browser observations cover selecting the new result, uploading its next reference and displaying the completed result without a reload. An embedded JPEG cover in the source MP4 exposed a moving-track selection bug; the fix preserves original bytes and the chosen interval, with synthetic regressions for cover art and refusal of two actual moving tracks.
+
+These observations establish the bounded reference journey and final still approval. They do not establish animation fidelity, permission to generate more media, complete recorded coverage, OpenRouter video recovery or Resolve acceptance.
+
+## Deliberate narration retry boundary — 2026-10-21
+
+Public CLI tests with synthetic audio and loopback HTTP cover no-POST preparation, exact confirmation, one separately journaled retry, retained original uncertainty, reuse after repeated confirmation, interruption before submit and recovery from a durable synchronous receipt. A failed/unknown retry consumes the allowance, a retry cannot start another retry, and known operations/receipts must be recovered instead. Recording/configuration/transport changes invalidate the prepared confirmation. This is synthetic evidence only; no live retry or new charge is established by these checks. Existing live narration results and unresolved earlier attempts keep their recorded identities.
+
 ## Combined AI and Storyboard reference workflows — 2026-10-18
 
 The AI branch includes `origin/main` at the [PR #92 merge](https://github.com/kovr33k/get-brolls/pull/92), `d67439b`. Three synthetic mixed-project journeys exercise one authenticated server with both reference upload configurations, joint review import, exact AI/Remotion versions, frozen earlier bytes, independent lost-response retries, restart/reopen, and request-bound graphics continuation without another image generation or render. Incomplete AI JSON and duplicate Content-Length or Transfer-Encoding framing are refused before a saved reference or selection can change. The complete final Windows verification is run on the combined branch; older separate-branch counts above do not establish that result. Actual provider and Resolve acceptance retain their previous scope.

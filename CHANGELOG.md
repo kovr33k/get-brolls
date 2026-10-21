@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Narration: prepare and explicitly confirm one deliberate STT retry for an unknown submission without a handle or retained receipt. Freeze the original complete recording/settings, new analysis identity, transport and one-POST scope; journal the reviewer/authorization before sending. Preserve the earlier unknown attempt and potentially duplicate charge risk. Repeated confirmations recover the saved retry, and failures/restarts cannot reset its allowance. Normal analyze/resume never retry automatically.
+
 - AI video references: ignore embedded cover-art streams when selecting the single moving video track, and explicitly decode/extract that selected track. Preserve the original MP4 bytes and requested interval; clips with two moving video tracks remain refused.
 
 - Storyboard references: choosing **Show the new still** refreshes the reference controls for that exact saved version before the next attachment. A reference inherited from its predecessor no longer blocks the first upload after selecting the new result. Keep upload errors visible across status refreshes, clearing them when another file is selected. Keep changed-target refusals and upload-without-generation behavior.

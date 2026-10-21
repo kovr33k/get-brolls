@@ -377,7 +377,9 @@ FLOW_SUMMARIES = {
         + ") without treating viewing as a download."
     ),
     "narration-analyze": lambda r: (
-        "Reused intact narration analysis " + str(r.get("analysis_id")) + " without a provider call."
+        "Prepared one deliberate narration retry; inspect its scope and confirm separately. No provider request sent."
+        if r.get("state") == "awaiting_retry_confirmation"
+        else "Reused intact narration analysis " + str(r.get("analysis_id")) + " without a provider call."
         if r.get("reused")
         else "Narration analysis "
         + str(r.get("analysis_id"))

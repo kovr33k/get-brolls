@@ -3581,6 +3581,54 @@
           "required": true
         },
         {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "retry_of",
+          "help": "Prepare one deliberate retry of this unknown analysis without a handle",
+          "nargs": null,
+          "option_strings": [
+            "--retry-of"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "confirm_retry",
+          "help": "Confirm the exact retry fingerprint printed by preparation",
+          "nargs": null,
+          "option_strings": [
+            "--confirm-retry"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "by",
+          "help": "Reviewer who explicitly authorized this separate potentially billable retry",
+          "nargs": null,
+          "option_strings": [
+            "--by"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "statement",
+          "help": "Exact authorization acknowledging that the earlier request may be charged",
+          "nargs": null,
+          "option_strings": [
+            "--statement"
+          ],
+          "required": false
+        },
+        {
           "action": "_StoreTrueAction",
           "choices": null,
           "default": false,

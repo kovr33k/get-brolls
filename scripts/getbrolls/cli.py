@@ -944,6 +944,12 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
             p.add_argument("--asset", required=True, help="Safe local identity for the saved project sound")
         if name == "narration-analyze":
+            p.add_argument("--retry-of", help="Prepare one deliberate retry of this unknown analysis without a handle")
+            p.add_argument("--confirm-retry", help="Confirm the exact retry fingerprint printed by preparation")
+            p.add_argument("--by", help="Reviewer who explicitly authorized this separate potentially billable retry")
+            p.add_argument(
+                "--statement", help="Exact authorization acknowledging that the earlier request may be charged"
+            )
             p.add_argument(
                 "--sync",
                 action="store_true",
