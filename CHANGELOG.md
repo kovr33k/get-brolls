@@ -2,13 +2,15 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-21
+updated: 2026-10-22
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+- AI handoff: an unlaunched sequence plan no longer hides completed standalone coverage. Preserve the plan and its unconfirmed jobs; explicitly launched incomplete sequences still block fallback to older clips. Record the real one-POST video/download-recovery pilot, actual profile/audio shortfalls and deliberately confirmed STT retry separately from full module/Resolve acceptance.
 
 - Tests: retain and join all real background-comparison worker processes before removing their temporary project. A saved complete result can precede worker finalization and lock release; a deterministic delayed-finalizer probe reproduces Windows `WinError 32` under the old cleanup. Keep all three-image/one-turn assertions and production behavior unchanged.
 

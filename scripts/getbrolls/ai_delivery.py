@@ -56,7 +56,9 @@ def current_version(ledger, beat):
     ai = ledger.data.get("ai") or {}
     if beat.get("sequence"):
         record = (ai.get("sequences") or {}).get(beat["sequence"]) or {}
-        return ai["versions"].get(record.get("version"))
+        # Preparing a plan does not launch it or replace retained single-clip coverage.
+        if not record or record.get("launched") is not None or record.get("version"):
+            return ai["versions"].get(record.get("version"))
     return next(
         (
             version

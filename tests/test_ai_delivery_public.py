@@ -139,6 +139,45 @@ class AIDeliveryPublicTests(unittest.TestCase):
                 self.assertIn(reason, report["ai_skipped"][0]["reasons"])
                 self.assertFalse((self.media.project / "entrega/ai").exists())
 
+    def test_unconfirmed_sequence_plan_does_not_hide_completed_standalone_video(self):
+        media = self.media
+        before_posts = sum(request.get_method() == "POST" for request in media.requests)
+        version = None
+        for stage in ("before-single", "after-single"):
+            media.responses = [paid_helpers.video_capabilities()]
+            status, raw = media.http(
+                "/__ai",
+                {
+                    "action": "prepare-sequence",
+                    "beat": "scarcity",
+                    "version": media.still["id"],
+                    "route": "openrouter",
+                    "requestId": stage,
+                },
+            )
+            self.assertEqual(200, status, raw)
+            sequence = json.loads(raw)["sequence"]
+            if version is None:
+                version = self.launch()
+            board = json.loads(media.http("/__ai/state")[1])
+            delivery = board["beats"][0]["delivery"]
+            self.assertEqual(version["id"], delivery["version"], delivery)
+            self.assertIn("approval_required", delivery["reasons"])
+            self.assertEqual(sequence["id"], board["beats"][0]["sequence"]["id"])
+            self.assertEqual("planned", board["beats"][0]["sequence"]["state"])
+            self.assertTrue(all(clip["job"]["state"] == "awaiting_confirmation" for clip in sequence["clips"]))
+        self.approve(version)
+        self.permit(version)
+        self.assertEqual(1, len(media.call("deliver", "--dry-run")["ai"]))
+        self.assertEqual(before_posts + 1, sum(request.get_method() == "POST" for request in media.requests))
+        # Confirmed partial sequences must still block fallback to older single clips.
+        media.responses = [{"id": "failed-sequence"}, {"status": "failed"}]
+        media.confirm([clip["job"] for clip in sequence["clips"]])
+        board = json.loads(media.http("/__ai/state")[1])
+        self.assertIsNone(board["beats"][0]["delivery"]["version"])
+        self.assertIn("coverage_missing", board["beats"][0]["delivery"]["reasons"])
+        self.assertTrue(any(row["id"] == version["id"] for row in board["versions"]))
+
     def test_repeat_delivery_keeps_foreign_files_and_rejects_modified_metadata_without_touching_originals(self):
         media = self.media
         version = self.launch()

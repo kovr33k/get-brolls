@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-21
+updated: 2026-10-22
 tags: [get-brolls, guide, installation, providers, storyboard, graphics, ai]
 ---
 
@@ -1385,6 +1385,8 @@ After approving a still and resolving its recorded narration interval, open **Or
 The initial plan repeats the timing-bound approved still. For distinct shots, choose another already approved still of this beat for each later clip, then prepare the changed order. New/unseen images must first pass the ordinary still preparation and exact approval workflow. These ordered shots are separate from the three scene alternatives. First-frame choices and sequence comments survive refresh and reopening. Launch always uses the displayed frozen plan, not later edits to controls.
 
 For the subscription route, **Generate these … clips** explicitly launches that exact set. OpenRouter instead displays all frozen jobs and a total estimate or an explicit unknown cost; **Confirm this paid …-output launch** confirms the entire sequence. A partial set or changed scope is refused. Viewing, reloading, repeated confirmation or retrying a lost response never grants a new launch. Successful originals remain available beside failed/unknown jobs. Recover a known interrupted request through its saved handle, without another generation POST; unknown submissions without a handle remain uncertain.
+
+An unlaunched sequence plan remains saved and visible without replacing a completed standalone video in **AI handoff**. After that sequence is explicitly launched, its incomplete state blocks fallback to an older standalone video; preparation alone does not grant a launch or hide existing coverage.
 
 When every clip is retained and decodable, local FFmpeg composition conforms frame rate, trims each original from frame zero to its planned placement, preserves order and scene sound, and verifies the exact total frame count. Original bytes, hashes, actual dimensions/durations, source job/still, placements and trims remain recorded. A short clip leaves `coverage_shortfall`; it is not stretched to hide missing coverage. Smaller originals are not enlarged to claim native Full HD. `profile_shortfall` remains visible even when temporal coverage is complete.
 

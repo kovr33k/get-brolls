@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-21
+updated: 2026-10-22
 tags: [get-brolls, quality, qa, evidence]
 ---
 
@@ -199,6 +199,16 @@ These observations establish the bounded reference journey and final still appro
 ## Deliberate narration retry boundary — 2026-10-21
 
 Public CLI tests with synthetic audio and loopback HTTP cover no-POST preparation, exact confirmation, one separately journaled retry, retained original uncertainty, reuse after repeated confirmation, interruption before submit and recovery from a durable synchronous receipt. A failed/unknown retry consumes the allowance, a retry cannot start another retry, and known operations/receipts must be recovered instead. Recording/configuration/transport changes invalidate the prepared confirmation. This is synthetic evidence only; no live retry or new charge is established by these checks. Existing live narration results and unresolved earlier attempts keep their recorded identities.
+
+## Recorded alignment and video recovery — 2026-10-22 (issue #91, incomplete)
+
+The explicitly authorized synchronous STT retry used the exact retained full recording and settings: **one POST, HTTP 200, 123 timed words**. All three earlier unknown analyses remain unchanged. The selected phrase uniquely matches a **3.55-second** recorded interval, bound to the approved edited still and the editor-confirmed **30 fps** project profile. This does not reconcile every earlier script/recording revision.
+
+A separately authorized OpenRouter/Grok Imagine Video 1.5 Lite pilot requested one second at 480p from that exact approved still. It made **one generation POST (HTTP 202)**. After the result handle was saved, one real media download was interrupted after receiving bytes; production resume recovered that same handle/result using GETs only. The retained partial prefix matches the complete original. Full decoding passed: **736x400 H.264, 24 fps, 25 frames, 1.041667 seconds**. An actual non-silent stereo AAC track is present despite `generate_audio=false`; the original remains unchanged and narration stays separate. The editor accepted this exact clip for technical checking. The quoted cost was approximately **$0.03**, based on the [public model tariff](https://openrouter.ai/x-ai/grok-imagine-video-1.5-lite); actual billing was not independently verified.
+
+The pilot exposed an unlaunched sequence plan shadowing a later standalone result in shared handoff readiness. A synthetic public HTTP regression reproduces `coverage_missing` for the completed single video, verifies the corrected selection before/after plan preparation and retains the planned/unconfirmed sequence. Explicitly launching an incomplete sequence still blocks fallback to the older clip. All **15 handoff tests and nine sequence tests** pass; affected Ruff/format, global Pyright and documentation anchors pass. The real short video remains blocked by coverage/profile shortfalls and unresolved material-use conditions; native 1080p/30 fps, real multi-clip coverage and human Resolve use remain unverified.
+
+Before this handoff-selection correction, [combined Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/39660923060) passed **1,900 tests, 26 skips**, with an exact matching Windows/Python 3.14.4 tree artifact. That run covers the deliberate STT retry and deterministic worker-cleanup fix, but not this later selection correction; final Windows verification must cover the updated combined revision.
 
 ## Combined AI and Storyboard reference workflows — 2026-10-18
 
