@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Storyboard configuration and version review: forward an explicitly selected `--env-file` to the detached server as an absolute path while still stripping inherited secret variables. Returning to economy mode after a comparison offers a later still for explicit review; historical comparison slots no longer hide it or replace the previous exact-version decision. Record three real GPT alternatives and one bounded OpenRouter still separately from unverified edits, narration/video coverage and Resolve use.
+
 - AI background writes: wait up to ten seconds for a competing project write when claiming a job, retaining provider progress/results or composing a sequence. A three-image launch no longer loses unsent workers to a sibling's brief ledger write. Keep normal command locking fail-fast, per-job exclusivity and no provider resubmission. OpenRouter requests PNG only when the frozen endpoint advertises it, otherwise retaining its validated PNG/JPEG default.
 
 - Native GPT results: accept bounded file-backed image notifications with large duplicate inline payloads, retain originals from the exact native thread/item location and recover a saved image from its existing thread without another inference or generation. Recognize Windows short/long path spellings after checking both original paths for links/junctions; refuse outside hardlinks. Keep strict control-message limits, prompt/turn and production-phase bindings, original hashes and damaged-file refusal. Storyboard watches an explicitly requested asynchronous recovery for a bounded interval. Record one real subscription still and exact-version human approval separately from the interrupted handoff and remaining pilot gates.

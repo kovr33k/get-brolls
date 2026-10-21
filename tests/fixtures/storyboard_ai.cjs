@@ -778,6 +778,28 @@ async function drain() {
   assert.equal(switchedStore.version, "still-2");
   assert.equal(switchedStore.versions["still-1\u001fsig-1"].state, "approved");
 
+  const afterComparison = run({ live: true, withStill: true });
+  afterComparison.card.querySelector('[data-ai-decision="approved"]').click();
+  await drain();
+  afterComparison.card.querySelector("[data-ai-generate]").click();
+  await drain();
+  afterComparison.world.state = {
+    beats: [{
+      id: "beat-1", fingerprint: "fp-1", mode: "economy", active: true,
+      job: { id: "job-paid", state: "complete" },
+      version: { id: "still-paid", signature: "sig-paid", path: "previews/paid.jpg", approval: "pending" },
+      slots: [{ alternative: "option-1", version: { id: "still-1", signature: "sig-1", path: "previews/ai-still-1.png" } }],
+    }],
+  };
+  afterComparison.advance(1000);
+  await drain();
+  const economyOffer = afterComparison.card.querySelector("[data-ai-new-result]");
+  assert.ok(economyOffer && !economyOffer.hidden, "Historical comparison slots must not hide a later economy result");
+  assert.equal(afterComparison.card.getAttribute("data-ai-version"), "still-1", "Keep the exact reviewed target until the new result is explicitly selected");
+  economyOffer.click();
+  assert.equal(afterComparison.card.getAttribute("data-ai-version"), "still-paid");
+  assert.equal(afterComparison.card.querySelector("[data-ai-decision-label]").textContent, "Awaiting decision");
+
   const reopenedEconomy = run({ live: true, withStill: true, saved: next.store });
   reopenedEconomy.world.state = {
     beats: [{

@@ -1076,8 +1076,8 @@ def _rotate_log(log):
         return
 
 
-# Sufixos que marcam uma variável como segredo: nenhuma delas tem por que alcançar
-# o filho detached, que nunca fala com um provedor.
+# Segredos exportados não são herdados pelo servidor detached. Um --env-file
+# escolhido explicitamente é recarregado pelo próprio filho, sem copiar as chaves.
 _SECRET_ENV_SUFFIXES = ("_API_KEY", "_TOKEN", "_SECRET")
 
 
@@ -1086,8 +1086,8 @@ def _child_environment(source_env, scripts):
     com jeito de segredo (`*_API_KEY`, `*_TOKEN`, `*_SECRET` — cobre PEXELS_API_KEY,
     PIXABAY_API_KEY, YOUTUBE_API_KEY e qualquer outra do mesmo formato).
 
-    `serve` nunca chama um provedor; não há razão para essas chaves chegarem a um
-    processo solto cujo stdout/stderr vão parar num log dentro do projeto.
+    Rotas de escrita autorizadas podem usar provedores. O filho recarrega o arquivo
+    de configuração escolhido; as chaves não são copiadas nos argumentos nem aqui.
     """
     environment = {key: value for key, value in source_env.items() if not key.endswith(_SECRET_ENV_SUFFIXES)}
     existing = environment.get("PYTHONPATH")
@@ -1154,7 +1154,7 @@ def _tail(output: str, lines: int = 20) -> str:
     return f"\n\nÚltimas linhas do log:\n{text}" if text else ""
 
 
-def start_background(project, port: int = DEFAULT_PORT):  # noqa: C901 - existing size; spawns, waits for and validates the detached server across platforms
+def start_background(project, port: int = DEFAULT_PORT, *, env_file: str | Path | None = None):  # noqa: C901 - existing size; spawns, waits for and validates the detached server across platforms
     """Sobe o servidor num processo solto e devolve as URLs quando ele já responde.
 
     Um subprocesso (nunca `fork`) mantém o mesmo comportamento no Windows: o filho
@@ -1182,6 +1182,8 @@ def start_background(project, port: int = DEFAULT_PORT):  # noqa: C901 - existin
         "--port",
         str(port),
     ]
+    if env_file is not None:
+        command[2:2] = ["--env-file", str(Path(env_file).expanduser().resolve())]
     # O filho precisa achar `getbrolls` e falar UTF-8 mesmo num console legado:
     # nada disso pode depender do diretório de trabalho ou do locale da máquina.
     environment = _child_environment(os.environ, scripts)

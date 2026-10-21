@@ -2250,7 +2250,7 @@
         aiLockModes(card);
       }
       aiRestoreChoice(card, draft, beat);
-      const slotReview = Array.isArray(beat.slots) && beat.slots.length > 0;
+      const slotReview = aiMode(card) === "images" && Array.isArray(beat.slots) && beat.slots.length > 0;
       if (slotReview) {
         const flight = beat.slots.map((slot) => slot && slot.job).find((job) => job && AI_IN_FLIGHT.has(job.state));
         if (flight && flight.state) card.setAttribute("data-ai-state", flight.state);

@@ -1653,7 +1653,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         if getattr(args, "stop", False):
             return serve_module.stop(args.project)
         if getattr(args, "background", False):
-            return serve_module.start_background(args.project, port)
+            return serve_module.start_background(args.project, port, env_file=getattr(args, "env_file", None))
         return serve_module.run(args.project, port)
     from getbrolls.rules import allowed, domain_matches, format_report, load_rules
 
