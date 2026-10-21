@@ -1,4 +1,4 @@
-"""Complete-recording Inworld asynchronous transcription.
+"""Complete-recording Inworld transcription.
 
 Narration records are explicit project state, never discovered candidates.
 Only narration-analyze and narration-resume contact the provider.
@@ -35,8 +35,11 @@ MODEL_ID = "inworld/inworld-stt-1"
 AUDIO_ENCODING = "AUTO_DETECT"
 PRODUCTION_API = "https://api.inworld.ai"
 STT_PATH = "/stt/v1/transcribe:async"
+SYNC_STT_PATH = "/stt/v1/transcribe"
 LRO_PREFIX = "/lro/v1alpha/"
 MAX_AUDIO_BYTES = 512 * 1024 * 1024
+# Leave ample room for multipart config inside the synchronous request limit.
+MAX_SYNC_AUDIO_BYTES = 8 * 1024 * 1024
 MAX_JSON_BYTES = 8 * 1024 * 1024
 POST_TIMEOUT_S = 60
 GET_TIMEOUT_S = 30
@@ -94,6 +97,7 @@ SECRET_MARKERS = (
 CONTROLLED = {
     "RECORDING_INVALID": "The narration recording is missing, empty, unreadable or not a regular file.",
     "RECORDING_TOO_LARGE": "The narration recording exceeds the 512 MB transcription job limit.",
+    "SYNC_RECORDING_TOO_LARGE": "Synchronous transcription accepts complete recordings up to 8 MiB. No audio was sent.",
     "RECORDING_UNSUPPORTED": "The narration recording is not a supported headered audio encoding.",
     "CREDENTIAL_MISSING": "INWORLD_API_KEY is not set. Use the already formatted Basic value; collection search does not need it.",
     "ANALYSIS_NOT_FOUND": "Unknown narration analysis identity. Use an id saved by narration-analyze.",
@@ -339,6 +343,9 @@ def _validate_analysis_config(analysis):
         raise ValueError
     expected = analysis_config(config.get("language"))
     if config != expected or _payload_hash(config) != analysis["config_fingerprint"]:
+        raise ValueError
+    transport = analysis.get("transport", "async")
+    if transport not in ("async", "sync") or (transport == "sync" and analysis.get("operation_name") is not None):
         raise ValueError
 
 
@@ -1088,12 +1095,12 @@ def _validate_result_destination(url):
     return url
 
 
-def submit_async(snapshot_path, config):
+def _submit_recording(snapshot_path, config, endpoint):
     boundary = "----GetBrollsSTT" + secrets.token_hex(8)
     config_bytes = json.dumps(_transcribe_config(config), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     filename = Path(snapshot_path).name.replace('"', "")
     body = _MultipartBody(config_bytes, snapshot_path, filename, boundary)
-    url = api_base() + STT_PATH
+    url = api_base() + endpoint
     headers = {"Content-Type": f"multipart/form-data; boundary={boundary}", "Content-Length": str(body.length)}
     try:
         status, raw = _request(
@@ -1113,10 +1120,30 @@ def submit_async(snapshot_path, config):
         raise _UnknownTransportError from exc
     if not isinstance(payload, dict):
         raise _UnknownTransportError
+    return payload
+
+
+def submit_async(snapshot_path, config):
+    payload = _submit_recording(snapshot_path, config, STT_PATH)
     try:
         return _operation_name(payload.get("name"))
     except ValueError as exc:
         raise _UnknownTransportError from exc
+
+
+def submit_sync(snapshot_path, config):
+    if Path(snapshot_path).stat().st_size > MAX_SYNC_AUDIO_BYTES:
+        raise ValueError(CONTROLLED["SYNC_RECORDING_TOO_LARGE"])
+    payload = _submit_recording(snapshot_path, config, SYNC_STT_PATH)
+    transcription = payload.get("transcription")
+    if not isinstance(transcription, dict) or transcription.get("isFinal") is not True:
+        raise _UnknownTransportError
+    if not isinstance(transcription.get("transcript"), str):
+        raise _UnknownTransportError
+    return {
+        "transcript": transcription["transcript"],
+        "segments": [{"wordTimestamps": transcription.get("wordTimestamps")}],
+    }
 
 
 def poll_operation(operation_name):
@@ -1276,6 +1303,7 @@ def _public_analysis(analysis, *, reused=False, recording=None):
         "submit_outcome": analysis.get("submit_outcome"),
         "reused": reused,
         "operation_name": analysis.get("operation_name"),
+        "transport": analysis.get("transport", "async"),
         "config": analysis.get("config"),
         "audio_fingerprint": analysis.get("audio_fingerprint"),
         "input_fingerprint": analysis.get("input_fingerprint"),
@@ -1353,6 +1381,9 @@ def analyze_command(ledger, args):  # noqa: C901, PLR0912, PLR0915
             ledger.save("narration-analyze")
             return _public_analysis(existing, recording=recording_row)
         _refuse_resubmit(existing)
+    synchronous = bool(getattr(args, "sync", False))
+    if synchronous and recording["bytes"] > MAX_SYNC_AUDIO_BYTES:
+        raise ValueError(CONTROLLED["SYNC_RECORDING_TOO_LARGE"])
     analysis_id = requested or _next_analysis_id(narration["analyses"])
     if analysis_id in narration["analyses"]:
         raise ValueError(CONTROLLED["ALREADY_IN_FLIGHT"] + f" Saved analysis: {analysis_id}.")
@@ -1369,6 +1400,7 @@ def analyze_command(ledger, args):  # noqa: C901, PLR0912, PLR0915
         "recording_id": rec_id,
         "state": "intent",
         "submit_outcome": "not_sent",
+        "transport": "sync" if synchronous else "async",
         "created_at": now(),
         "config": config,
         "config_fingerprint": _payload_hash(config),
@@ -1387,7 +1419,7 @@ def analyze_command(ledger, args):  # noqa: C901, PLR0912, PLR0915
     if digest(snapshot_path) != recording["sha256"]:
         raise ValueError(CONTROLLED["RECORDING_INVALID"])
     try:
-        operation = submit_async(snapshot_path, config)
+        response = submit_sync(snapshot_path, config) if synchronous else submit_async(snapshot_path, config)
     except _KnownRejectionError:
         analysis["state"] = "failed"
         analysis["submit_outcome"] = "rejected"
@@ -1400,9 +1432,28 @@ def analyze_command(ledger, args):  # noqa: C901, PLR0912, PLR0915
         analysis["error"] = _public_error("SUBMIT_UNKNOWN")
         ledger.save("narration-analyze")
         return _public_analysis(analysis, recording=narration["recordings"][rec_id])
+    if synchronous:
+        _complete_transcript(ledger.root, analysis, response, recording["duration_s"])
+        analysis["submit_outcome"] = "accepted"
+        analysis["submitted_at"] = now()
+        _confine_write(
+            ledger.root,
+            RECEIPT_PREFIX + analysis_id + ".json",
+            {
+                "analysis_id": analysis_id,
+                "input_fingerprint": fingerprint,
+                "result": analysis["result"],
+                "error": analysis["error"],
+                "submitted_at": analysis["submitted_at"],
+            },
+        )
+        if _test_crash("after-sync-result"):
+            raise ValueError("Test interrupt after durable synchronous result before ledger persistence.")
+        ledger.save("narration-analyze")
+        return _public_analysis(analysis, recording=narration["recordings"][rec_id])
     if _test_crash("before-operation"):
         raise ValueError("Test interrupt after provider POST before operation persistence.")
-    analysis["operation_name"] = operation
+    analysis["operation_name"] = response
     analysis["state"] = "pending"
     analysis["submit_outcome"] = "accepted"
     analysis["submitted_at"] = now()
@@ -1410,7 +1461,7 @@ def analyze_command(ledger, args):  # noqa: C901, PLR0912, PLR0915
     return _public_analysis(analysis, recording=narration["recordings"][rec_id])
 
 
-def _apply_operation_payload(root, analysis, payload, duration_s=None):  # noqa: C901, PLR0911
+def _apply_operation_payload(root, analysis, payload, duration_s=None):  # noqa: PLR0911
     if payload.get("done") is False:
         analysis["state"] = "pending"
         analysis["error"] = None
@@ -1447,6 +1498,10 @@ def _apply_operation_payload(root, analysis, payload, duration_s=None):  # noqa:
             analysis["state"] = "failed"
         analysis["error"] = _public_error(code if code in CONTROLLED else "RESULT_INVALID")
         return analysis
+    return _complete_transcript(root, analysis, raw, duration_s)
+
+
+def _complete_transcript(root, analysis, raw, duration_s=None):
     try:
         parsed = parse_transcript(raw, duration_s)
     except ValueError:
@@ -1485,6 +1540,8 @@ def _artifact_missing_inside(root, analysis):
 
 def _resume_without_provider(ledger, narration, analysis, recording):
     analysis_id = analysis["id"]
+    if analysis.get("transport") == "sync" and analysis.get("state") in IN_FLIGHT:
+        _restore_sync_receipt(ledger.root, analysis, recording)
     if analysis.get("state") == "completed" and _intact_result(ledger.root, analysis):
         narration["current_analysis"] = analysis_id
         ledger.save("narration-resume")
@@ -1516,6 +1573,33 @@ def _resume_without_provider(ledger, narration, analysis, recording):
         ledger.save("narration-resume")
         return _public_analysis(analysis, recording=recording)
     return None
+
+
+def _restore_sync_receipt(root, analysis, recording):
+    rel = RECEIPT_PREFIX + analysis["id"] + ".json"
+    path = _confine_project_path(root, rel, RECEIPT_PREFIX)
+    if not _occupied(path):
+        return
+    path = _confine_existing_file(root, rel, RECEIPT_PREFIX)
+    try:
+        if path.stat().st_size > MAX_JSON_BYTES:
+            raise ValueError
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        if receipt["analysis_id"] != analysis["id"] or receipt["input_fingerprint"] != analysis["input_fingerprint"]:
+            raise ValueError
+        result = receipt["result"]
+        _validate_result(result, recording.get("duration_s"))
+        _validate_analysis_error(receipt.get("error"))
+        submitted = receipt["submitted_at"]
+        if not isinstance(submitted, str) or result["artifact"] != RESULT_PREFIX + analysis["id"] + ".json":
+            raise ValueError
+        if not _intact_result(root, {"state": "completed", "result": result}):
+            raise ValueError
+    except (ValueError, TypeError, KeyError, OSError) as exc:
+        raise ValueError(CONTROLLED["ARTIFACT_CORRUPT"]) from exc
+    analysis.update(
+        state="completed", submit_outcome="accepted", result=result, error=receipt.get("error"), submitted_at=submitted
+    )
 
 
 def resume_command(ledger, args):
@@ -1619,7 +1703,7 @@ def storyboard_section(ledger):
         '<details class="narration-details"><summary>Narration transcripts and analysis details</summary>',
         "<h2>Narration analysis</h2>",
         (
-            "<p>Inworld asynchronous transcription of a complete local recording. "
+            "<p>Inworld transcription of a complete local recording. "
             "Recognized text and word times are inputs to later scene matching. "
             "Viewing this board does not submit, poll or download.</p>"
         ),

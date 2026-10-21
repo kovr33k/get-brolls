@@ -72,7 +72,7 @@ SUMMARIES = {
     "graphics-fact-resolve": "Record an already received editorial decision for one saved fact conflict; does not invent approval",
     "graphics-audio": "Attach confined sound cues and optional VO source clocks to one graphics occurrence from bounded --file JSON",
     "graphics-sound-import": "Materialize or reuse one named permitted CC0 effect into project sounds/; viewing does not download",
-    "narration-analyze": "Submit or reuse complete-recording Inworld asynchronous transcription; does not match scenes",
+    "narration-analyze": "Submit or reuse complete-recording Inworld transcription; does not match scenes",
     "narration-resume": "Resume a saved narration analysis identity without silently resubmitting",
     "graphics-background": "Attach confined project video or photograph background to one graphics occurrence from bounded --file JSON",
     "narration-match": "Match assigned graphics passages to a completed narration analysis without retranscribing",
@@ -944,6 +944,11 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             )
             p.add_argument("--asset", required=True, help="Safe local identity for the saved project sound")
         if name == "narration-analyze":
+            p.add_argument(
+                "--sync",
+                action="store_true",
+                help="Use synchronous Inworld STT for a complete recording up to 8 MiB; no polling or automatic fallback",
+            )
             p.add_argument(
                 "--recording",
                 required=True,

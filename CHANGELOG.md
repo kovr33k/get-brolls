@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Narration: add explicit `narration-analyze --sync` for complete WAV recordings up to 8 MiB, using Inworld's synchronous route with word timestamps and the shared streamed multipart transport. Preserve asynchronous defaults and existing input identities, so switching transport reuses complete results and cannot bypass pending/unknown attempts. A durable private response receipt supports local recovery without another POST; missing responses remain unknown. Share transcript validation and storage across both routes. Document asynchronous upload access separately from account credits; live synchronous access remains unverified.
+
 - Storyboard configuration and version review: forward an explicitly selected `--env-file` to the detached server as an absolute path while still stripping inherited secret variables. Returning to economy mode after a comparison offers a later still for explicit review; historical comparison slots no longer hide it or replace the previous exact-version decision. Record three real GPT alternatives and one bounded OpenRouter still separately from unverified edits, narration/video coverage and Resolve use.
 
 - AI background writes: wait up to ten seconds for a competing project write when claiming a job, retaining provider progress/results or composing a sequence. A three-image launch no longer loses unsent workers to a sibling's brief ledger write. Keep normal command locking fail-fast, per-job exclusivity and no provider resubmission. OpenRouter requests PNG only when the frozen endpoint advertises it, otherwise retaining its validated PNG/JPEG default.

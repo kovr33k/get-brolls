@@ -3553,7 +3553,7 @@
       ]
     },
     "narration-analyze": {
-      "help": "Submit or reuse complete-recording Inworld asynchronous transcription; does not match scenes",
+      "help": "Submit or reuse complete-recording Inworld transcription; does not match scenes",
       "options": [
         {
           "action": "_HelpAction",
@@ -3579,6 +3579,18 @@
             "--project"
           ],
           "required": true
+        },
+        {
+          "action": "_StoreTrueAction",
+          "choices": null,
+          "default": false,
+          "dest": "sync",
+          "help": "Use synchronous Inworld STT for a complete recording up to 8 MiB; no polling or automatic fallback",
+          "nargs": 0,
+          "option_strings": [
+            "--sync"
+          ],
+          "required": false
         },
         {
           "action": "_StoreAction",

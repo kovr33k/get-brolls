@@ -58,6 +58,7 @@
               "recording_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
               "state": {"enum": ["intent", "pending", "completed", "failed", "unknown"]},
               "submit_outcome": {"enum": ["not_sent", "accepted", "rejected", "unknown"]},
+              "transport": {"enum": ["async", "sync"]},
               "operation_name": {"type": ["string", "null"]},
               "created_at": {"type": "string"},
               "submitted_at": {"type": "string"},
