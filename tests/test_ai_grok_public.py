@@ -38,7 +38,7 @@ class GrokPublicTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.project = Path(self.temp.name) / "project"
-        self.env = {**os.environ, "GETBROLLS_AI_INLINE": "1", "GETBROLLS_AI_TIMEOUT": "1"}
+        self.env = {**os.environ, "GETBROLLS_AI_INLINE": "1", "GETBROLLS_AI_TIMEOUT": timing_helpers.FIXTURE_TIMEOUT_S}
         self.call("init-rules")
         plan = {
             "scenario": SENTENCE,
@@ -68,7 +68,9 @@ class GrokPublicTests(unittest.TestCase):
         self.requests = []
         self.responses = []
         self.addCleanup(patch.stopall)
-        patch.dict(os.environ, {"GETBROLLS_AI_INLINE": "1", "GETBROLLS_AI_TIMEOUT": "1"}).start()
+        patch.dict(
+            os.environ, {"GETBROLLS_AI_INLINE": "1", "GETBROLLS_AI_TIMEOUT": timing_helpers.FIXTURE_TIMEOUT_S}
+        ).start()
         patch("getbrolls.ai_grok._credentials", return_value=("synthetic-oauth", "1.0.52")).start()
         patch("getbrolls.ai_grok._opener").start().return_value.open.side_effect = self.reply
         self.start_server()

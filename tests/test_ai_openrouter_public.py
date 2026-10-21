@@ -15,7 +15,7 @@ from urllib.error import HTTPError, URLError
 import _isolation  # noqa: F401
 import test_ai_grok_public as grok_helpers
 from _media import skip_unless_ffmpeg, synth_image, synth_video
-from test_ai_timing_public import SENTENCE, _words
+from test_ai_timing_public import FIXTURE_TIMEOUT_S, SENTENCE, _words
 
 from getbrolls.ai import handle_reference_upload, run_worker
 from getbrolls.ai_state import version_signature
@@ -72,7 +72,7 @@ class OpenRouterPublicTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.project = Path(self.temp.name) / "project"
-        self.env = {**os.environ, "GETBROLLS_AI_INLINE": "1", "GETBROLLS_AI_TIMEOUT": "1"}
+        self.env = {**os.environ, "GETBROLLS_AI_INLINE": "1", "GETBROLLS_AI_TIMEOUT": FIXTURE_TIMEOUT_S}
         self.call("init-rules")
         plan = {
             "scenario": SENTENCE,
@@ -102,7 +102,7 @@ class OpenRouterPublicTests(unittest.TestCase):
         self.requests = []
         self.responses = []
         self.addCleanup(patch.stopall)
-        patch.dict(os.environ, {"GETBROLLS_AI_INLINE": "1", "GETBROLLS_AI_TIMEOUT": "1"}).start()
+        patch.dict(os.environ, {"GETBROLLS_AI_INLINE": "1", "GETBROLLS_AI_TIMEOUT": FIXTURE_TIMEOUT_S}).start()
         patch("getbrolls.ai_grok._credentials", return_value=("synthetic-oauth", "1.0.52")).start()
         patch("getbrolls.ai_grok._opener").start().return_value.open.side_effect = self.reply
         self.start_server()

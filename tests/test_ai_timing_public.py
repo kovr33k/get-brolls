@@ -27,6 +27,8 @@ from getbrolls.narration import _payload_hash, analysis_config, input_fingerprin
 
 PEER = Path(__file__).parent / "fixtures/ai_app_server.py"
 SENTENCE = "A resource runs out."
+# Success fixtures include process startup, durable ledger writes and media probing on Windows CI.
+FIXTURE_TIMEOUT_S = "10"
 
 
 def _write_wav(path, seconds, rate=16000, amplitude=0, frequency=0):
@@ -91,7 +93,7 @@ class PublicTimingTests(unittest.TestCase):
             "GETBROLLS_CODEX_APP_SERVER": str(PEER),
             "GETBROLLS_AI_FIXTURE": "success",
             "GETBROLLS_AI_INLINE": "1",
-            "GETBROLLS_AI_TIMEOUT": "1",
+            "GETBROLLS_AI_TIMEOUT": FIXTURE_TIMEOUT_S,
         }
         self.call("init-rules")
         plan = {

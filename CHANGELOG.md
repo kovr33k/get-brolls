@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Tests: give successful synthetic AI media journeys ten seconds for process startup, durable state writes and decoding on Windows CI. Keep explicit timeout/unknown-submit tests short; runtime deadlines and acceptance assertions are unchanged. A controlled 1.2-second fixture delay reproduced missing stills and incomplete sequence setup under the former one-second budget.
+
 - Narration: add explicit `narration-analyze --sync` for complete WAV recordings up to 8 MiB, using Inworld's synchronous route with word timestamps and the shared streamed multipart transport. Preserve asynchronous defaults and existing input identities, so switching transport reuses complete results and cannot bypass pending/unknown attempts. A durable private response receipt supports local recovery without another POST; missing responses remain unknown. Share transcript validation and storage across both routes. Document asynchronous upload access separately from account credits; live synchronous access remains unverified.
 
 - Storyboard configuration and version review: forward an explicitly selected `--env-file` to the detached server as an absolute path while still stripping inherited secret variables. Returning to economy mode after a comparison offers a later still for explicit review; historical comparison slots no longer hide it or replace the previous exact-version decision. Record three real GPT alternatives and one bounded OpenRouter still separately from unverified edits, narration/video coverage and Resolve use.
