@@ -10,7 +10,7 @@ tags: [get-brolls]
 
 ## Unreleased
 
-- Tests: give successful synthetic AI media journeys ten seconds for process startup, durable state writes and decoding on Windows CI. Keep explicit timeout/unknown-submit tests short; runtime deadlines and acceptance assertions are unchanged. A controlled 1.2-second fixture delay reproduced missing stills and incomplete sequence setup under the former one-second budget.
+- Tests: give successful synthetic AI media journeys ten seconds for process startup, durable state writes and decoding on Windows CI. Pending-recovery scenarios explicitly yield after one processing response rather than depending on a short wall-clock budget. Keep explicit timeout/unknown-submit tests short; runtime deadlines and acceptance assertions are unchanged. A controlled 1.2-second fixture delay reproduced missing stills and incomplete sequence setup under the former one-second budget.
 
 - Narration: add explicit `narration-analyze --sync` for complete WAV recordings up to 8 MiB, using Inworld's synchronous route with word timestamps and the shared streamed multipart transport. Preserve asynchronous defaults and existing input identities, so switching transport reuses complete results and cannot bypass pending/unknown attempts. A durable private response receipt supports local recovery without another POST; missing responses remain unknown. Share transcript validation and storage across both routes. Document asynchronous upload access separately from account credits; live synchronous access remains unverified.
 

@@ -326,7 +326,9 @@ class RecoveryPublicTests(unittest.TestCase):
     def test_processing_response_remains_known_pending_work_until_explicit_recovery(self):
         media = self.media
         media.responses = [{"request_id": "processing"}, {"status": "processing"}]
-        status, raw = media.http("/__ai", media.video("still-processing"))
+        # Yield after one processing response, independently of machine scheduling.
+        with patch("getbrolls.ai_grok.POLL_S", 60):
+            status, raw = media.http("/__ai", media.video("still-processing"))
         self.assertEqual(200, status, raw)
         job = json.loads(raw)["job"]
         self.assertEqual("remote_pending", job["state"], raw)
@@ -487,7 +489,8 @@ class PaidRecoveryPublicTests(unittest.TestCase):
         media.responses = [paid_helpers.video_capabilities()]
         _body, jobs = media.prepare(kind="video", version=media.still["id"])
         media.responses = [{"id": "processing"}, {"status": "in_progress"}]
-        job = media.confirm(jobs)[0]
+        with patch("getbrolls.ai_openrouter.POLL_S", 60):
+            job = media.confirm(jobs)[0]
         self.assertEqual("remote_pending", job["state"], job)
         self.assertEqual("provider_processing", job["recovery"]["reason"])
         count = len(media.requests)
