@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Tests: retain and join all real background-comparison worker processes before removing their temporary project. A saved complete result can precede worker finalization and lock release; a deterministic delayed-finalizer probe reproduces Windows `WinError 32` under the old cleanup. Keep all three-image/one-turn assertions and production behavior unchanged.
+
 - Narration: prepare and explicitly confirm one deliberate STT retry for an unknown submission without a handle or retained receipt. Freeze the original complete recording/settings, new analysis identity, transport and one-POST scope; journal the reviewer/authorization before sending. Preserve the earlier unknown attempt and potentially duplicate charge risk. Repeated confirmations recover the saved retry, and failures/restarts cannot reset its allowance. Normal analyze/resume never retry automatically.
 
 - AI video references: ignore embedded cover-art streams when selecting the single moving video track, and explicitly decode/extract that selected track. Preserve the original MP4 bytes and requested interval; clips with two moving video tracks remain refused.

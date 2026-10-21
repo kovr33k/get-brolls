@@ -19,6 +19,8 @@ from _media import skip_unless_ffmpeg
 from _paths import CLI
 
 from getbrolls import serve
+from getbrolls.ai import spawn_worker
+from getbrolls.cli import main
 from getbrolls.ledger import Ledger
 from getbrolls.runtime import project_lock
 
@@ -128,7 +130,28 @@ class AIWorkflowTests(unittest.TestCase):
     def test_background_comparison_finishes_all_three_jobs_with_one_turn_each(self):
         self.call("ai-select", "--beat", "scarcity", "--mode", "images")
         self.env.pop("GETBROLLS_AI_INLINE")
-        launched = self.call("ai-generate-comparison", "--beat", "scarcity", "--request-id", "background-three")
+        workers = []
+
+        def tracked_worker(*args, **kwargs):
+            worker = spawn_worker(*args, **kwargs)
+            workers.append(worker)
+            self.addCleanup(self.wait_worker_exit, worker)
+            return worker
+
+        with patch.dict(os.environ, self.env, clear=True), patch("getbrolls.ai.spawn_worker", tracked_worker):
+            launched = main(
+                [
+                    "ai-generate-comparison",
+                    "--project",
+                    str(self.project),
+                    "--beat",
+                    "scarcity",
+                    "--request-id",
+                    "background-three",
+                ]
+            )
+        self.assertEqual("started", launched["worker"])
+        self.assertEqual(3, len(workers))
         ids = [job["id"] for job in launched["jobs"]]
         deadline = time.monotonic() + 20
         while True:
@@ -139,6 +162,15 @@ class AIWorkflowTests(unittest.TestCase):
         self.assertEqual(["complete"] * 3, [job["state"] for job in jobs], jobs)
         self.assertEqual(3, len(self.ai()["versions"]))
         self.assertEqual(3, self.turn_count())
+
+    def wait_worker_exit(self, worker):
+        # A saved terminal result can precede worker finalization and lock release.
+        try:
+            self.assertEqual(0, worker.wait(timeout=10))
+        finally:
+            if worker.poll() is None:
+                worker.kill()
+                worker.wait(timeout=5)
 
     def test_unknown_submit_survives_restart_without_second_native_turn(self):
         self.select()
