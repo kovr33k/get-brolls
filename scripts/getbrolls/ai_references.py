@@ -1012,13 +1012,25 @@ def _probe_video(path):
         "ai_reference_probe",
     )
     streams = [row for row in payload.get("streams") or [] if isinstance(row, dict)]
-    videos = [row for row in streams if row.get("codec_type") == "video"]
+    videos = [
+        row
+        for row in streams
+        if row.get("codec_type") == "video" and not (row.get("disposition") or {}).get("attached_pic")
+    ]
     if len(videos) != 1 or any(row.get("codec_type") not in {"video", "audio"} for row in streams):
         raise ValueError("Video reference must contain one decodable video stream. The file was not saved.")
     stream = videos[0]
+    stream_index = stream.get("index")
     width = stream.get("width")
     height = stream.get("height")
-    if type(width) is not int or type(height) is not int or width <= 0 or height <= 0:
+    if (
+        type(stream_index) is not int
+        or stream_index < 0
+        or type(width) is not int
+        or type(height) is not int
+        or width <= 0
+        or height <= 0
+    ):
         raise ValueError("Video reference measurements are missing. The file was not saved.")
     if width * height > MAX_IMAGE_PIXELS:
         raise ValueError(
@@ -1035,8 +1047,26 @@ def _probe_video(path):
         duration = _finite((payload.get("format") or {}).get("duration"))
     if duration is None or duration <= 0 or not math.isfinite(fps) or fps <= 0:
         raise ValueError("Video reference duration or frame rate is missing. The file was not saved.")
-    _media(["ffmpeg", "-v", "error", "-xerror", "-i", str(path), "-f", "null", "-"], "ai_reference_decode")
+    _media(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-xerror",
+            "-i",
+            str(path),
+            "-map",
+            f"0:{stream_index}",
+            "-map",
+            "0:a?",
+            "-f",
+            "null",
+            "-",
+        ],
+        "ai_reference_decode",
+    )
     return {
+        "video_stream_index": stream_index,
         "width": width,
         "height": height,
         "duration_s": duration,
@@ -1127,7 +1157,7 @@ def _derive_video(staged, temp, detected, probed, bounds):
     frames = []
     for index, stamp in enumerate(times):
         path = temp / f"frame-{index}.png"
-        _extract_frame(staged, path, stamp)
+        _extract_frame(staged, path, stamp, stream_index=probed["video_stream_index"])
         frames.append({"index": index, "time_s": stamp, "sha256": _file_sha(path), "path": path})
     sheet = temp / "sheet.png"
     _media(
@@ -1164,7 +1194,7 @@ def _derive_video(staged, temp, detected, probed, bounds):
             "-t",
             f"{bounds['duration_s']:.6f}",
             "-map",
-            "0:v:0",
+            f"0:{probed['video_stream_index']}",
             "-c:v",
             "libx264",
             "-preset",
@@ -1219,7 +1249,7 @@ def _derive_video(staged, temp, detected, probed, bounds):
     }
 
 
-def _extract_frame(source, dest, stamp):
+def _extract_frame(source, dest, stamp, *, stream_index=0):
     _media(
         [
             "ffmpeg",
@@ -1228,6 +1258,8 @@ def _extract_frame(source, dest, stamp):
             "-y",
             "-i",
             str(source),
+            "-map",
+            f"0:{stream_index}",
             "-ss",
             f"{float(stamp):.6f}",
             "-frames:v",
@@ -1243,7 +1275,7 @@ def _extract_frame(source, dest, stamp):
 def _verify_interval_content(temp, bounds, probed, samples):
     source, requested_frame, clip = samples
     opening = temp / "opening.png"
-    _extract_frame(source, opening, 0)
+    _extract_frame(source, opening, 0, stream_index=probed["video_stream_index"])
     clip_frame = temp / "clip-first.png"
     _extract_frame(clip, clip_frame, 0)
     requested = _mean_rgb(requested_frame, temp / "requested.rgb")

@@ -10,6 +10,10 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- AI video references: ignore embedded cover-art streams when selecting the single moving video track, and explicitly decode/extract that selected track. Preserve the original MP4 bytes and requested interval; clips with two moving video tracks remain refused.
+
+- Storyboard references: choosing **Show the new still** refreshes the reference controls for that exact saved version before the next attachment. A reference inherited from its predecessor no longer blocks the first upload after selecting the new result. Keep upload errors visible across status refreshes, clearing them when another file is selected. Keep changed-target refusals and upload-without-generation behavior.
+
 - Tests: give successful synthetic AI media journeys ten seconds for process startup, durable state writes and decoding on Windows CI. Pending-recovery scenarios explicitly yield after one processing response rather than depending on a short wall-clock budget. Keep explicit timeout/unknown-submit tests short; runtime deadlines and acceptance assertions are unchanged. A controlled 1.2-second fixture delay reproduced missing stills and incomplete sequence setup under the former one-second budget.
 
 - Narration: add explicit `narration-analyze --sync` for complete WAV recordings up to 8 MiB, using Inworld's synchronous route with word timestamps and the shared streamed multipart transport. Preserve asynchronous defaults and existing input identities, so switching transport reuses complete results and cannot bypass pending/unknown attempts. A durable private response receipt supports local recovery without another POST; missing responses remain unknown. Share transcript validation and storage across both routes. Document asynchronous upload access separately from account credits; live synchronous access remains unverified.

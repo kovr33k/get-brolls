@@ -2371,6 +2371,8 @@
     draft.offered = null;
     aiHideOffer(card);
     aiPaintDecision(card, draft);
+    const beat = (aiBoardBody.beats || []).find((item) => item.id === draft.beat);
+    aiKeepApplyDraft(card, draft, beat);
     persist();
   }
   function aiPoll() {
@@ -2549,7 +2551,8 @@
   function aiKeepApplyDraft(card, draft, beat) {
     const box = card.querySelector("[data-ai-instruction]");
     if (box && draft.instructionDirty && typeof draft.instruction === "string") box.value = draft.instruction;
-    if (draft.fileUnsent) aiNote(card, "data-ai-file-note", "Selected, not sent.");
+    const fileNote = card.querySelector("[data-ai-file-note]");
+    if (draft.fileUnsent && (!fileNote || !fileNote.textContent)) aiNote(card, "data-ai-file-note", "Selected, not sent.");
     if (beat && !draft.referenceBusy) {
       const shown = beat.reference || beat.guidance;
       const still = shown && beat.reference ? (shown.target_still || aiStillTarget(card)) : null;

@@ -986,6 +986,83 @@ class ReferenceMediaTests(unittest.TestCase):
         self._assert_red(_mean(path, 0))
         self._assert_no_generation()
 
+    def test_embedded_cover_is_not_a_second_moving_stream(self):
+        source = self._moving_source()
+        cover = self.work / "cover.jpg"
+        synth_image(cover, color="green", size="64x64")
+        video = self.work / "with-cover.mp4"
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                "-i",
+                str(source),
+                "-i",
+                str(cover),
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:v:0",
+                "-c",
+                "copy",
+                "-disposition:v:1",
+                "attached_pic",
+                str(video),
+            ],
+            check=True,
+        )
+        payload = json.loads(
+            subprocess.check_output(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_streams",
+                    "-of",
+                    "json",
+                    str(video),
+                ]
+            )
+        )
+        self.assertEqual(2, len(payload["streams"]))
+        self.assertEqual(1, sum(s.get("disposition", {}).get("attached_pic", 0) for s in payload["streams"]))
+        body = video.read_bytes()
+        saved = self._attach_video(body, interval={"start_s": _BLUE_START, "end_s": _BLUE_END})
+        self.assertEqual(body, read_original(self.ledger, saved["sha256"]))
+        for frame in saved["derivative"]["frames"]:
+            sample = self.work / f"covered-frame-{frame['index']}.png"
+            sample.write_bytes(read_derivative(self.ledger, saved["derivative"]["id"], "frame", frame["index"]))
+            self._assert_blue(_mean(sample))
+        self._assert_no_generation()
+
+    def test_two_moving_streams_are_still_refused(self):
+        source = self._moving_source()
+        video = self.work / "two-moving.mp4"
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                "-i",
+                str(source),
+                "-map",
+                "0:v:0",
+                "-map",
+                "0:v:0",
+                "-c",
+                "copy",
+                str(video),
+            ],
+            check=True,
+        )
+        before = copy.deepcopy(self.ledger.data)
+        with self.assertRaisesRegex(ValueError, "one decodable video stream"):
+            self._attach_video(video.read_bytes(), interval={"start_s": _BLUE_START, "end_s": _BLUE_END})
+        self.assertEqual(before, self.ledger.data)
+
     def test_opening_interval_frames_differ_from_the_later_interval(self):
         path = self._moving_source()
         body = path.read_bytes()

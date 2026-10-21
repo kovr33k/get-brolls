@@ -1710,7 +1710,7 @@ async function drain() {
   await drain();
   assert.equal(liveInstruction.value, "Keep the reservoir");
   assert.equal(liveComment.value, "No lettering");
-  assert.equal(liveCard.querySelector("[data-ai-file-note]").textContent, "Selected, not sent.");
+  assert.equal(liveCard.querySelector("[data-ai-file-note]").textContent, "Keep the selected reference before generating.");
   const videoFile = liveCard.querySelector("[data-ai-file]");
   videoFile.files = [{ name: "later.mp4", type: "video/mp4", bytes: Uint8Array.from([1]) }];
   videoFile.dispatchEvent({ type: "change" });
@@ -1790,6 +1790,11 @@ async function drain() {
   failedUpload.card.querySelector("[data-ai-apply]").click();
   await drain();
   assert.equal(posted(failedUpload.world, "apply").length, 0, "A refused upload must not fall through to generation");
+  assert.equal(failedUpload.card.querySelector("[data-ai-file-note]").textContent,
+    "Name the video interval. The reference was not kept.", "Polling must preserve the actual upload error");
+  failedFile.files = [{ name: "new.png", type: "image/png", bytes: Uint8Array.from([2]) }];
+  failedFile.dispatchEvent({ type: "change" });
+  assert.equal(failedUpload.card.querySelector("[data-ai-file-note]").textContent, "Selected, not sent.");
 
   const stillReference = run({ live: true, boardCards: [applyCard()] });
   stillReference.world.holdPreview = true;
@@ -1832,6 +1837,37 @@ async function drain() {
   changedReferenceTarget.card.querySelector("[data-ai-remove-reference]").click();
   await drain();
   assert.equal(posted(changedReferenceTarget.world, "reference-remove").length, 0, "Navigation cannot remove another still's reference");
+
+  const inheritedUpload = run({ live: true, boardCards: [applyCard()] });
+  inheritedUpload.world.state.beats[0].reference = {
+    context_id: "ctx-ancestor", kind: "image", received: true,
+    target_still: { id: "still-1", signature: "sig-1" },
+  };
+  await drain();
+  inheritedUpload.card.querySelector("[data-ai-generate]").click();
+  await drain();
+  inheritedUpload.world.state.beats[0].job = { id: "job-next", state: "complete" };
+  inheritedUpload.world.state.beats[0].version = {
+    id: "still-next", signature: "sig-next", path: "previews/next.png", approval: "pending",
+  };
+  inheritedUpload.world.state.beats[0].reference.target_still = { id: "still-next", signature: "sig-next" };
+  inheritedUpload.advance(1000);
+  await drain();
+  inheritedUpload.card.querySelector("[data-ai-new-result]").click();
+  const inheritedFile = inheritedUpload.card.querySelector("[data-ai-file]");
+  inheritedFile.files = [{ name: "later.mp4", type: "video/mp4", bytes: Uint8Array.from([1, 2]) }];
+  inheritedFile.dispatchEvent({ type: "change" });
+  inheritedUpload.card.querySelector("[data-ai-instruction]").value = "Use the viewpoint from seconds 1 through 4";
+  inheritedUpload.card.querySelector("[data-ai-interval-start]").value = "1";
+  inheritedUpload.card.querySelector("[data-ai-interval-end]").value = "4";
+  inheritedUpload.card.querySelector("[data-ai-upload]").click();
+  await drain();
+  const nextUploads = inheritedUpload.world.calls.filter((row) => row.binary);
+  assert.equal(nextUploads.length, 1,
+    "Selecting the saved revision must bind its inherited reference before the next upload");
+  const nextMetadata = JSON.parse(decodeURIComponent(nextUploads[0].headers["X-GetBrolls-Ai-Reference"]));
+  assert.deepEqual(nextMetadata.still, { id: "still-next", signature: "sig-next" });
+  assert.equal(posted(inheritedUpload.world, "apply").length, 0, "Keeping the next reference does not generate");
 
   const paid = run({ live: true, boardCards: [aiCard({ alternatives: ["option-1", "option-2", "option-3"] })] });
   paid.world.state.openrouter = { image: { model: "test/image", resolution: "2K" } };
