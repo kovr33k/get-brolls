@@ -2,11 +2,13 @@
 
 import base64
 import hashlib
+import io
 import json
 import os
 import subprocess
 import time
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import quote
@@ -30,10 +32,10 @@ class AIDeliveryPublicTests(unittest.TestCase):
         self.launch_count = 0
         self.clip_count = 0
 
-    def video_bytes(self, *, color="blue", seconds=2, size="1920x1080", audio=False):
+    def video_bytes(self, *, color="blue", seconds=2, size="1920x1080", audio=False, fps=30):
         self.clip_count += 1
         path = Path(self.media.temp.name) / f"{color}-{size}-{self.clip_count}.mp4"
-        args = ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"color=c={color}:s={size}:r=30:d={seconds}"]
+        args = ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"color=c={color}:s={size}:r={fps}:d={seconds}"]
         if audio:
             args += ["-f", "lavfi", "-i", f"sine=frequency=660:duration={seconds}"]
         subprocess.run(
@@ -69,6 +71,35 @@ class AIDeliveryPublicTests(unittest.TestCase):
             },
         )
         self.assertEqual(200, status, raw)
+
+    def sequence(self, originals, nonce):
+        media = self.media
+        media.responses = [paid_helpers.video_capabilities()]
+        status, raw = media.http(
+            "/__ai",
+            {
+                "action": "prepare-sequence",
+                "route": "openrouter",
+                "beat": "scarcity",
+                "version": media.still["id"],
+                "requestId": nonce,
+            },
+        )
+        self.assertEqual(200, status, raw)
+        sequence = json.loads(raw)["sequence"]
+        media.responses = [
+            item
+            for index, data in enumerate(originals)
+            for item in (
+                {"id": f"{nonce}-{index}"},
+                {"status": "completed", "video": {"url": f"https://media.example.com/{index}.mp4"}},
+                data,
+            )
+        ]
+        media.confirm([clip["job"] for clip in sequence["clips"]])
+        result = json.loads(media.http("/__ai/state")[1])["beats"][0]["sequence"]
+        self.assertEqual("complete", result["state"], result)
+        return result["version"]
 
     def permit(self, version, **extra):
         status, raw = self.media.http(
@@ -138,6 +169,85 @@ class AIDeliveryPublicTests(unittest.TestCase):
                 self.assertFalse(report["ai"])
                 self.assertIn(reason, report["ai_skipped"][0]["reasons"])
                 self.assertFalse((self.media.project / "entrega/ai").exists())
+
+    def test_exact_quality_consent_allows_lower_profile_without_upscale_or_false_coverage_gap(self):
+        media = self.media
+        version = self.launch(size="160x90", fps=24)
+        self.approve(version)
+        self.permit(version)
+        row = media.call("deliver", "--dry-run")["ai_skipped"][0]
+        self.assertIn("profile_shortfall", row["reasons"])
+        self.assertNotIn("coverage_shortfall", row["reasons"], "48 frames at 24 fps cover two seconds at 30 fps")
+        for extra in (
+            {"accept_profile": "true"},
+            {"accept_profile": True},
+            {"accept_profile": True, "profile_fingerprint": "0" * 64},
+        ):
+            status, raw = media.http(
+                "/__ai",
+                {
+                    "action": "material-use",
+                    "version": version["id"],
+                    "signature": version["signature"],
+                    "state": "permitted",
+                    "by": "Editor",
+                    "conditions": "Synthetic project use",
+                    "evidence": "Fixture only",
+                    **extra,
+                },
+            )
+            self.assertEqual(400, status, raw)
+        self.permit(version, accept_profile=True, profile_fingerprint=row["profile_fingerprint"])
+        report = media.call("deliver")
+        self.assertEqual(1, len(report["ai"]), report)
+        package = media.project / report["ai"][0]["package_dir"]
+        provenance = json.loads((package / "provenance.json").read_text(encoding="utf-8"))
+        self.assertEqual((160, 90, 24), tuple(provenance["output"][key] for key in ("width", "height", "fps")))
+        self.assertFalse(provenance["output"]["native_full_hd"])
+        self.assertTrue(provenance["material_use"]["accept_profile"])
+        self.assertEqual(30, provenance["required_profile"]["fps"])
+        self.assertEqual(["profile_shortfall_accepted"], provenance["warnings"])
+        self.assertEqual(version["sha256"], hashlib.sha256((package / "video.mp4").read_bytes()).hexdigest())
+        status = media.call("status")["ai"]["delivery"]["beats"][0]
+        self.assertTrue(status["profile_shortfall"])
+        self.assertTrue(status["profile_accepted"])
+        self.assertEqual("delivered", status["delivery_state"])
+        # Rights edits neither grant nor silently revoke an independent saved quality decision.
+        self.permit(version, state="unresolved")
+        self.assertIn("material_use_unresolved", media.call("deliver")["ai_skipped"][0]["reasons"])
+        self.permit(version)
+        self.assertTrue(media.call("status")["ai"]["delivery"]["beats"][0]["profile_accepted"])
+        self.permit(version, accept_profile=False)
+        self.assertIn("profile_shortfall", media.call("deliver")["ai_skipped"][0]["reasons"])
+        self.assertTrue((package / "video.mp4").is_file())
+        self.permit(version, accept_profile=True, profile_fingerprint=row["profile_fingerprint"])
+        (media.project / "brolls" / version["path"]).write_bytes(b"Changed original")
+        self.assertIn("media_or_inputs_changed", media.call("deliver")["ai_skipped"][0]["reasons"])
+        self.assertEqual(version["sha256"], hashlib.sha256((package / "video.mp4").read_bytes()).hexdigest())
+
+    def test_quality_consent_never_waives_coverage_review_or_changed_profile_and_version(self):
+        from test_graphics_delivery import _assign_explicit
+
+        media = self.media
+        first = self.launch(size="160x90", fps=24, seconds=1)
+        row = media.call("deliver", "--dry-run")["ai_skipped"][0]
+        self.permit(first, accept_profile=True, profile_fingerprint=row["profile_fingerprint"])
+        reasons = media.call("deliver")["ai_skipped"][0]["reasons"]
+        self.assertIn("coverage_shortfall", reasons)
+        self.assertIn("approval_required", reasons)
+        self.assertNotIn("profile_shortfall", reasons)
+        self.approve(first)
+        second = self.launch(size="160x90", fps=24)
+        row = media.call("deliver")["ai_skipped"][0]
+        self.assertEqual(second["id"], row["version"])
+        self.assertIn("profile_shortfall", row["reasons"])
+        self.assertFalse(row["profile_accepted"])
+        self.permit(second, accept_profile=True, profile_fingerprint=row["profile_fingerprint"])
+        _assign_explicit(media.project, confirm_fps=24)
+        self.permit(second)  # A new required profile cannot inherit the old checkbox.
+        row = media.call("deliver")["ai_skipped"][0]
+        self.assertIn("media_or_inputs_changed", row["reasons"])
+        self.assertFalse(row["profile_accepted"])
 
     def test_unconfirmed_sequence_plan_does_not_hide_completed_standalone_video(self):
         media = self.media
@@ -239,7 +349,7 @@ class AIDeliveryPublicTests(unittest.TestCase):
 
         with patch("getbrolls.ai_openrouter._opener") as transport:
             transport.return_value.open.side_effect = delayed_ack
-            version = self.launch()
+            version = self.launch(size="160x90", fps=24)
         self.approve(version)
         args = (
             "ai-material-use",
@@ -257,13 +367,58 @@ class AIDeliveryPublicTests(unittest.TestCase):
         self.assertIn("message", media.call(*args, "--signature", "0" * 64, ok=False))
         result = media.call(*args, "--signature", version["signature"])
         self.assertEqual("permitted", result["material_use"]["state"])
+        row = media.call("deliver")["ai_skipped"][0]
+        self.assertIn("profile_shortfall", row["reasons"])
+        self.assertIn("message", media.call(*args, "--signature", version["signature"], "--accept-profile", ok=False))
+        result = media.call(
+            *args,
+            "--signature",
+            version["signature"],
+            "--accept-profile",
+            "--profile-fingerprint",
+            row["profile_fingerprint"],
+        )
+        self.assertTrue(result["material_use"]["accept_profile"])
         first = media.call("deliver")["ai"][0]
+        media.call(*args, "--signature", version["signature"], "--strict-profile")
+        self.assertIn("profile_shortfall", media.call("deliver")["ai_skipped"][0]["reasons"])
+        media.call(
+            *args,
+            "--signature",
+            version["signature"],
+            "--accept-profile",
+            "--profile-fingerprint",
+            row["profile_fingerprint"],
+        )
         self.permit(version, state="blocked", conditions="Fixture use revoked")
         report = media.call("deliver")
         self.assertFalse(report["ai"])
         self.assertIn("material_use_blocked", report["ai_skipped"][0]["reasons"])
         self.assertTrue((media.project / first["path"]).is_file())
         self.assertEqual(0, media.call("status")["ai"]["delivery"]["delivered"])
+
+    def test_new_metadata_schema_keeps_old_handoff_packages_without_overwrite_or_conflict(self):
+        from getbrolls import ai_delivery
+        from getbrolls.ai_state import fingerprint
+        from getbrolls.cli import main
+
+        media = self.media
+        version = self.launch()
+        self.approve(version)
+        self.permit(version)
+
+        def legacy_destination(version, use):
+            token = fingerprint({"approval": version.get("approval"), "use": use})[:12]
+            return f"ai/{version['beat']}/{version['id']}-{token}"
+
+        with patch.object(ai_delivery, "_package_rel", side_effect=legacy_destination), redirect_stdout(io.StringIO()):
+            first = main(["deliver", "--project", str(media.project)])["ai"][0]
+        old = media.project / first["package_dir"]
+        retained = {path.name: path.read_bytes() for path in old.iterdir()}
+        current = media.call("deliver")["ai"][0]
+        self.assertNotEqual(first["package_dir"], current["package_dir"])
+        self.assertEqual(retained, {path.name: path.read_bytes() for path in old.iterdir()})
+        self.assertEqual(current["package_dir"], media.call("deliver")["ai"][0]["package_dir"])
 
     def test_sequence_handoff_keeps_order_originals_tail_trim_and_portable_review(self):
         media = self.media
@@ -282,33 +437,8 @@ class AIDeliveryPublicTests(unittest.TestCase):
             "--end",
             "8.5",
         )
-        media.responses = [paid_helpers.video_capabilities()]
-        status, raw = media.http(
-            "/__ai",
-            {
-                "action": "prepare-sequence",
-                "route": "openrouter",
-                "beat": "scarcity",
-                "version": media.still["id"],
-                "requestId": "delivery-sequence",
-            },
-        )
-        self.assertEqual(200, status, raw)
-        sequence = json.loads(raw)["sequence"]
         originals = [self.video_bytes(color="red", seconds=6), self.video_bytes(color="blue", seconds=3, audio=True)]
-        media.responses = [
-            item
-            for index, data in enumerate(originals)
-            for item in (
-                {"id": f"clip-{index}"},
-                {"status": "completed", "video": {"url": f"https://media.example.com/{index}.mp4"}},
-                data,
-            )
-        ]
-        media.confirm([clip["job"] for clip in sequence["clips"]])
-        result = json.loads(media.http("/__ai/state")[1])["beats"][0]["sequence"]
-        self.assertEqual("complete", result["state"], result)
-        version = result["version"]
+        version = self.sequence(originals, "delivery-sequence")
         self.permit(version)
         self.assertIn("approval_required", media.call("deliver")["ai_skipped"][0]["reasons"])
         self.approve(version)
@@ -327,6 +457,30 @@ class AIDeliveryPublicTests(unittest.TestCase):
         self.assertIn("AI handoff", page)
         self.assertIn("permitted", page)
         self.assertEqual(entry["path"], media.call("deliver")["ai"][0]["path"])
+
+        lower = [
+            self.video_bytes(color="red", seconds=6, size="160x90", fps=24),
+            self.video_bytes(color="blue", seconds=3, size="160x90", fps=24, audio=True),
+        ]
+        version = self.sequence(lower, "lower-quality-sequence")
+        self.approve(version)
+        self.permit(version)
+        row = media.call("deliver")["ai_skipped"][0]
+        self.assertIn("profile_shortfall", row["reasons"])
+        self.permit(version, accept_profile=True, profile_fingerprint=row["profile_fingerprint"])
+        delivered = media.call("deliver")["ai"][0]
+        self.assertEqual(["profile_shortfall_accepted"], delivered["warnings"])
+        package = media.project / delivered["package_dir"]
+        provenance = json.loads((package / "provenance.json").read_text(encoding="utf-8"))
+        self.assertEqual(30, provenance["output"]["fps"])
+        self.assertFalse(provenance["output"]["native_full_hd"])
+        self.assertEqual([24, 24], [source["actual"]["fps"] for source in provenance["sources"]])
+        timing = json.loads((package / "timing.json").read_text(encoding="utf-8"))
+        self.assertEqual([30, 30], [clip["trim_frame_rate"] for clip in timing["clips"]])
+        self.assertEqual([6, 2], [clip["source_trim"]["end_s"] for clip in timing["clips"]])
+        for index, data in enumerate(lower):
+            self.assertEqual(data, (package / f"originals/{index + 1:03}.mp4").read_bytes())
+        self.assertTrue((media.project / entry["path"]).is_file())
 
     def test_changed_or_missing_original_and_narration_block_current_handoff_preserving_history(self):
         media = self.media

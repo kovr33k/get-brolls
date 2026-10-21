@@ -1387,29 +1387,48 @@
     if (!key) { box.textContent = "AI handoff: coverage is missing."; box.removeAttribute("data-version-key"); return; }
     draft.useNotes = draft.useNotes || {};
     const use = row.material_use || {};
-    if (aiAttr(box, "data-version-key") !== key) {
-      box.setAttribute("data-version-key", key); box.textContent = "";
+    const profileKey = row.profile_fingerprint || "";
+    const displayKey = key + "\u001f" + profileKey;
+    if (aiAttr(box, "data-version-key") !== displayKey) {
+      box.setAttribute("data-version-key", displayKey); box.textContent = "";
       const title = document.createElement("legend"); title.textContent = "AI handoff — " + row.version;
       const status = document.createElement("p"); status.setAttribute("data-ai-delivery-status", "");
       const warning = document.createElement("p"); warning.textContent = "Editorial approval and material-use conditions are separate. Reference access does not grant reuse rights. Save use conditions here; run deliver in the CLI to build the package.";
       box.append(title, status, warning);
       const values = draft.useNotes[key] || use;
+      const quality = document.createElement("p"); quality.setAttribute("data-ai-quality-status", ""); box.append(quality);
+      if (row.profile_shortfall) {
+        const caption = document.createElement("label");
+        const label = "I accept this version's actual resolution and frame rate for this project.";
+        caption.textContent = label;
+        const field = document.createElement("input"); field.type = "checkbox";
+        field.setAttribute("data-ai-use-accept-profile", ""); field.setAttribute("aria-label", label);
+        field.checked = values.profile_fingerprint === profileKey ? values.accept_profile === true : row.profile_accepted === true;
+        field.disabled = !aiLive();
+        caption.append(field); box.append(caption);
+      }
+      const readValues = () => {
+        const next = Object.fromEntries(["state", "by", "conditions", "evidence"].map((name) => [name, aiField(card, "data-ai-use-" + name)]));
+        const field = box.querySelector("[data-ai-use-accept-profile]");
+        if (field) { next.accept_profile = !!field.checked; next.profile_fingerprint = profileKey; }
+        return next;
+      };
+      const keepDraft = () => { draft.useNotes[key] = readValues(); persist(); };
+      const qualityField = box.querySelector("[data-ai-use-accept-profile]");
+      if (qualityField) qualityField.addEventListener("input", keepDraft);
       [["state", "Use state: permitted / blocked / unresolved"], ["by", "Responsible editor"], ["conditions", "Conditions for generated output and guided inputs"], ["evidence", "Basis for this declaration"]].forEach(([name, label]) => {
         const field = document.createElement(name === "state" ? "select" : "textarea");
         field.setAttribute("data-ai-use-" + name, ""); field.setAttribute("aria-label", label);
         if (name === "state") ["unresolved", "permitted", "blocked"].forEach((value) => { const option = document.createElement("option"); option.value = value; option.textContent = value; field.append(option); });
         field.value = values[name] || (name === "state" ? "unresolved" : "");
-        field.addEventListener("input", () => {
-          draft.useNotes[key] = Object.fromEntries(["state", "by", "conditions", "evidence"].map((name) => [name, aiField(card, "data-ai-use-" + name)]));
-          persist();
-        });
+        field.addEventListener("input", keepDraft);
         const caption = document.createElement("label"); caption.textContent = label; caption.append(field); box.append(caption);
       });
-      const button = document.createElement("button"); button.type = "button"; button.textContent = "Save conditions for this version"; button.setAttribute("data-ai-use-save", "");
+      const button = document.createElement("button"); button.type = "button"; button.textContent = row.profile_shortfall ? "Save conditions and quality decision" : "Save conditions for this version"; button.setAttribute("data-ai-use-save", "");
       const note = document.createElement("p"); note.setAttribute("data-ai-use-note", "");
       button.addEventListener("click", () => {
         if (button.disabled || !aiLive()) return;
-        const values = Object.fromEntries(["state", "by", "conditions", "evidence"].map((name) => [name, aiField(card, "data-ai-use-" + name)]));
+        const values = readValues();
         if (["by", "conditions", "evidence"].some((name) => !values[name].trim())) { note.textContent = "Enter the responsible editor, conditions and evidence."; return; }
         button.disabled = true;
         aiPaidPost(card, { action: "material-use", version: row.version, signature: row.signature, ...values }, "data-ai-use-note")
@@ -1419,7 +1438,12 @@
       });
       button.disabled = !aiLive(); box.append(button, note);
     }
-    box.querySelector("[data-ai-delivery-status]").textContent = "Editorial: " + row.approval + " · use: " + (use.state || "unresolved") + " · " + row.delivery_state + (row.reasons.length ? " · " + row.reasons.join(", ") : " · ready");
+    const actual = row.actual || {}, required = row.required_profile || {};
+    box.querySelector("[data-ai-quality-status]").textContent = actual.width ?
+      "Actual: " + actual.width + "×" + actual.height + " · " + actual.fps + " fps. Project: " + required.width + "×" + required.height + " · " + required.fps + " fps. Native Full HD: " + (actual.native_full_hd ? "yes" : "no") + (row.profile_shortfall ? ". Quality exception: " + (row.profile_accepted ? "accepted for this version" : "not accepted") + "." : ".") : "";
+    const qualityField = box.querySelector("[data-ai-use-accept-profile]");
+    if (qualityField && !draft.useNotes[key]) qualityField.checked = row.profile_accepted === true;
+    box.querySelector("[data-ai-delivery-status]").textContent = "Editorial: " + row.approval + " · use: " + (use.state || "unresolved") + " · " + row.delivery_state + (row.reasons.length ? " · " + row.reasons.join(", ") : " · ready") + ((row.warnings || []).length ? " · " + row.warnings.join(", ") : "");
   }
   function aiLaunchVideo(card, draft) {
     const button = card.querySelector("[data-ai-video]");

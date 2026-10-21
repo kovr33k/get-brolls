@@ -1773,11 +1773,17 @@ def _delivery_markup(row):
     if not row:
         return ""
     use = row.get("material_use") or {}
+    actual, required = row.get("actual") or {}, row.get("required_profile") or {}
     return (
         "<fieldset data-ai-delivery><legend>AI handoff</legend>"
         f"<p>Version: {_esc(row.get('version') or 'none')} · editorial: {_esc(row.get('approval') or 'pending')}"
         f" · use: {_esc(use.get('state') or 'unresolved')} · {_esc(row['delivery_state'])}</p>"
         f"<p>{_esc(', '.join(row['reasons']))}</p>"
+        f"<p>Actual: {_esc(actual.get('width'))}×{_esc(actual.get('height'))} · {_esc(actual.get('fps'))} fps. "
+        f"Project: {_esc(required.get('width'))}×{_esc(required.get('height'))} · {_esc(required.get('fps'))} fps. "
+        f"Native Full HD: {'yes' if actual.get('native_full_hd') else 'no'}. "
+        f"Quality exception: {_esc('accepted for this version' if row.get('profile_accepted') else 'not accepted')}. "
+        f"{_esc(', '.join(row.get('warnings') or []))}</p>"
         "<p>Material use is separate from editorial approval. Reference access does not grant reuse rights. "
         "Use the live Storyboard or ai-material-use CLI to record conditions, then run deliver. "
         "This portable snapshot does not publish a package or change conditions.</p></fieldset>"
@@ -3072,6 +3078,9 @@ def _video_coverage(request, info):
 
 def _native_full_hd(request, info):
     if request.get("resolution") in {"480p", "720p"}:
+        return False
+    # This model's advertised 1080p is rendered at 720p and upscaled (OpenRouter model card).
+    if request.get("model") == "x-ai/grok-imagine-video-1.5-lite":
         return False
     return info["width"] >= FULL_HD_WIDTH and info["height"] >= FULL_HD_HEIGHT
 

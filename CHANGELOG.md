@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- AI handoff: allow an explicit, exact-version acceptance of lower source resolution/FPS for the displayed project profile, independently of editorial approval and use permission. Preserve the default quality block, reject stale profile confirmations, support withdrawal, retain visible warnings and measured original metadata through delivery and portable review. Compare coverage on the source/timeline clocks instead of comparing unlike frame counts; retain explicit trim units. Known Grok Imagine Video 1.5 Lite 1080p upscale is not reported as native Full HD.
+
 - AI handoff: an unlaunched sequence plan no longer hides completed standalone coverage. Preserve the plan and its unconfirmed jobs; explicitly launched incomplete sequences still block fallback to older clips. Record the real one-POST video/download-recovery pilot, actual profile/audio shortfalls and deliberately confirmed STT retry separately from full module/Resolve acceptance.
 
 - Tests: retain and join all real background-comparison worker processes before removing their temporary project. A saved complete result can precede worker finalization and lock release; a deterministic delayed-finalizer probe reproduces Windows `WinError 32` under the old cleanup. Keep all three-image/one-turn assertions and production behavior unchanged.

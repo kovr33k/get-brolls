@@ -10,6 +10,7 @@ from .models import now
 from .runtime import project_lock
 
 FPS_TOLERANCE = 0.001
+PACKAGE_SCHEMA = 2
 
 
 def record_use(ledger, data):
@@ -33,6 +34,15 @@ def record_use(ledger, data):
     }
     records = ledger.data["ai"].setdefault("material_use", {})
     prior = records.get(version["id"])
+    accept_profile = data.get("accept_profile")
+    if accept_profile is not None and type(accept_profile) is not bool:
+        raise ValueError("Accept actual quality explicitly for this exact version, or keep the required profile.")
+    if accept_profile is True and data.get("profile_fingerprint") != fingerprint(record["profile"]):
+        raise ValueError("The displayed project profile changed; review the current actual and required quality.")
+    if accept_profile is not None:
+        record["accept_profile"] = accept_profile
+    elif prior and prior.get("profile") == record["profile"] and "accept_profile" in prior:
+        record["accept_profile"] = prior["accept_profile"]
     if prior and all(prior.get(key) == value for key, value in record.items()):
         return {"material_use": prior}
     record["at"] = now()
@@ -48,7 +58,20 @@ def handle_use(project, data):
 
 def use_command(ledger, args):
     return record_use(
-        ledger, {key: getattr(args, key) for key in ("version", "signature", "state", "by", "conditions", "evidence")}
+        ledger,
+        {
+            key: getattr(args, key)
+            for key in (
+                "version",
+                "signature",
+                "state",
+                "by",
+                "conditions",
+                "evidence",
+                "accept_profile",
+                "profile_fingerprint",
+            )
+        },
     )
 
 
@@ -71,6 +94,16 @@ def current_version(ledger, beat):
     )
 
 
+def _profile_shortfall(version, profile):
+    return bool(
+        not version.get("native_full_hd")
+        or version.get("profile_shortfall")
+        or version["width"] < profile["width"]
+        or version["height"] < profile["height"]
+        or abs(version["fps"] - profile["fps"]) > FPS_TOLERANCE
+    )
+
+
 def readiness(ledger, beat):
     from .ai_sequences import _frames
 
@@ -79,6 +112,14 @@ def readiness(ledger, beat):
     reasons = []
     if version is None:
         return {"beat": beat["id"], "version": None, "ready": False, "reasons": ["coverage_missing"]}
+    profile = _profile(ledger)
+    use = (ai.get("material_use") or {}).get(version["id"]) or {}
+    accepted = bool(
+        use.get("accept_profile") is True
+        and use.get("signature") == version_signature(version)
+        and use.get("profile") == profile
+    )
+    shortfall = False
     try:
         _version, path = checked_version(ledger, version["id"])
         originals = (
@@ -95,17 +136,13 @@ def readiness(ledger, beat):
             else ai["jobs"][version["job"]]["request"]
         )
         frames = base["interval"]["end_frame"] - base["interval"]["start_frame"]
-        count = version.get("frames") if version["kind"] == "sequence" else _frames(path)
-        if count < frames or version.get("coverage") != "covered":
+        count = (
+            version.get("frames") if version["kind"] == "sequence" else _frames(path) * profile["fps"] / version["fps"]
+        )
+        if count + FPS_TOLERANCE < frames or version.get("coverage") != "covered":
             reasons.append("coverage_shortfall")
-        profile = _profile(ledger)
-        if (
-            not version.get("native_full_hd")
-            or version.get("profile_shortfall")
-            or version["width"] < profile["width"]
-            or version["height"] < profile["height"]
-            or abs(version["fps"] - profile["fps"]) > FPS_TOLERANCE
-        ):
+        shortfall = _profile_shortfall(version, profile)
+        if shortfall and not accepted:
             reasons.append("profile_shortfall")
         narration, _error = preview_for_view(ledger, beat.get("timing"), resolved=True)
         if not narration:
@@ -115,10 +152,9 @@ def readiness(ledger, beat):
     approval = version.get("approval") or {}
     if approval.get("state") != "approved" or approval.get("signature") != version_signature(version):
         reasons.append("approval_required")
-    use = (ai.get("material_use") or {}).get(version["id"]) or {}
     if use.get("state") != "permitted" or use.get("signature") != version_signature(version):
         reasons.append("material_use_blocked" if use.get("state") == "blocked" else "material_use_unresolved")
-    if use and use.get("profile") != _profile(ledger):
+    if use and use.get("profile") != profile:
         reasons.append("profile_context_changed")
     return {
         "beat": beat["id"],
@@ -129,7 +165,11 @@ def readiness(ledger, beat):
         "reasons": reasons,
         "approval": approval.get("state"),
         "material_use": _safe_metadata(use),
-        "required_profile": _profile(ledger),
+        "required_profile": profile,
+        "profile_fingerprint": fingerprint(profile),
+        "profile_shortfall": shortfall,
+        "profile_accepted": accepted,
+        "warnings": ["profile_shortfall_accepted"] if shortfall and accepted else [],
         "actual": {key: version.get(key) for key in ("width", "height", "fps", "duration_s", "native_full_hd")},
     }
 
@@ -183,7 +223,7 @@ def progress(ledger):
 
 
 def _package_rel(version, use):
-    token = fingerprint({"approval": version.get("approval"), "use": use})[:12]
+    token = fingerprint({"schema": PACKAGE_SCHEMA, "approval": version.get("approval"), "use": use})[:12]
     return f"ai/{version['beat']}/{version['id']}-{token}"
 
 
@@ -238,6 +278,9 @@ def _source(ledger, version):
         "sound": request.get("sound"),
         "motion": request.get("motion"),
         "correction": request.get("correction"),
+        "actual": {
+            key: version.get(key) for key in ("width", "height", "fps", "duration_s", "audio", "native_full_hd")
+        },
         "provider_inputs": (job.get("remote") or {}).get("imageInputs") or [],
         "still": {
             **request["still"],
@@ -277,6 +320,13 @@ def _package(ledger, version):
                 "placement": request["interval"],
                 "trim_start_frame": clip["trim_start_frame"],
                 "trim_end_frame": request["interval"]["end_frame"] - request["interval"]["start_frame"],
+                "trim_frame_rate": request["profile"]["fps"],
+                "source_trim": {
+                    "start_s": 0,
+                    "end_s": (request["interval"]["end_frame"] - request["interval"]["start_frame"])
+                    / request["profile"]["fps"],
+                },
+                "source_fps": original["fps"],
             }
         )
     base = ai["sequences"][version["sequence"]]["scope"]["request"] if version["kind"] == "sequence" else request
@@ -287,6 +337,7 @@ def _package(ledger, version):
     copies.append(("narration.wav", vo))
     use = ai["material_use"][version["id"]]
     timing = {
+        "schema": PACKAGE_SCHEMA,
         "fps": base["profile"]["fps"],
         "placement": base["interval"],
         "clips": placements,
@@ -295,6 +346,7 @@ def _package(ledger, version):
         "narration_baked_in": False,
     }
     provenance = {
+        "schema": PACKAGE_SCHEMA,
         "kind": "ai-generated",
         "beat": beat["id"],
         "passage": beat["text"],
@@ -304,12 +356,23 @@ def _package(ledger, version):
         "sources": sources,
         "approval": version["approval"],
         "material_use": use,
+        "required_profile": _profile(ledger),
+        "warnings": ["profile_shortfall_accepted"]
+        if use.get("accept_profile") is True and _profile_shortfall(version, _profile(ledger))
+        else [],
     }
     generated = {
         "timing.json": json.dumps(_safe_metadata(timing), indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         "provenance.json": json.dumps(_safe_metadata(provenance), indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         "ORIGEM.md": f"# AI coverage: {beat['id']}\n\nGenerated illustration; not documentary evidence.\n\nImport video.mp4 and narration.wav separately. Follow timing.json for recorded placement and source trims. Keep the current project handoff index as the readiness reference. Reference guidance does not grant unrestricted reuse rights. Raw guidance images/videos are not redistributed.\n\nVersion: {version['id']}\nSHA-256: {version['sha256']}\n",
     }
+    if provenance["warnings"]:
+        actual, profile = provenance["output"], provenance["required_profile"]
+        generated["ORIGEM.md"] += (
+            f"\nAccepted quality shortfall for this exact version: {actual['width']}x{actual['height']} at "
+            f"{actual['fps']} fps; project {profile['width']}x{profile['height']} at {profile['fps']} fps. "
+            "Original media is unchanged. This exception does not establish native Full HD.\n"
+        )
     return _package_rel(version, use), copies, generated
 
 
@@ -354,7 +417,15 @@ def deliver(ledger, root, dry_run, expected):
             expected.update(package_rel + "/" + name for name in files)
             expected.update(_ancestor_rels(package_rel + "/video.mp4"))
             listed.append(
-                {"beat": row["beat"], "version": version["id"], **record, "method": "planned" if dry_run else "copy"}
+                {
+                    "beat": row["beat"],
+                    "version": version["id"],
+                    **record,
+                    "method": "planned" if dry_run else "copy",
+                    "warnings": row["warnings"],
+                    "actual": row["actual"],
+                    "required_profile": row["required_profile"],
+                }
             )
             if not dry_run and version.get("delivery") != record:
                 version["delivery"] = record
@@ -377,7 +448,11 @@ def readme_lines(listed, skipped):
         "Generated illustration is separate from documentary sources and authored graphics. Import scene video and narration separately; use each package's timing.json. Earlier packages remain retained; only entries below are current.",
         "",
     ]
-    lines += [f"- {row['beat']} / {row['version']}: `{row['package_dir']}`" for row in listed]
+    lines += [
+        f"- {row['beat']} / {row['version']}: `{row['package_dir']}`"
+        + (" — accepted lower source quality; see provenance.json" if row.get("warnings") else "")
+        for row in listed
+    ]
     lines += [
         f"- Not delivered: {row['beat']} / {row.get('version') or 'none'}: {', '.join(row['reasons'])}"
         for row in skipped

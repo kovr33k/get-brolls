@@ -2016,6 +2016,42 @@ async function drain() {
   await drain();
   assert.equal(reopenedUse.card.querySelector("[data-ai-use-conditions]").value, "Only this project");
 
+  const qualityReview = run({ live: true, boardCards: [aiCard({ withStill: true, approval: "approved" })] });
+  const lowerProfile = { ...delivery, profile_shortfall: true, profile_accepted: false,
+    profile_fingerprint: "project-30", required_profile: { width: 1920, height: 1080, fps: 30 },
+    actual: { width: 736, height: 400, fps: 24, native_full_hd: false }, reasons: ["profile_shortfall", "material_use_unresolved"] };
+  qualityReview.world.state.beats[0].delivery = lowerProfile;
+  qualityReview.world.state.beats[0].job = { id: "quality-poll-fixture", state: "running", beat: "beat-1" };
+  await drain();
+  const qualityBox = qualityReview.card.querySelector("[data-ai-delivery]");
+  const checkbox = qualityBox.querySelector("[data-ai-use-accept-profile]");
+  assert.equal(checkbox.checked, false, "Editorial approval does not accept lower quality");
+  assert.ok(qualityBox.querySelector("[data-ai-quality-status]").textContent.includes("736×400"));
+  for (const [name, value] of Object.entries({ state: "permitted", by: "Editor", conditions: "This project", evidence: "Fixture declaration" })) {
+    const field = qualityBox.querySelector("[data-ai-use-" + name + "]");
+    field.value = value; field.dispatchEvent({ type: "input" });
+  }
+  checkbox.checked = true; checkbox.dispatchEvent({ type: "input" });
+  qualityReview.advance(1000); await drain();
+  assert.equal(qualityBox.querySelector("[data-ai-use-accept-profile]"), checkbox);
+  assert.equal(checkbox.checked, true);
+  assert.equal(posted(qualityReview.world, "material-use").length, 0);
+  const reopenQuality = run({ live: true, saved: qualityReview.store, boardCards: [aiCard({ withStill: true, approval: "approved" })] });
+  reopenQuality.world.state.beats[0].delivery = lowerProfile;
+  await drain();
+  assert.equal(reopenQuality.card.querySelector("[data-ai-use-accept-profile]").checked, true);
+  qualityBox.querySelector("[data-ai-use-save]").click(); await drain();
+  assert.equal(posted(qualityReview.world, "material-use")[0].body.accept_profile, true);
+  assert.equal(posted(qualityReview.world, "material-use")[0].body.profile_fingerprint, "project-30");
+  qualityReview.world.state.beats[0].delivery = { ...lowerProfile, profile_fingerprint: "project-24", required_profile: { width: 1920, height: 1080, fps: 24 } };
+  qualityReview.advance(1000); await drain();
+  assert.equal(qualityBox.querySelector("[data-ai-use-accept-profile]").checked, false, "Changed target quality cannot reuse the old unsent checkbox");
+  assert.equal(qualityBox.querySelector("[data-ai-use-conditions]").value, "This project", "Other unsent conditions survive target-profile changes");
+  qualityReview.world.state.beats[0].delivery = { ...lowerProfile, version: "another-version", signature: "another-signature" };
+  qualityReview.advance(1000); await drain();
+  assert.equal(qualityBox.querySelector("[data-ai-use-accept-profile]").checked, false);
+  assert.equal(qualityBox.querySelector("[data-ai-use-conditions]").value, "");
+
   const nativeRecovery = run({ live: true });
   const unknownNative = { id: "native-unknown", beat: "beat-1", state: "unknown", kind: "image", recovery: { action: "retrieve", reason: "retrieval_failed" } };
   nativeRecovery.world.state.jobs = [unknownNative];

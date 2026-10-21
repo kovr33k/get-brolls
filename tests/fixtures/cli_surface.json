@@ -602,6 +602,42 @@
             "--evidence"
           ],
           "required": true
+        },
+        {
+          "action": "_StoreConstAction",
+          "choices": null,
+          "default": null,
+          "dest": "accept_profile",
+          "help": "Explicitly accept this exact video's measured quality below the project profile; no upscale claim",
+          "nargs": 0,
+          "option_strings": [
+            "--accept-profile"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreConstAction",
+          "choices": null,
+          "default": null,
+          "dest": "accept_profile",
+          "help": "Withdraw this exact version's quality exception and require the project profile",
+          "nargs": 0,
+          "option_strings": [
+            "--strict-profile"
+          ],
+          "required": false
+        },
+        {
+          "action": "_StoreAction",
+          "choices": null,
+          "default": null,
+          "dest": "profile_fingerprint",
+          "help": "Current required-profile fingerprint from status; required with --accept-profile",
+          "nargs": null,
+          "option_strings": [
+            "--profile-fingerprint"
+          ],
+          "required": false
         }
       ]
     },

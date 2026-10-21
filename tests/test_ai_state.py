@@ -403,3 +403,11 @@ class AIStateTests(unittest.TestCase):
         row = next(item for item in public_board(self.ledger)["beats"] if item["id"] == "beat-1")
         self.assertFalse(row["video_ready"])
         self.assertFalse(row["timing"]["resolved"])
+
+    def test_known_provider_upscale_is_not_classified_as_native_full_hd(self):
+        from getbrolls.ai import _native_full_hd
+
+        info = {"width": 1920, "height": 1080}
+        self.assertFalse(_native_full_hd({"resolution": "1080p", "model": "x-ai/grok-imagine-video-1.5-lite"}, info))
+        self.assertFalse(_native_full_hd({"resolution": "720p", "model": "test/video"}, info))
+        self.assertTrue(_native_full_hd({"resolution": "1080p", "model": "test/video"}, info))

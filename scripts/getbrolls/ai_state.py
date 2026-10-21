@@ -329,6 +329,7 @@ def _validate_material_use(ai):
             or use.get("signature") != version_signature(version)
             or use.get("state") not in {"permitted", "blocked", "unresolved"}
             or not isinstance(use.get("profile"), dict)
+            or ("accept_profile" in use and type(use["accept_profile"]) is not bool)
             or any(
                 not isinstance(use.get(field), str) or not use[field].strip()
                 for field in ("by", "conditions", "evidence", "at")

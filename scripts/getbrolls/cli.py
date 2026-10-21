@@ -1073,6 +1073,27 @@ def build_parser():  # noqa: C901, PLR0912, PLR0915 - existing size; argparse bu
             p.add_argument(
                 "--evidence", required=True, help="Basis for this declaration; reference access is not a reuse license"
             )
+            quality = p.add_mutually_exclusive_group()
+            quality.add_argument(
+                "--accept-profile",
+                dest="accept_profile",
+                action="store_const",
+                const=True,
+                default=None,
+                help="Explicitly accept this exact video's measured quality below the project profile; no upscale claim",
+            )
+            quality.add_argument(
+                "--strict-profile",
+                dest="accept_profile",
+                action="store_const",
+                const=False,
+                default=None,
+                help="Withdraw this exact version's quality exception and require the project profile",
+            )
+            p.add_argument(
+                "--profile-fingerprint",
+                help="Current required-profile fingerprint from status; required with --accept-profile",
+            )
         if name == "ai-approve":
             p.add_argument(
                 "--version",
