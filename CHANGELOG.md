@@ -10,6 +10,8 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Tests: let the inline three-image HTTP comparison use the same 45-second client budget as the CLI comparison. A controlled delay reproduces the former 10-second timeout and premature Windows cleanup; keep runtime deadlines and all three-image, replay and approval assertions unchanged.
+
 - AI closure: map the accepted parent specification and all nine child-ticket criteria to integrated code, public workflow tests and bounded live/Resolve evidence. Correct OpenRouter reference guidance to describe endpoint capability gating and distinguish synthetic transfer checks from unverified live reference fidelity.
 
 - AI acceptance: record the bounded native GPT/Grok and confirmed OpenRouter pilots, real narration alignment, ordered 107-frame coverage, shared test delivery and explicit human Resolve report. Refresh the canonical skill and guide to describe the implemented OAuth transport and retained quality limits; keep unresolved asynchronous STT outcomes and integration decisions explicit.

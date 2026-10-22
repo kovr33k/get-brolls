@@ -268,14 +268,14 @@ class AIWorkflowTests(unittest.TestCase):
         assert isinstance(token, str) and token
         self.token = token
 
-    def http(self, path, data=None, *, token=True):
+    def http(self, path, data=None, *, token=True, timeout=10):
         headers = {"Content-Type": "application/json"}
         if token:
             headers[serve.TOKEN_HEADER] = self.token
         raw = json.dumps(data).encode() if data is not None else None
         request = Request(self.base + path, data=raw, headers=headers)
         try:
-            with urlopen(request, timeout=10) as response:
+            with urlopen(request, timeout=timeout) as response:
                 return response.status, response.read()
         except HTTPError as exc:
             with exc:
@@ -458,7 +458,8 @@ class AIWorkflowTests(unittest.TestCase):
             "comment": "No lettering",
         }
         with patch.dict(os.environ, self.env):
-            status, raw = self.http("/__ai", payload)
+            # Inline comparison runs three workers serially; match the CLI comparison budget.
+            status, raw = self.http("/__ai", payload, timeout=45)
         self.assertEqual(200, status, raw)
         body = json.loads(raw)
         self.assertEqual(3, len(body["jobs"]))
