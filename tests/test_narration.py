@@ -251,6 +251,8 @@ class _State:
         self.posted_json = False
         self.posted_body = b""
         self.posted_body_bytes = 0
+        self.posted_content_length: str | None = None
+        self.posted_transfer_encoding: str | None = None
         self.auth: list[str | None] = []
         self.paths: list[tuple[str, str, str | None]] = []
 
@@ -345,6 +347,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         state.posts += 1
         state.posted_body = body
         state.posted_body_bytes = len(body)
+        state.posted_content_length = self.headers.get("Content-Length")
+        state.posted_transfer_encoding = self.headers.get("Transfer-Encoding")
         state.auth.append(self.headers.get("Authorization"))
         state.paths.append(("POST", self.path, self.headers.get("Authorization")))
         state.posted_json = body.lstrip().startswith(b"{") or b"audioData" in body
@@ -571,6 +575,8 @@ def _assert_clean(test: unittest.TestCase, *blobs: object) -> None:
 def _assert_multipart_config_first(test: unittest.TestCase, server: _Server) -> None:
     test.assertGreater(server.state.posted_body_bytes, 0)
     body = server.state.posted_body
+    test.assertEqual(str(len(body)), server.state.posted_content_length)
+    test.assertIsNone(server.state.posted_transfer_encoding)
     test.assertIn(b'name="transcribeConfig"', body)
     test.assertIn(b'name="file"', body)
     test.assertLess(body.find(b'name="transcribeConfig"'), body.find(b'name="file"'))

@@ -7,7 +7,7 @@ metadata:
   type: "skill"
   status: "current"
   created: "2026-09-15"
-  updated: "2026-10-16"
+  updated: "2026-10-22"
   tags: "b-roll, youtube, instagram, tiktok, storyboard"
 ---
 
@@ -119,6 +119,14 @@ Registre as condições com `permit` (`--evidence`, `--preset` ou `--declared-by
 Gráficos numéricos opcionais são registros explícitos do projeto, nunca candidatos inventados. `search`, `help` e `status` funcionam sem o runtime Remotion. Diagnóstico: `graphics-doctor` (e `--prepare-browser` só quando for preparar o Chromium local). `--scene` é a identidade da cena; `--template numeric-stat` é a composição. Estilo proposto e render local: [Graphics](${CLAUDE_PLUGIN_ROOT}/docs/GUIDE.md#graphics). Um render completo não é aprovação humana nem entrega.
 
 Para produzir ou continuar motion graphics, ou processar revisões com imagens/vídeos de referência salvos no Storyboard, leia primeiro [Sequential graphics production](${CLAUDE_PLUGIN_ROOT}/references/graphics-workflow.md). Trabalhe uma ocorrência por vez no contexto gerenciador; o CLI preserva arquivos, instruções, intervalos analisados, versões e contadores. A política de agentes e as instruções explícitas da pessoa continuam valendo.
+
+Quando um beat do cenário original for roteado para AI, registre o plano com `ai-plan` e ofereça três descrições distintas. O modo economy continua o padrão: Generate still / `ai-generate-still` pede um still. O modo images não gera sozinho; Generate three stills / `ai-generate-comparison` pede explicitamente os três stills. Selecionar uma descrição ou um still não aprova a imagem nem apaga os outros.
+
+`ai-timing` casa a narração já gravada e mostra o trecho reconhecido com início e fim; a prévia curta só entra se o arquivo, o hash e a duração conferem. `ai-generate-video` pede o vídeo só depois do still aprovado e do intervalo resolvido. No Storyboard, o modelo e a ferramenta vêm do `native_video` gravado no plano; não invente modelo nem troque para API paga.
+
+Grok usa o transporte Imagine com a conta OAuth retida pelo cliente instalado, sem fallback para chave estática. Testes públicos usam mídia sintética; a aceitação real delimitada está em [QUALITY](${CLAUDE_PLUGIN_ROOT}/docs/QUALITY.md#integrated-ai-pilot-and-resolve-acceptance--2026-10-22). O detalhe operacional, incluindo job duplicado e submit incerto, está em [AI stills](${CLAUDE_PLUGIN_ROOT}/docs/GUIDE.md#ai-stills).
+
+Para entregar vídeo ou sequência AI, siga [Shared AI handoff for Resolve](${CLAUDE_PLUGIN_ROOT}/docs/GUIDE.md#shared-ai-handoff-for-resolve): revisão da versão exata, condições de uso e qualidade aceita para o perfil do projeto precedem `deliver`. O pacote preserva vídeo, originais, narração separada e posições; uma exceção de qualidade continua visível e não transforma fonte menor em Full HD nativo.
 
 ## Quando não há fonte
 

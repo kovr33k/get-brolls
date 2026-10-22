@@ -81,7 +81,7 @@ def render_page(
         if items
         else (
             ""
-            if "graphics-board" in extra_html or "narration-board" in extra_html
+            if "graphics-board" in extra_html or "narration-board" in extra_html or "ai-board" in extra_html
             else '<p class="empty-board">Nothing here yet. Return to the chat and request clips to populate this page.</p>'
         )
     )
@@ -89,7 +89,7 @@ def render_page(
     header_meta = (
         f'<div class="header-meta"><span>{quadros}</span><span>B-roll Storyboard</span></div>' if items else ""
     )
-    if not items and "graphics-board" in extra_html:
+    if not items and ("graphics-board" in extra_html or "ai-board" in extra_html):
         note = ""
     header = (
         '<header class="artifact-header"><div class="header-shell"><div class="header-top">'

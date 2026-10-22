@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 import wave
+from html.parser import HTMLParser
 from pathlib import Path
 
 import _isolation  # noqa: F401
@@ -27,6 +28,33 @@ from getbrolls.graphics import (
 )
 from getbrolls.ledger import Ledger
 from getbrolls.ledger import digest as file_digest
+
+
+class _MediaTags(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.media = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"audio", "video"}:
+            self.media.append((tag, dict(attrs)))
+
+
+def _assert_no_media_autoplay(case, page):
+    parsed = _MediaTags()
+    parsed.feed(page)
+    case.assertTrue(parsed.media, "The page must contain the media players being checked")
+    for tag, attrs in parsed.media:
+        case.assertNotIn("autoplay", attrs, f"The {tag} element must wait for explicit playback")
+
+
+class MediaPlaybackMarkupTests(unittest.TestCase):
+    def test_no_autoplay_check_reads_media_attributes_instead_of_script_text(self):
+        _assert_no_media_autoplay(self, "<audio controls></audio><script>audio.autoplay = false;</script>")
+        for attribute in ("autoplay", 'autoplay="false"'):
+            with self.subTest(attribute=attribute), self.assertRaises(AssertionError):
+                _assert_no_media_autoplay(self, f"<video {attribute}></video>")
+
 
 SILENT_WORKER = ROOT / "tests" / "fixtures" / "graphics_worker.py"
 AUDIO_WORKER = ROOT / "tests" / "fixtures" / "graphics_audio_worker.py"
@@ -351,7 +379,7 @@ class GraphicsAudioWorkflowTests(unittest.TestCase):
             page = (Path(tmp) / "brolls" / "review.html").read_text(encoding="utf-8")
             self.assertIn("graphics-vo-preview", page)
             self.assertNotIn("narration/private/audio/vo.wav", page)
-            self.assertNotIn("autoplay", page.lower())
+            _assert_no_media_autoplay(self, page)
             _approve(tmp)
             run_cli("deliver", project=tmp)
             pkg = Path(tmp) / "entrega" / "graphics" / "numeric-stat" / "stat-01" / "v1"

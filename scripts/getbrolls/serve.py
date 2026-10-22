@@ -25,13 +25,17 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Literal, TypeAlias, cast
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlsplit
 
 DEFAULT_PORT = 8767
 
 # Cabeçalho do token de sessão: sem ele (ou com o token errado) o POST é recusado.
 TOKEN_HEADER = "X-GetBrolls-Token"  # noqa: S105 - header name, not a secret value
 SAVE_PATH = "/__save"
+AI_PATH = "/__ai"
+AI_STATE_PATH = "/__ai/state"
+AI_REFERENCE_PATH = "/__ai/reference"
+AI_REFERENCE_HEADER = "X-GetBrolls-Ai-Reference"
 # Identidade do servidor: quem pergunta descobre se o PID do arquivo ainda é nosso.
 PING_PATH = "/__ping"
 # Mesmo teto do `import-review`: um board legítimo não passa disso.
@@ -230,6 +234,11 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         target = _resolve_allowed_target(base, parts, relative)
         if target is None:
             return False
+        if parts[1].startswith("ai-"):
+            from .ai_recovery import admitted_media
+
+            if not admitted_media(base.parent, relative.as_posix()):
+                return False
         folder, resolved = target
         return folder in resolved.parents
 
@@ -259,7 +268,7 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         from .graphics_references import UPLOAD_PATH
 
         route = self.path.split("?")[0]
-        if route not in (SAVE_PATH, UPLOAD_PATH):
+        if route not in (SAVE_PATH, UPLOAD_PATH, AI_PATH, AI_REFERENCE_PATH):
             self._refuse(404, "Endereço desconhecido.")
             return
         token = self.headers.get(TOKEN_HEADER) or ""
@@ -271,6 +280,12 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             return
         if route == UPLOAD_PATH:
             self._upload_reference()
+            return
+        if route == AI_REFERENCE_PATH:
+            self._upload_ai_reference()
+            return
+        if route == AI_PATH:
+            self._ai_mutate()
             return
         self._save_decisions()
 
@@ -332,6 +347,135 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _json_body(self, limit):  # noqa: C901, PLR0911 - Each framing, size, transfer and JSON refusal stops before AI mutation.
+        self.connection.settimeout(15)
+        if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length", [])) > 1:
+            self.close_connection = True
+            self._refuse(400, "Send a bounded Content-Length AI body, without Transfer-Encoding.")
+            return None
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            self._refuse(400, "Tamanho do corpo inválido.")
+            return None
+        if length <= 0 or length > limit:
+            left = min(length, limit * 4)
+            self.close_connection = True
+            try:
+                while left > 0:
+                    chunk = self.rfile.read(min(65536, left))
+                    if not chunk:
+                        break
+                    left -= len(chunk)
+            except OSError:
+                pass  # An interrupted oversized body remains a bounded refusal.
+            self._refuse(413, "Corpo grande demais para um arquivo de decisões.")
+            return None
+        try:
+            raw = self.rfile.read(length)
+        except OSError:
+            self.close_connection = True
+            self._refuse(408, "AI transfer interrupted; preserve the draft and retry.")
+            return None
+        if len(raw) != length:
+            self.close_connection = True
+            self._refuse(400, "Incomplete AI transfer; no action was applied. Retry the same draft.")
+            return None
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._refuse(400, "O corpo precisa ser JSON.")
+            return None
+        if not isinstance(data, dict):
+            self._refuse(400, "O corpo precisa ser um objeto JSON.")
+            return None
+        return data
+
+    def _write_json(self, payload, status=200):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _ai_mutate(self):
+        data = self._json_body(MAX_SAVE_BYTES)
+        if data is None:
+            return
+        from .ai import (
+            handle_apply,
+            handle_generate,
+            handle_reference_remove,
+            handle_resume,
+            handle_review,
+            handle_select,
+            handle_timing,
+            handle_timing_resolve,
+            handle_video,
+        )
+        from .ai_delivery import handle_use
+        from .ai_openrouter import handle_confirm, handle_prepare
+        from .ai_recovery import handle_correct
+        from .ai_sequences import handle_launch as handle_launch_sequence
+        from .ai_sequences import handle_prepare as handle_prepare_sequence
+        from .ai_sequences import handle_resume as handle_resume_sequence
+        from .ai_state import sanitize_public_text
+
+        project = Path(self.directory).parent
+        action = data.get("action")
+        handlers = {
+            "generate": handle_generate,
+            "select": handle_select,
+            "review": handle_review,
+            "timing": handle_timing,
+            "resolve": handle_timing_resolve,
+            "video": handle_video,
+            "apply": handle_apply,
+            "reference-remove": handle_reference_remove,
+            "resume": handle_resume,
+            "prepare-paid": handle_prepare,
+            "confirm-paid": handle_confirm,
+            "prepare-sequence": handle_prepare_sequence,
+            "launch-sequence": handle_launch_sequence,
+            "resume-sequence": handle_resume_sequence,
+            "correct": handle_correct,
+            "material-use": handle_use,
+        }
+        try:
+            handler = handlers.get(action) if isinstance(action, str) else None
+            if handler is None:
+                raise ValueError(
+                    "Choose select, generate, review, timing, resolve, video, apply, reference-remove or resume "
+                    "for this AI request."
+                )
+            result = handler(project, data)
+        except (ValueError, OSError, KeyError) as exc:
+            self._refuse(400, sanitize_public_text(str(exc)))
+            return
+        self._write_json(result)
+
+    def _ai_state_head(self):
+        import io
+
+        token = self.headers.get(TOKEN_HEADER) or ""
+        expected = cast("_ExclusiveServer", self.server).save_token
+        if not expected or not token.isascii() or not hmac.compare_digest(token, expected):
+            return self._head_error(403, "Token da sessão ausente ou inválido.")
+        from .ai import handle_state
+        from .ai_state import sanitize_public_text
+
+        try:
+            payload = handle_state(Path(self.directory).parent)
+        except (ValueError, OSError) as exc:
+            return self._head_error(400, sanitize_public_text(str(exc)))
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        return io.BytesIO(body)
+
     def _upload_reference(self):
         from .graphics_references import MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, NAME_HEADER, upload
 
@@ -363,7 +507,90 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def send_head(self):  # noqa: PLR0911 - Private refusals, ping, review, saved references and ordinary preview files stay distinct.
+    def _upload_ai_reference(self):
+        """Authenticated raw PNG, JPEG, or MP4. Metadata is a header. The body is the file."""
+        from .ai import handle_reference_upload
+        from .ai_references import IMAGE_DECLARED, MAX_VIDEO_BYTES
+        from .ai_state import sanitize_public_text
+        from .graphics_references import MAX_IMAGE_BYTES
+
+        self.connection.settimeout(15)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            self.close_connection = True
+            self._refuse(400, "Tamanho do corpo inválido.")
+            return
+        if self.headers.get("Transfer-Encoding") or length <= 0 or length > MAX_VIDEO_BYTES:
+            self.close_connection = True
+            self._refuse(413, "Supply one PNG, JPEG, or MP4 within the upload limit. The file was not read.")
+            return
+        try:
+            metadata = self._ai_reference_metadata()
+            declared = metadata.get("declared_type")
+            if declared not in {"image/png", "image/jpeg", "video/mp4"}:
+                raise ValueError("Supply an actual PNG, JPEG, or MP4. The file was not read.")
+            if declared in IMAGE_DECLARED and length > MAX_IMAGE_BYTES:
+                self.close_connection = True
+                self._refuse(413, "Supply one PNG or JPEG within the image limit. The file was not read.")
+                return
+            # The reference decoder checks for surplus bytes on file-like inputs.
+            # An HTTP body ends at Content-Length, not at socket EOF: cap its view
+            # so that check never waits for a byte belonging to another request.
+            public = handle_reference_upload(
+                Path(self.directory).parent, _BoundedReader(self.rfile, length), length, metadata
+            )
+        except (ValueError, OSError, KeyError, json.JSONDecodeError, UnicodeError) as exc:
+            self.close_connection = True
+            self._refuse(400, sanitize_public_text(str(exc)))
+            return
+        self._write_json({"reference": public})
+
+    def _ai_reference_metadata(self):
+        raw = self.headers.get(AI_REFERENCE_HEADER, "")
+        if len(raw) > MAX_REFERENCE_HEADER:
+            raise ValueError("Reference metadata is too large.")
+        metadata = json.loads(unquote(raw, errors="strict"))
+        if not isinstance(metadata, dict):
+            raise ValueError("Reference metadata must identify the beat and the received file.")
+        return metadata
+
+    def _ai_reference_authorized(self):
+        token = self.headers.get(TOKEN_HEADER) or ""
+        expected = cast("_ExclusiveServer", self.server).save_token
+        return bool(expected) and token.isascii() and hmac.compare_digest(token, expected)
+
+    def _ai_reference_head(self):
+        import io
+
+        if not self._ai_reference_authorized():
+            return self._head_error(403, "Token da sessão ausente ou inválido.")
+        from .ai import reference_preview_bytes
+        from .ai_state import sanitize_public_text
+
+        split = urlsplit(self.path)
+        ident = unquote(split.path.removeprefix(AI_REFERENCE_PATH + "/"))
+        if not ident or "/" in ident or "\\" in ident or ".." in ident:
+            return self._head_error(404, "Unknown reference.")
+        query = parse_qs(split.query, keep_blank_values=False)
+        part = (query.get("part") or [None])[0]
+        index = None
+        raw_index = query.get("index") or []
+        if raw_index and (len(raw_index) != 1 or not str(raw_index[0]).isdigit()):
+            return self._head_error(400, "Name the reference frame.")
+        try:
+            if raw_index:
+                index = int(raw_index[0])
+            data, content_type = reference_preview_bytes(Path(self.directory).parent, ident, part, index)
+        except (ValueError, OSError) as exc:
+            return self._head_error(404, sanitize_public_text(str(exc)))
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        return io.BytesIO(data)
+
+    def send_head(self):  # noqa: C901, PLR0911 - Private refusals, ping, review, saved references and ordinary preview files stay distinct.
         import io
 
         self._accept_byte_ranges = False
@@ -377,6 +604,10 @@ class _NoCacheHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             return io.BytesIO(body)
+        if self.path.split("?")[0] == AI_STATE_PATH:
+            return self._ai_state_head()
+        if self.path.split("?")[0].startswith(AI_REFERENCE_PATH + "/"):
+            return self._ai_reference_head()
         if self.path.split("?")[0] == PING_PATH:
             # Identidade do servidor: é assim que `status`/`stop` sabem que o PID
             # gravado ainda é deste servidor, e não de um processo que reusou o número.
@@ -565,6 +796,10 @@ def _inject_token(page, token):
         + ',"token":'
         + json.dumps(token)
         + ',"referenceUrl":"/__graphics-reference","referenceMaxBytes":16777216,"referenceVideoMaxBytes":67108864,"referenceMaxFiles":8,"referenceTotalMaxBytes":134217728'
+        + ',"aiUrl":'
+        + json.dumps(AI_PATH)
+        + ',"aiReferenceUrl":'
+        + json.dumps(AI_REFERENCE_PATH)
         + "};</script>"
     )
     if "</head>" in page:
@@ -841,8 +1076,8 @@ def _rotate_log(log):
         return
 
 
-# Sufixos que marcam uma variável como segredo: nenhuma delas tem por que alcançar
-# o filho detached, que nunca fala com um provedor.
+# Segredos exportados não são herdados pelo servidor detached. Um --env-file
+# escolhido explicitamente é recarregado pelo próprio filho, sem copiar as chaves.
 _SECRET_ENV_SUFFIXES = ("_API_KEY", "_TOKEN", "_SECRET")
 
 
@@ -851,8 +1086,8 @@ def _child_environment(source_env, scripts):
     com jeito de segredo (`*_API_KEY`, `*_TOKEN`, `*_SECRET` — cobre PEXELS_API_KEY,
     PIXABAY_API_KEY, YOUTUBE_API_KEY e qualquer outra do mesmo formato).
 
-    `serve` nunca chama um provedor; não há razão para essas chaves chegarem a um
-    processo solto cujo stdout/stderr vão parar num log dentro do projeto.
+    Rotas de escrita autorizadas podem usar provedores. O filho recarrega o arquivo
+    de configuração escolhido; as chaves não são copiadas nos argumentos nem aqui.
     """
     environment = {key: value for key, value in source_env.items() if not key.endswith(_SECRET_ENV_SUFFIXES)}
     existing = environment.get("PYTHONPATH")
@@ -919,7 +1154,7 @@ def _tail(output: str, lines: int = 20) -> str:
     return f"\n\nÚltimas linhas do log:\n{text}" if text else ""
 
 
-def start_background(project, port: int = DEFAULT_PORT):  # noqa: C901 - existing size; spawns, waits for and validates the detached server across platforms
+def start_background(project, port: int = DEFAULT_PORT, *, env_file: str | Path | None = None):  # noqa: C901 - existing size; spawns, waits for and validates the detached server across platforms
     """Sobe o servidor num processo solto e devolve as URLs quando ele já responde.
 
     Um subprocesso (nunca `fork`) mantém o mesmo comportamento no Windows: o filho
@@ -947,6 +1182,8 @@ def start_background(project, port: int = DEFAULT_PORT):  # noqa: C901 - existin
         "--port",
         str(port),
     ]
+    if env_file is not None:
+        command[2:2] = ["--env-file", str(Path(env_file).expanduser().resolve())]
     # O filho precisa achar `getbrolls` e falar UTF-8 mesmo num console legado:
     # nada disso pode depender do diretório de trabalho ou do locale da máquina.
     environment = _child_environment(os.environ, scripts)

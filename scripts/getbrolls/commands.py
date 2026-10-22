@@ -377,7 +377,9 @@ FLOW_SUMMARIES = {
         + ") without treating viewing as a download."
     ),
     "narration-analyze": lambda r: (
-        "Reused intact narration analysis " + str(r.get("analysis_id")) + " without a provider call."
+        "Prepared one deliberate narration retry; inspect its scope and confirm separately. No provider request sent."
+        if r.get("state") == "awaiting_retry_confirmation"
+        else "Reused intact narration analysis " + str(r.get("analysis_id")) + " without a provider call."
         if r.get("reused")
         else "Narration analysis "
         + str(r.get("analysis_id"))
@@ -467,6 +469,12 @@ def _status_graphics_next(counts):
             "Há gráficos que ainda precisam de ação (timing explícito, perguntas, uso de "
             "material ou aprovação humana) antes da entrega."
         )
+    if counts.get("ai_undelivered"):
+        return "Há cobertura AI aprovada para organizar em entrega/ com deliver: vídeo, locução separada e timing."
+    if counts.get("ai_pending"):
+        return "A cobertura AI ainda precisa de ação: confira mídia, perfil, timing, aprovação e condições de uso no Storyboard."
+    if counts.get("ai_present") and not counts.get("candidates"):
+        return "A cobertura AI atual está organizada em entrega/. A aceitação no Resolve continua separada."
     return None
 
 
@@ -516,6 +524,15 @@ def status_next(counts, format_pending=0, pending_preview=None, undelivered=0):
 
 def _has_preview(c):
     return any((c.get("preview") or {}).get(key) for key in PREVIEW_ARTIFACTS)
+
+
+def _has_ai_choices(data):
+    ai = data.get("ai")
+    return (
+        isinstance(ai, dict)
+        and bool(ai.get("plan"))
+        and any(isinstance(beat, dict) and beat.get("active") for beat in (ai.get("beats") or {}).values())
+    )
 
 
 def rules_from_flags(template, mode, responsible, declaration, video_format=None):
@@ -1216,6 +1233,14 @@ def deliver_report(ledger, rules, dry_run=False):
         )
     if report["removed"]:
         line += " " + _count(len(report["removed"]), "link órfão removido", "links órfãos removidos") + "."
+    if report.get("ai"):
+        line += f" AI: {len(report['ai'])} com vídeo, locução separada, timing e proveniência."
+    if report.get("ai_skipped"):
+        line += (
+            " AI não entregue: "
+            + ", ".join(f"{row['beat']} ({', '.join(row['reasons'])})" for row in report["ai_skipped"])
+            + "."
+        )
     if report["kept"]:
         line += " Deixei intocado o que você criou lá: " + ", ".join(report["kept"]) + "."
     # Mesma escada de `status` e `brief`: a pessoa ouve a mesma frase em qualquer comando.
@@ -1223,14 +1248,17 @@ def deliver_report(ledger, rules, dry_run=False):
 
 
 def _graphics_flow_counts(ledger):
+    from .ai_delivery import progress as ai_progress
     from .graphics import graphics_delivery_progress
 
     progress = graphics_delivery_progress(ledger.data, ledger.root)
-    if not progress.get("present"):
-        return {"graphics_undelivered": 0, "graphics_pending": 0}
+    ai = ai_progress(ledger)
     return {
         "graphics_undelivered": progress.get("undelivered") or 0,
         "graphics_pending": progress.get("pending_action") or 0,
+        "ai_present": ai["present"],
+        "ai_undelivered": ai["undelivered"],
+        "ai_pending": ai["pending_action"],
     }
 
 
@@ -1356,6 +1384,7 @@ def _flow_next(ledger, rules):
 
 def status_report(ledger, rules=None, rules_error=None, queue=None):
     """Onde o projeto está, por etapa. Somente leitura: não grava nada."""
+    from .ai import public_status as ai_status
     from .fragment_search import progress
     from .graphics import graphics_status
     from .narration import narration_status
@@ -1369,6 +1398,13 @@ def status_report(ledger, rules=None, rules_error=None, queue=None):
     review_page = ledger.root / "review.html"
     brief = brief_state(ledger.root.parent, rules, items)
     line = _status_line({"counts": counts})
+    ai = ai_status(ledger.data, ledger.root)
+    ai_delivery = ai.get("delivery") or {}
+    if ai_delivery.get("present"):
+        line += (
+            f" AI: {ai_delivery['delivered']} entregues, {ai_delivery['undelivered']} prontos para deliver, "
+            f"{ai_delivery['pending_action']} com ação pendente."
+        )
     if ledger.recovered:
         line += " Há uma gravação interrompida pendente; o próximo comando de escrita a concluirá."
     if queue and queue.get("error"):
@@ -1399,7 +1435,11 @@ def status_report(ledger, rules=None, rules_error=None, queue=None):
             )
         ),
         # Mesmo aviso de `review`: a página existe mas não tem o que revisar.
-        "warnings": ([EMPTY_STORYBOARD] if review_page.is_file() and not counts["previews"] else []),
+        "warnings": (
+            [EMPTY_STORYBOARD]
+            if review_page.is_file() and not counts["previews"] and not _has_ai_choices(ledger.data)
+            else []
+        ),
         # `None` enquanto não houver um brief válido para contar (ausente ou inválido).
         "brief": (
             None
@@ -1449,6 +1489,7 @@ def status_report(ledger, rules=None, rules_error=None, queue=None):
         "queue": queue,
         "graphics": graphics_status(ledger.data, ledger.root),
         "narration": narration_status(ledger.data, ledger.root),
+        "ai": ai,
         "review_page": str(review_page) if review_page.is_file() else None,
         "journal": {
             **status_journal(ledger.root),
@@ -1614,7 +1655,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         if getattr(args, "stop", False):
             return serve_module.stop(args.project)
         if getattr(args, "background", False):
-            return serve_module.start_background(args.project, port)
+            return serve_module.start_background(args.project, port, env_file=getattr(args, "env_file", None))
         return serve_module.run(args.project, port)
     from getbrolls.rules import allowed, domain_matches, format_report, load_rules
 
@@ -1721,7 +1762,34 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         "graphics-background",
         "narration-match",
         "graphics-timing-resolve",
+        "ai-plan",
+        "ai-select",
+        "ai-generate-still",
+        "ai-generate-comparison",
+        "ai-approve",
+        "ai-timing",
+        "ai-timing-resolve",
+        "ai-generate-video",
+        "ai-resume",
+        "ai-material-use",
     ):
+        if cmd.startswith("ai-"):
+            from . import ai as ai_commands
+            from .ai_delivery import use_command
+
+            return {
+                "ai-plan": ai_commands.plan_command,
+                "ai-select": ai_commands.select_command,
+                "ai-generate-still": ai_commands.generate_still_command,
+                "ai-generate-comparison": ai_commands.generate_comparison_command,
+                "ai-approve": ai_commands.approve_command,
+                "ai-timing": ai_commands.timing_command,
+                "ai-timing-resolve": ai_commands.timing_resolve_command,
+                "ai-generate-video": ai_commands.generate_video_command,
+                "ai-resume": ai_commands.resume_command,
+                "ai-material-use": use_command,
+            }[cmd](ledger, args)
+
         from .graphics import (
             approve_command,
             assign_command,
@@ -2158,7 +2226,7 @@ def execute(args):  # noqa: C901, PLR0911, PLR0912, PLR0915 - existing size; shr
         return result
     if cmd == "review":
         page = render(ledger, ready_only=args.ready_only)
-        if not any(_has_preview(c) for c in ledger.data["items"]):
+        if not any(_has_preview(c) for c in ledger.data["items"]) and not _has_ai_choices(ledger.data):
             # Publicar uma página sem nada para decidir manda a pessoa abrir uma URL
             # à toa. O aviso aparece aqui e em `status`, no mesmo código.
             record_warning("EMPTY_STORYBOARD", EMPTY_STORYBOARD)

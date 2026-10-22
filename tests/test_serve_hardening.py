@@ -14,6 +14,7 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+from argparse import Namespace
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -24,7 +25,7 @@ from _cli import run_cli
 from _media import skip_unless_ffmpeg, synth_video
 from _paths import ROOT  # noqa: F401  (efeito de import: insere scripts/ em sys.path)
 
-from getbrolls import serve
+from getbrolls import commands, serve
 
 
 def _project_with_review(root):
@@ -383,7 +384,57 @@ class LogRotationTests(unittest.TestCase):
 
 
 class BackgroundEnvironmentTests(unittest.TestCase):
-    """Item 4: chaves de API/segredo nunca alcançam o filho, que nunca as usa."""
+    """Exported secrets stay out of the child environment; explicit files travel by path."""
+
+    def test_selected_env_file_is_reloaded_by_the_actual_child(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = _project_with_review(Path(tmp))
+            config = root / "private settings.env"
+            config.write_text(
+                "OPENROUTER_API_KEY=synthetic-private-key\nUNRECOGNIZED_CHILD_SETTING=1\n", encoding="utf-8"
+            )
+            try:
+                with self.assertRaisesRegex(ValueError, "UNRECOGNIZED_CHILD_SETTING"):
+                    serve.start_background(root, port=0, env_file=config)
+            finally:
+                serve.stop(root)
+            self.assertNotIn("synthetic-private-key", (root / "brolls" / serve.LOG_FILE).read_text(encoding="utf-8"))
+
+    def test_explicit_env_file_is_forwarded_from_command_without_inherited_secrets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = _project_with_review(Path(tmp))
+            config = root / "private settings.env"
+            config.write_text("OPENROUTER_API_KEY=synthetic-file-key\n", encoding="utf-8")
+            captured = {}
+
+            def fake_popen(command, **kwargs):
+                captured.update(command=command, env=kwargs["env"])
+                (root / "brolls" / serve.LOG_FILE).write_text(
+                    json.dumps({"port": 12345, "session": "fixture-session"}) + "\n", encoding="utf-8"
+                )
+                process = MagicMock()
+                process.pid = 4242
+                process.poll.return_value = None
+                return process
+
+            with (
+                patch.dict(
+                    os.environ, {"OPENROUTER_API_KEY": "synthetic-exported-key", "INWORLD_API_KEY": "synthetic-stt-key"}
+                ),
+                patch.object(serve.subprocess, "Popen", side_effect=fake_popen),
+            ):
+                commands.execute(
+                    Namespace(
+                        command="serve", project=str(root), port=0, background=True, stop=False, env_file=str(config)
+                    )
+                )
+            self.assertIn("--env-file", captured["command"])
+            index = captured["command"].index("--env-file")
+            self.assertEqual(str(config.resolve()), captured["command"][index + 1])
+            self.assertLess(index, captured["command"].index("serve"))
+            self.assertNotIn("OPENROUTER_API_KEY", captured["env"])
+            self.assertNotIn("INWORLD_API_KEY", captured["env"])
+            self.assertNotIn("synthetic-file-key", json.dumps(captured))
 
     def test_provider_keys_and_secret_shaped_variables_are_stripped_from_the_child(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -407,6 +458,8 @@ class BackgroundEnvironmentTests(unittest.TestCase):
                 "YOUTUBE_API_KEY": "segredo-youtube",
                 "SOME_OTHER_TOKEN": "segredo-outro",
                 "MY_APP_SECRET": "segredo-app",
+                "OPENROUTER_API_KEY": "synthetic-openrouter-key",
+                "INWORLD_API_KEY": "synthetic-inworld-key",
             }
             with (
                 patch.dict(os.environ, secret_vars),

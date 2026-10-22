@@ -20,7 +20,18 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - name: Install FFmpeg (Windows)
-        run: choco install ffmpeg --no-progress -y
+        shell: pwsh
+        run: |
+          # Gyan's release mirror is linked from ffmpeg.org; keep the archive and checksum pinned together.
+          $archive = Join-Path $env:RUNNER_TEMP 'ffmpeg-9.0.2.zip'
+          $target = Join-Path $env:RUNNER_TEMP 'ffmpeg-9.0.2'
+          Invoke-WebRequest -Uri 'https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip' -OutFile $archive -TimeoutSec 180
+          $expected = '60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba'
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $expected) { throw 'FFmpeg archive checksum mismatch' }
+          Expand-Archive -LiteralPath $archive -DestinationPath $target
+          $bin = Join-Path $target 'ffmpeg-9.0.2-essentials_build/bin'
+          Get-Item -LiteralPath (Join-Path $bin 'ffmpeg.exe'), (Join-Path $bin 'ffprobe.exe') -ErrorAction Stop | Out-Null
+          $bin >> $env:GITHUB_PATH
       - name: Check installer (Windows)
         shell: pwsh
         run: ./scripts/install.ps1 -Check

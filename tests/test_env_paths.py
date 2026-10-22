@@ -339,6 +339,26 @@ class DeclaredKeys(unittest.TestCase):
             with patch.dict(os.environ, {}, clear=False):
                 config.load_env(env_file)
 
+    def test_private_openrouter_env_file_loads_without_breaking_read_only_commands(self):
+        file_key, exported_key = "synthetic-file-media-key", "synthetic-exported-media-key"
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = Path(tmp) / "private.env"
+            env_file.write_text(f"OPENROUTER_API_KEY={file_key}\n", encoding="utf-8")
+            for exported in (None, exported_key):
+                with self.subTest(exported=bool(exported)), patch.dict(os.environ, {}, clear=False):
+                    os.environ.pop("OPENROUTER_API_KEY", None)
+                    if exported:
+                        os.environ["OPENROUTER_API_KEY"] = exported
+                    config.load_env(env_file)
+                    self.assertEqual(exported or file_key, os.environ["OPENROUTER_API_KEY"])
+                    project = Path(tmp) / ("exported" if exported else "file-only")
+                    (project / "brolls").mkdir(parents=True)
+                    result = run_cli("--env-file", env_file, "status", project=project)
+                    self.assertNotIn(file_key, json.dumps(result))
+                    self.assertNotIn(exported_key, json.dumps(result))
+                    self.assertFalse((project / "brolls" / "manifest.json").exists())
+                    self.assertFalse((project / "brolls" / ".command.lock").exists())
+
 
 class BriefAndRulesOutsideTheProjectTests(unittest.TestCase):
     """`GB_BRIEF_FILE`/`GB_RULES_FILE` podem morar em qualquer lugar da máquina."""

@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -17,11 +18,12 @@ def digest(path):
     return h.hexdigest()
 
 
-def atomic_write(path, text):
+def atomic_write(path, text, *, newline=None):
     path = Path(path)
-    temp = path.with_name(path.name + ".tmp")
+    descriptor, name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)
+    temp = Path(name)
     try:
-        with temp.open("w", encoding="utf-8") as f:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline=newline) as f:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
@@ -98,6 +100,7 @@ def validate_manifest(data):  # noqa: C901, PLR0912 - existing size; validator w
         raise ValueError(
             "manifest.json inválido ou incompatível. Preserve o arquivo e restaure uma cópia válida; nenhum dado foi reiniciado."
         ) from None
+    from .ai_state import validate_ai
     from .fragment_search import validate_plans
     from .graphics import validate_graphics
     from .narration import validate_narration
@@ -105,6 +108,7 @@ def validate_manifest(data):  # noqa: C901, PLR0912 - existing size; validator w
     validate_plans(data)
     validate_graphics(data)
     validate_narration(data)
+    validate_ai(data)
     return data
 
 
