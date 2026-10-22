@@ -10,6 +10,10 @@ tags: [get-brolls]
 
 ## Unreleased
 
+- Tests: let the inline three-image HTTP comparison use the same 45-second client budget as the CLI comparison. A controlled delay reproduces the former 10-second timeout and premature Windows cleanup; keep runtime deadlines and all three-image, replay and approval assertions unchanged.
+
+- AI closure: map the accepted parent specification and all nine child-ticket criteria to integrated code, public workflow tests and bounded live/Resolve evidence. Correct OpenRouter reference guidance to describe endpoint capability gating and distinguish synthetic transfer checks from unverified live reference fidelity.
+
 - AI acceptance: record the bounded native GPT/Grok and confirmed OpenRouter pilots, real narration alignment, ordered 107-frame coverage, shared test delivery and explicit human Resolve report. Refresh the canonical skill and guide to describe the implemented OAuth transport and retained quality limits; keep unresolved asynchronous STT outcomes and integration decisions explicit.
 
 - AI handoff: allow an explicit, exact-version acceptance of lower source resolution/FPS for the displayed project profile, independently of editorial approval and use permission. Preserve the default quality block, reject stale profile confirmations, support withdrawal, retain visible warnings and measured original metadata through delivery and portable review. Compare coverage on the source/timeline clocks instead of comparing unlike frame counts; retain explicit trim units. Known Grok Imagine Video 1.5 Lite 1080p upscale is not reported as native Full HD.
