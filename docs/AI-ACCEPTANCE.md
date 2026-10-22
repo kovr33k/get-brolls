@@ -28,7 +28,7 @@ Criterion numbers follow each ticket's original acceptance checklist, in order. 
 
 ## Parent user stories
 
-All **60 stories** are accounted for. The implementation-decision sections retain the same boundaries: the managing agent supplies scenario routing; shared project state, locks/journal, review, narration and delivery remain authoritative. Transport details stay behind the common production model. Existing source/catalog and graphics contracts retain their full regression coverage.
+All **62 stories** are accounted for. The implementation-decision sections retain the same boundaries: the managing agent supplies scenario routing; shared project state, locks/journal, review, narration and delivery remain authoritative. Transport details stay behind the common production model. Existing source/catalog and graphics contracts retain their full regression coverage.
 
 | Stories | Accepted behavior | Child coverage |
 |---|---|---|
@@ -41,6 +41,7 @@ All **60 stories** are accounted for. The implementation-decision sections retai
 | 49–54 | One correction, preserved attempts, stable/frozen identities, same-result recovery and visible uncertain submissions | #83, #89 |
 | 55–57 | Affected-only invalidation, retained unrelated beats and honest output/profile measurements | #85, #86, #88, #90 |
 | 58–60 | Shared Resolve handoff, portable review and reusable provider/beat/job/review/delivery boundaries | #83, #86–90 |
+| 61–62 | Preserved source/graphics/narration/status contracts and readiness backed by the corresponding automated, live and human evidence | #90, #91 |
 
 ## Parent behavior coverage
 
