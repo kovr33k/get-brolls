@@ -102,6 +102,8 @@ Required [Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/3897148
 
 The required live-media and human gates of [issue #91](https://github.com/kovr33k/get-brolls/issues/91) are satisfied for the bounded technical pilot below. The editor explicitly accepted the retained sequence, confirmed that its lower resolution was intentional for this test, and reported successful Resolve use in response to the delivered import checklist. This is an explicit human report, not direct agent observation of Resolve. Earlier dated incomplete entries below remain historical evidence.
 
+The [AI acceptance checkpoint](AI-ACCEPTANCE.md) maps all 120 child-ticket criteria, 60 parent user stories and 16 behavior-coverage cases to the implemented workflow and evidence. Runtime integration is [PR #93](https://github.com/kovr33k/get-brolls/pull/93), merge `497a26010cb25fc16934f67bc6615d8a98c2d26f`; its tree exactly matches the [final Windows verification](https://github.com/kovr33k/get-brolls/actions/runs/39701231290): **1,905 tests, 26 skips**. Fresh local post-merge checks passed **21 public mixed-reference/handoff tests** and the Storyboard JavaScript fixture; the real test package's seven hashes still match. Counts overlap and are not additive.
+
 | Acceptance area | Established evidence |
 |---|---|
 | Concrete authorization | Each live scope retained its inputs, route/model, output/POST limit and known cost or explicit uncertainty before launch. Completed scopes are exhausted. |
