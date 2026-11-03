@@ -2,13 +2,15 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-22
+updated: 2026-11-03
 tags: [get-brolls]
 ---
 
 # Changelog
 
 ## Unreleased
+
+- Dependencies: update the reviewed Python runtime set to yt-dlp 2026.10.26 and curl-cffi 0.17.0, Ruff to 0.17.3 and Playwright CLI to 0.1.22. Update the SHA-pinned setup-node/setup-python actions to 7.1.0 and upload-artifact to 7.0.2; retain the existing Python/Node versions and ZIP verification-evidence contract. Refresh the installation guide's current dependency pins.
 
 - Tests: let the inline three-image HTTP comparison use the same 45-second client budget as the CLI comparison. A controlled delay reproduces the former 10-second timeout and premature Windows cleanup; keep runtime deadlines and all three-image, replay and approval assertions unchanged.
 

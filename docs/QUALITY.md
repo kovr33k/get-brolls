@@ -2,7 +2,7 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-10-22
+updated: 2026-11-03
 tags: [get-brolls, quality, qa, evidence]
 ---
 
@@ -15,6 +15,21 @@ Este documento resume a qualidade atual e os limites das evidências. Relatório
 The accepted catalog engineering scope is **complete**: parent [#2](https://github.com/kovr33k/get-brolls/issues/2) and child tickets #3–20 are closed. The current [acceptance checkpoint](CATALOG-ACCEPTANCE.md) maps all eight final criteria to their evidence and records the operational limits separately.
 
 The runtime integration baseline is [PR #42](https://github.com/kovr33k/get-brolls/pull/42), version **2.13.8**, merged at `9cc2d059949224c481939c455c2e79d9e93148e4`. Its [Windows/Python 3.14.4 CI](https://github.com/kovr33k/get-brolls/actions/runs/37544014877) passed **1,250 tests with 26 skips**, together with lint, formatting, types, version/mirror and syntax checks. The saved verification artifact matches the merged runtime tree. Local post-merge verification passed **116 tests with one skip** plus version/mirror, links and frontmatter checks. The skip concerns invalid synthetic video metadata, not the acquired source samples. PR #41 and older checkpoints are historical evidence, not outstanding integration gates.
+
+## Dependency maintenance — 2026-11-03
+
+[PR #97](https://github.com/kovr33k/get-brolls/pull/97) consolidates the Python runtime/tooling updates with the Playwright and SHA-pinned Actions updates proposed in #36, #72, #73 and #95. The existing Windows installer completed with Python 3.14.4, yt-dlp 2026.10.26, EJS 0.8.0, curl-cffi 0.17.0 and Playwright CLI 0.1.22. The local browser check used Node 24.18.1; maintained CI continues to select Node 22. A dedicated headless Chrome session opened a public page, saved a viewed screenshot and closed its own session.
+
+Two bounded public-source checks used the actual `resolve` and `preview` commands, without browser-cookie export or editorial approval. Each generated a poster, contact sheet and GIF; the acquired working media passed ffprobe and strict `ffmpeg -xerror` decoding:
+
+| Public source | Source interval | Acquired media | Viewed contact sheet |
+|---|---|---|---|
+| [YouTube launch recording](https://www.youtube.com/watch?v=B_7EUmCxcvE) | 0–3 s | 352,385 bytes; 1920×1080; 25 fps; H.264/AAC; 3.000 s | Rocket and launch tower before liftoff. |
+| [TikTok city panorama](https://www.tiktok.com/@alairus/video/7665771745487359252) | 7.5–10.5 s | 858,361 bytes; 576×1024; 30 fps; H.264/AAC; 3.000 s | Buildings, roads and a circular fountain/plaza. |
+
+These observations cover the selected working windows and updated acquisition runtime, not entire recordings, reuse rights or human editorial/Resolve acceptance. Private media, logs and projects remain outside the source tree.
+
+The unchanged `scripts/preflight.py` `read_evidence` function successfully downloaded and parsed the real ZIP artifact produced by upload-artifact 7.0.2 in [PR #73's Windows run](https://github.com/kovr33k/get-brolls/actions/runs/39709824989). It retained schema 1, tree `77dacaf52c5da2d7ff9b7f4a9c573655a3d19284`, Python 3.14.4, Windows, run identity and attempt 1. This proves artifact-reader compatibility; the combined dependency revision still requires its own successful Windows check before integration.
 
 ## Subtitle-language inspection — 2026-10-09 (2.13.9 candidate)
 
