@@ -16,6 +16,7 @@ tags: [scenequarry]
 - Remove inherited logos, illustrations and the original wordmark. Use a text-only SceneQuarry header with a slate/teal interface palette.
 - Start an independent version sequence. Preserve the MIT license and original copyright, document origin separately, and retain saved-project formats, GB_* settings and internal Python paths for compatibility.
 - Export decisions as `scenequarry-review.json`, retaining the existing JSON type and import compatibility.
+- Integrate the reviewed dependency proposals #99 and #100: Playwright CLI 0.1.22 → 0.1.23, pycryptodomex 3.24.1 → 3.24.2 and Ruff 0.17.3 → 0.17.4. Keep existing Python/Node requirements and update the installation reference.
 
 
 ## Inherited fork history
