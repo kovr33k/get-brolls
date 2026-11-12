@@ -14,8 +14,12 @@ Supports local installations on **macOS and Windows**, through Codex or Claude C
 
 ## How it works
 
+The brief defines the scene; the agent researches sources, prepares previews and gathers options in Storyboard. Delivery preserves provenance and requires a human decision and recorded use conditions.
+
 
 ### What it collects
+
+Footage and images from registered sources, local files and page captures. Remotion graphics and AI scenes have their own production and review workflows in the [guide](docs/GUIDE.md), depending on the configured tools and accounts.
 
 
 

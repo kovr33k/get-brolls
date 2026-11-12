@@ -14,8 +14,12 @@ Compatível com instalações locais em **macOS e Windows**, via Codex ou Claude
 
 ## Como funciona
 
+O brief define a cena; o agente pesquisa fontes, prepara prévias e reúne as opções no Storyboard. A entrega preserva a origem e exige a decisão humana e as condições de uso registradas.
+
 
 ### O que ela coleta
+
+Vídeos e imagens de fontes registradas, arquivos locais e capturas de páginas. Gráficos Remotion e cenas de IA têm fluxos próprios de produção e revisão no [guia](docs/GUIDE.md), conforme as ferramentas e contas configuradas.
 
 
 ## Comece aqui
