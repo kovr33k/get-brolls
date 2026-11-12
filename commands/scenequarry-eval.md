@@ -1,9 +1,9 @@
 ---
-name: get-brolls-eval
-description: Executa um caso de teste cego do Get B-rolls até o Storyboard e preenche o relatório da rodada, sem abrir o gabarito.
+name: scenequarry-eval
+description: Executa um caso de teste cego do SceneQuarry até o Storyboard e preenche o relatório da rodada, sem abrir o gabarito.
 ---
 
-# Rodar um teste cego do Get B-rolls
+# Rodar um teste cego do SceneQuarry
 
 Você é o **executor** de um teste cego: mede o comportamento editorial da skill diante de um roteiro que não conhece. O processo completo está em `${CLAUDE_PLUGIN_ROOT}/eval/README.md` e a pontuação em `${CLAUDE_PLUGIN_ROOT}/eval/rubric.md`.
 
@@ -22,7 +22,7 @@ Sem entrada, liste os ids disponíveis em `${CLAUDE_PLUGIN_ROOT}/eval/corpus/` e
 
 ## Passos
 
-1. **Isolar o projeto.** Crie uma pasta nova fora da instalação da skill, por exemplo `~/get-brolls-eval/<id>-<AAAA-MM-DD-HHMM>/`. Nunca reaproveite um projeto de outra rodada: estado antigo contamina as contagens do `status`.
+1. **Isolar o projeto.** Crie uma pasta nova fora da instalação da skill, por exemplo `~/scenequarry-eval/<id>-<AAAA-MM-DD-HHMM>/`. Nunca reaproveite um projeto de outra rodada: estado antigo contamina as contagens do `status`.
 
 2. **Ler só o roteiro.** Com id, extraia a seção `## Roteiro` do arquivo do caso e trabalhe apenas com ela. Com roteiro avulso, use o texto recebido.
 

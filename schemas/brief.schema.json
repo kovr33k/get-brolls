@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Get B-rolls Brief v1",
+  "title": "SceneQuarry Brief v1",
   "description": "Documental: a validação real é manual, em scripts/getbrolls/brief.py.",
   "type": "object",
   "required": ["version", "video", "rights", "defaults", "beats"],

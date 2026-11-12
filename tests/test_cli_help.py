@@ -56,7 +56,7 @@ class HelpContractTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(0, done.returncode, done.stderr)
-        self.assertEqual(f"get-brolls {__version__}", done.stdout.strip())
+        self.assertEqual(f"scenequarry {__version__}", done.stdout.strip())
 
 
 class DoctorVerdictTests(unittest.TestCase):

@@ -1069,7 +1069,7 @@ def _opener(url):
 
 def _request(url, *, data=None, headers=None, method="GET", authorization=False):
     request_headers = {
-        "User-Agent": "Get-Brolls/narration-stt",
+        "User-Agent": "SceneQuarry/narration-stt",
         "Accept": "application/json",
     }
     request_headers.update(headers or {})

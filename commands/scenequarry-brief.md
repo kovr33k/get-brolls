@@ -1,5 +1,5 @@
 ---
-name: get-brolls-brief
+name: scenequarry-brief
 description: Entrevista o usuário em até 7 perguntas, escreve o BRIEF.md do vídeo e valida antes de qualquer busca.
 ---
 

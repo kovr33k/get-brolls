@@ -1,55 +1,22 @@
 <div align="center">
   <p><a href="README.md">Português</a> · <strong>English</strong></p>
-  <img src="assets/brand-logo.png" alt="Engenheiro de Vídeo" width="104">
-  <h1>GET B-ROLLS</h1>
-  <p><strong>From an idea to the right shot for your edit.</strong></p>
-  <p>Find supporting footage, preview the motion, and review every choice<br>before receiving the final clips with their sources.</p>
-  <p><a href="#getting-started">Getting started</a> · <a href="#highlights">Highlights</a> · <a href="#documentation">Documentation</a> · <a href="docs/GUIDE.md#instalação">Full guide</a></p>
-  <p align="center">
-    <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey?style=flat-square" alt="macOS and Windows">
-    <img src="https://img.shields.io/badge/agents-Codex%20%7C%20Claude%20Code-orange?style=flat-square" alt="Codex and Claude Code">
-    <img src="https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square" alt="Python 3.11+">
-    <img src="https://img.shields.io/badge/node-22%2B-green?style=flat-square" alt="Node 22+">
-    <img src="https://img.shields.io/badge/FFmpeg-required-007808?style=flat-square" alt="FFmpeg required">
-    <img src="https://img.shields.io/badge/yt--dlp-downloader-red?style=flat-square" alt="yt-dlp">
-    <img src="https://img.shields.io/badge/Playwright-browser-2EAD33?style=flat-square" alt="Playwright for sources that need a browser">
-    <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License">
-    <img src="https://img.shields.io/github/actions/workflow/status/engenheirodevideo/get-brolls/test.yml?branch=main&style=flat-square&label=tests" alt="Tests status">
-    <img src="https://img.shields.io/badge/version-2.16.0-blue?style=flat-square" alt="Version 2.16.0">
-  </p>
+  <h1>SceneQuarry</h1>
+  <p><strong>From script to material for your edit.</strong></p>
+  <p>Source discovery, previews and scene review in a local project.</p>
+  <p><img src="https://img.shields.io/badge/version-0.1.0-blue?style=flat-square" alt="Version 0.1.0"></p>
 </div>
 
-Get B-rolls is a skill for collecting the videos and images that support a line, illustrate an idea, or show the exact person, product, or event mentioned in a script. You describe what you need; the agent researches, prepares previews, and gathers the options into a storyboard for your review.
+SceneQuarry is an independent project maintained by [kovr33k](https://github.com/kovr33k). It organizes footage and image discovery, Storyboard review and delivery with recorded provenance. It also includes the Remotion graphics and AI scene workflows documented in the [guide](docs/GUIDE.md); each route depends on the configured tools and accounts.
 
-- **Choose with context.** Each shot can include the supplied narration, selection rationale, time range, creator, and original source.
-- **See it before deciding.** GIFs and contact sheets help you evaluate action, framing, and on-screen text.
-- **Receive an organized collection.** Final clips are delivered with a record of their origin, review decision, and conditions of use.
+Supply a script or describe one scene. The agent finds literal sources, prepares previews and presents options for your decision. Stock is used when requested. Final delivery requires human approval and recorded use conditions; changes to the context or source interval require fresh review.
 
-The agent looks for the literal source of what you mention: the actual fact, person, product, news item, or screen. Stock-footage libraries are used only when you explicitly ask for stock. You do not need a complete script to request a single insert: simply explain what should appear.
-
-A preview may download working media so you can see the motion. Final delivery requires a human decision and a record of the source's conditions of use. If the time range or context changes, the shot returns to review.
-
-## Updates
-
-- **2.5.0.** Per-project log at `brolls/getbrolls.log` (`GB_LOG_LEVEL`, `GB_LOG_STDERR`): commands, the approval trail, subprocesses and network, with no names, approval statements or URLs. `reject` clears `output`, `verify` checks every clip and unmarks altered ones, and `deliver` skips rejected or failed clips and lists them under `skipped`. Hardened local Storyboard server (only `review.html`, `previews/` and `clips/`, anti-framing headers). An unreadable `~/.getbrolls/RULES.md` now stops the command instead of being ignored.
-- **2.4.3.** Single release gate (`scripts/preflight.sh`), one-pass version bump (`scripts/bump_version.py`) and a generated SKILL.md mirror (`scripts/gen_skill_mirror.py`). `GB_CACHE_DIR` now works from `.env`; `GETBROLLS_CACHE_DIR` keeps working. No change to the collection flow.
-- **2.4.2.** SKILL.md frontmatter is valid YAML again (quoted `description`; GitHub failed to render the file).
-- **2.4.1.** Release workflow fix (FFmpeg on the runner) and the live Instagram rehearsal on record. No CLI behaviour change.
-- **2.4.0.** Intake interview and a per-project `BRIEF.md` (`init-brief`/`brief`), chat approval (`approve --all --by NAME --channel chat --statement "..."`), a cross-project library of lessons (`learn`/`library`), source analysis before collecting (`inspect`, `preview --scan`), a `entrega/` folder per beat (`deliver`), a Storyboard that saves decisions inside the project, a ready-to-run next step in `status.summary.do`, `search --shot/--dry-run` and `init-rules --format`.
-- **2.3.8.** Paced queue for social batches (`queue`), `instagram_pairs --pace/--max-per-run/--continue-on-error`, yt-dlp sleeps and `Retry-After` handling, readable errors with redacted stderr, interval/NASA/drawtext caching, and a `serve` command for the local Storyboard.
-- **2.3.7.** `status --project` command ("where are we?"), self-explanatory CLI with `--version`, `/get-brolls-setup` plugin command, "First B-roll in 5 minutes" quickstart, pinnable tool paths via `GB_*_PATH`, and [AGENTS.md](AGENTS.md) as the repository hub.
-- **2.3.6.** Claude Code plugin install — the repository is its own skill marketplace.
-- **2.3.5.** First official GitHub release, network hardening (HTTPS/DNS) and pinned dependencies.
-
-Full history in [CHANGELOG.md](CHANGELOG.md).
+Supports local installations on **macOS and Windows**, through Codex or Claude Code. The code derives from an MIT project; see [origin and attribution](ATTRIBUTION.md). SceneQuarry has its own name, maintenance and version sequence, starting at 0.1.0. Inherited engineering history is not a release history for this brand.
 
 ## How it works
 
-<p align="center"><img src="assets/flow.en.svg" alt="Skill map: from the request and the brief to approval, rights, verified collection and delivery per beat" width="700"></p>
 
 ### What it collects
 
-<p align="center"><img src="assets/formats.en.svg" alt="Formats: video becomes an MP4 at 1080p of the approved range; local images are copied unchanged; page captures come out as PNG/JPG with provenance" width="700"></p>
 
 
 ## Getting started
@@ -89,17 +56,17 @@ After step 2, `python3 scripts/gb.py doctor` is the gate: empty `summary.missing
 
 ### 1. Add the skill to your agent
 
-The official repository is [engenheirodevideo/get-brolls](https://github.com/engenheirodevideo/get-brolls). Clone the source and copy the complete `get-brolls/` folder to **one** of the destinations below:
+The official repository is [kovr33k/scenequarry](https://github.com/kovr33k/scenequarry). Clone the source and copy the complete `scenequarry/` folder to **one** of the destinations below:
 
 ```sh
-git clone https://github.com/engenheirodevideo/get-brolls.git
-cd get-brolls
+git clone https://github.com/kovr33k/scenequarry.git
+cd scenequarry
 ```
 
 | Agent | Personal installation | Inside a project | Invoke with |
 |---|---|---|---|
-| Codex | `~/.agents/skills/get-brolls/` | `.agents/skills/get-brolls/` | `$get-brolls` |
-| Claude Code | `~/.claude/skills/get-brolls/` | `.claude/skills/get-brolls/` | `/get-brolls` |
+| Codex | `~/.agents/skills/scenequarry/` | `.agents/skills/scenequarry/` | `$scenequarry` |
+| Claude Code | `~/.claude/skills/scenequarry/` | `.claude/skills/scenequarry/` | `/scenequarry` |
 
 When copying a development folder, exclude `.venv/`, `.tools/`, caches, projects, and private files. `skills/` and `.claude-plugin/` are Claude Code plugin artifacts and can be omitted when copying to Codex. Install dependencies in the final destination and open a new agent session. [See installation, updates, and compatibility.](docs/GUIDE.md#instalação)
 
@@ -108,13 +75,13 @@ When copying a development folder, exclude `.venv/`, `.tools/`, caches, projects
 In Claude Code, you can also install the skill as a plugin, without cloning manually:
 
 ```text
-/plugin marketplace add engenheirodevideo/get-brolls
-/plugin install get-brolls@engenheirodevideo
+/plugin marketplace add kovr33k/scenequarry
+/plugin install scenequarry@kovr33k
 ```
 
-Then run `/get-brolls-setup` in the session: the command runs the installer inside the plugin folder — `~/.claude/plugins/cache/engenheirodevideo/get-brolls/<version>/` — and reports the `doctor` verdict. You can also follow step 2 manually in that folder. Repeat the setup after each `/plugin update`. For Codex, the full-folder clone described above remains the way to install.
+Then run `/scenequarry-setup` in the session: the command runs the installer inside the plugin folder — `~/.claude/plugins/cache/kovr33k/scenequarry/<version>/` — and reports the `doctor` verdict. You can also follow step 2 manually in that folder. Repeat the setup after each `/plugin update`. For Codex, the full-folder clone described above remains the way to install.
 
-The skill triggers from the context of your request ("collect b-roll for this video"); the explicit form is `/get-brolls:get-brolls`, and setup is `/get-brolls-setup`. Do not confuse it with generic download skills: this one is the complete pipeline, with human review and a recorded license.
+The skill triggers from the context of your request ("collect b-roll for this video"); the explicit form is `/scenequarry:scenequarry`, and setup is `/scenequarry-setup`. Do not confuse it with generic download skills: this one is the complete pipeline, with human review and a recorded license.
 
 ### 2. Prepare the environment
 
@@ -147,13 +114,13 @@ The installer creates local environments and obtains yt-dlp/EJS and Playwright C
 In Codex:
 
 ```text
-$get-brolls I need three inserts for a video about the Artemis launch.
+$scenequarry I need three inserts for a video about the Artemis launch.
 Find real footage of the rocket and liftoff, using clips between 3 and 5 seconds.
 Prepare the previews and a storyboard for me to review.
 Use /path/to/my-video to store the project.
 ```
 
-In Claude Code, replace the first invocation with `/get-brolls`. Replace the folder with the real path to your project, outside the skill installation. You may also provide a specific URL or a local file.
+In Claude Code, replace the first invocation with `/scenequarry`. Replace the folder with the real path to your project, outside the skill installation. You may also provide a specific URL or a local file.
 
 ### First B-roll in 5 minutes
 
@@ -182,15 +149,15 @@ At the end, `verify` answers `"count": 1` and the approved clip is in `/path/to/
 
 If you have never opened a terminal, this is the whole list. Every step is a conversation with the agent; none of them asks for a command.
 
-1. **Install once.** Ask for `/get-brolls-setup`. It installs everything and answers in one line whether you are ready. Repeat after every `/plugin update`.
-2. **Say what you need.** `/get-brolls I need supporting footage for my Reel about X` — and say which folder the project lives in.
-3. **Answer the interview.** At most seven questions, one at a time. "Whatever you think" is a valid answer: the agent applies a default and shows you what it assumed. To start there directly, use `/get-brolls-brief`.
+1. **Install once.** Ask for `/scenequarry-setup`. It installs everything and answers in one line whether you are ready. Repeat after every `/plugin update`.
+2. **Say what you need.** `/scenequarry I need supporting footage for my Reel about X` — and say which folder the project lives in.
+3. **Answer the interview.** At most seven questions, one at a time. "Whatever you think" is a valid answer: the agent applies a default and shows you what it assumed. To start there directly, use `/scenequarry-brief`.
 4. **Check the brief.** It hands back five lines of what it understood and asks whether that is right. Correct it there.
 5. **Look at the shortlist.** Before downloading anything, it lists 5 to 8 candidates with title, creator, and the exact window. Say which ones work.
-6. **Approve the previews.** Either in chat ("I approve all", or naming the ones you want), or on the Storyboard: ask for `/get-brolls-review`, it sends you a link, you click Approve / Request change / Reject and then **Save decisions**, and come back to say you saved. Nothing is downloaded without this step.
+6. **Approve the previews.** Either in chat ("I approve all", or naming the ones you want), or on the Storyboard: ask for `/scenequarry-review`, it sends you a link, you click Approve / Request change / Reject and then **Save decisions**, and come back to say you saved. Nothing is downloaded without this step.
 7. **Say who owns the material.** The agent records the usage conditions from what you tell it. You are the one answering for those conditions; it only records what was said and where each file came from.
 8. **Receive.** The cuts land in `entrega/`, one folder per shot, each with an `ORIGEM.md` naming its source.
-9. **Lost the thread?** Ask for `/get-brolls-status`: it tells you where things stand and what comes next.
+9. **Lost the thread?** Ask for `/scenequarry-status`: it tells you where things stand and what comes next.
 
 ## Commands
 
@@ -199,17 +166,17 @@ In order of use — from first contact to delivery:
 **1. Install the environment** (once, in the plugin or clone folder):
 
 ```text
-/get-brolls-setup   # installs dependencies and runs doctor
+/scenequarry-setup   # installs dependencies and runs doctor
 ```
 
 **2. Invoke the skill** with what you need:
 
 ```text
-/get-brolls <your request>   # Claude Code — describe the inserts and the project folder
-$get-brolls <your request>   # Codex — same thing
-/get-brolls-brief            # interviews you and writes the video's BRIEF.md
-/get-brolls-review           # builds the Storyboard, sends the link, imports the decisions
-/get-brolls-status           # says where the collection stands and what comes next
+/scenequarry <your request>   # Claude Code — describe the inserts and the project folder
+$scenequarry <your request>   # Codex — same thing
+/scenequarry-brief            # interviews you and writes the video's BRIEF.md
+/scenequarry-review           # builds the Storyboard, sends the link, imports the decisions
+/scenequarry-status           # says where the collection stands and what comes next
 ```
 
 **3. Check the environment** when something misbehaves:
@@ -260,7 +227,7 @@ Every subcommand accepts `help`; full syntax lives in the terminal section.
 - **Provenance record.** Every delivered shot carries source, creator, time range, and conditions of use — editorial approval is always yours.
 - **Protected network access.** The collector accepts only public HTTPS URLs without credentials, rejects hostnames that resolve to local networks, and does not follow redirects.
 - **Native on macOS and Windows.** Dedicated installers for both systems; the Bash YouTube helpers are optional.
-- **Installable as a Claude Code plugin.** The repository itself is its own plugin marketplace, with `/get-brolls-setup` configuring the plugin folder and a mirrored skill that resolves paths via `${CLAUDE_PLUGIN_ROOT}`. The clone-as-skill flow remains identical for Codex.
+- **Installable as a Claude Code plugin.** The repository itself is its own plugin marketplace, with `/scenequarry-setup` configuring the plugin folder and a mirrored skill that resolves paths via `${CLAUDE_PLUGIN_ROOT}`. The clone-as-skill flow remains identical for Codex.
 
 ## Storyboard
 
@@ -368,15 +335,14 @@ Run one command per project at a time. Preserve originals, cache, and event hist
 | [docs/RULES.md](docs/RULES.md) · [.env.example](.env.example) | Editorial rules and configuration options. |
 | [docs/SECURITY.md](docs/SECURITY.md) | Handling of private data and vulnerability reporting. |
 | `scripts/getbrolls/` | Single core: CLI, providers, Storyboard, Instagram collector, and YouTube utilities. |
-| `assets/` | Logo, styles, and scripts used by the generated Storyboard. |
+| `assets/` | Styles and scripts used by the generated Storyboard. |
 | `agents/` · `schemas/` | Agent presentation and data contract. |
 | `tests/` · `.github/workflows/` | Tests and quality automation. |
 
 To maintain the project, start with [CONTRIBUTING](CONTRIBUTING.md) and [AGENTS](AGENTS.md). See [QUALITY](docs/QUALITY.md), [CHANGELOG](CHANGELOG.md), and [SECURITY](docs/SECURITY.md) for evidence, changes, and handling of private data. The cloned repository (or the plugin installation) is the official source of the deliverable.
 
-## Author
+## Maintenance and origin
 
-Created and maintained by **Bruno Moreira — Engenheiro de Vídeo**.  
-Instagram: **[@zbrunomoreira](https://www.instagram.com/zbrunomoreira/)**.
+Maintained independently by [kovr33k](https://github.com/kovr33k). The original code authorship and license are recorded in [ATTRIBUTION.md](ATTRIBUTION.md).
 
 Code is available under the [MIT License](LICENSE). External dependencies retain their own terms, listed in [Third-party notices](THIRD_PARTY_NOTICES.md).

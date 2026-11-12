@@ -2,13 +2,13 @@
 type: documentation
 status: current
 created: 2026-10-13
-updated: 2026-10-13
-tags: [get-brolls, graphics, acceptance, evidence]
+updated: 2026-11-12
+tags: [scenequarry, graphics, acceptance, evidence]
 ---
 
 # Numeric graphics acceptance — issue #53
 
-This checkpoint covers [#53](https://github.com/kovr33k/get-brolls/issues/53): register a graphics assignment, render a numeric composition locally on Windows, and review the verified saved version in the shared Storyboard. The [specification](SPEC-MOTION-GRAPHICS.md) and [operational guide](GUIDE.md#graphics) describe the wider workflow. Human approval, delivery and Resolve acceptance belong to subsequent tickets.
+This checkpoint covers [#53](https://github.com/kovr33k/scenequarry/issues/53): register a graphics assignment, render a numeric composition locally on Windows, and review the verified saved version in the shared Storyboard. The [specification](SPEC-MOTION-GRAPHICS.md) and [operational guide](GUIDE.md#graphics) describe the wider workflow. Human approval, delivery and Resolve acceptance belong to subsequent tickets.
 
 ## Criterion evidence
 

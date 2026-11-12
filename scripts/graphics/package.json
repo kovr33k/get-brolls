@@ -1,9 +1,9 @@
 {
-  "name": "get-brolls-graphics",
+  "name": "scenequarry-graphics",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Optional Remotion renderer for get-brolls graphics. Not required for collection.",
+  "description": "Optional Remotion renderer for scenequarry graphics. Not required for collection.",
   "dependencies": {
     "remotion": "4.0.534",
     "@remotion/renderer": "4.0.534",

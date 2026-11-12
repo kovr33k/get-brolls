@@ -144,7 +144,7 @@ def load(path):
     if version != SCHEMA_VERSION:
         if isinstance(version, int) and version > SCHEMA_VERSION:
             raise ValueError(
-                f"queue.json em {path} foi gravado por uma versão mais nova do get-brolls "
+                f"queue.json em {path} foi gravado por uma versão mais nova do scenequarry "
                 f"(schema {version}, esperado {SCHEMA_VERSION}); atualize antes de continuar."
             )
         raise ValueError(f"queue.json incompatível em {path} (schema_version esperado {SCHEMA_VERSION}).")

@@ -1,13 +1,13 @@
 {
-  "name": "get-brolls",
-  "version": "2.16.0",
-  "description": "B-roll planning and sourcing from YouTube, Instagram, TikTok and stock providers, with Storyboard human review and licensed delivery with provenance.",
+  "name": "scenequarry",
+  "version": "0.1.0",
+  "description": "Discover footage and images, review scene options in Storyboard, and prepare sourced clips, Remotion graphics and AI media for your edit.",
   "author": {
-    "name": "Bruno Moreira — Engenheiro de Vídeo",
-    "url": "https://www.instagram.com/zbrunomoreira/"
+    "name": "kovr33k",
+    "url": "https://github.com/kovr33k"
   },
-  "homepage": "https://github.com/engenheirodevideo/get-brolls",
-  "repository": "https://github.com/engenheirodevideo/get-brolls",
+  "homepage": "https://github.com/kovr33k/scenequarry",
+  "repository": "https://github.com/kovr33k/scenequarry",
   "license": "MIT",
   "keywords": [
     "b-roll",

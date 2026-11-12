@@ -2,8 +2,8 @@
 type: reference
 status: current
 created: 2026-09-17
-updated: 2026-09-17
-tags: [get-brolls, copy, glossario]
+updated: 2026-11-12
+tags: [scenequarry, copy, glossario]
 ---
 
 # Glossário — como falar com quem nunca abriu um terminal

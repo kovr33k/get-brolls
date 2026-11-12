@@ -2,11 +2,11 @@
 type: documentation
 status: current
 created: 2026-09-16
-updated: 2026-09-17
-tags: [get-brolls, eval, blind-tests, quality]
+updated: 2026-11-12
+tags: [scenequarry, eval, blind-tests, quality]
 ---
 
-# Testes cegos — medição editorial do Get B-rolls
+# Testes cegos — medição editorial do SceneQuarry
 
 Esta pasta guarda o processo de **teste cego**: o jeito de medir se a skill entrega o que promete a um criador de conteúdo real. É medição **editorial**, não de código. A suíte `python3 -m unittest discover -s tests` responde se o programa funciona; o teste cego responde outra pergunta: *dado um roteiro que o agente nunca viu, ele acha a fonte literal certa, mostra a prévia certa e para na hora certa?*
 
@@ -50,7 +50,7 @@ O executor **nunca** abre `## Gabarito`. É isso que torna o teste cego: se ele 
 ## Fluxo de uma rodada
 
 1. Escolha os casos (rodada completa = os 16 de [corpus/](corpus/); smoke = 3).
-2. Para cada caso, dispare o executor com `/get-brolls-eval` ([commands/get-brolls-eval.md](../commands/get-brolls-eval.md)) passando só o id ou o texto do roteiro.
+2. Para cada caso, dispare o executor com `/scenequarry-eval` ([commands/scenequarry-eval.md](../commands/scenequarry-eval.md)) passando só o id ou o texto do roteiro.
 3. O executor cria um projeto isolado, executa `search` → `preview` → `review`, para no Storyboard e coleta `python3 scripts/gb.py status --project <projeto>`.
 4. O executor preenche um relatório a partir de [runs/TEMPLATE.md](runs/TEMPLATE.md).
 5. O juiz abre o gabarito, pontua cada beat pela rubrica e escreve as métricas da rodada no mesmo relatório.
@@ -60,7 +60,7 @@ O executor **nunca** abre `## Gabarito`. É isso que torna o teste cego: se ele 
 ## Cadência
 
 - **Rodada completa (16 casos)** — a cada release candidate, antes de publicar a tag.
-- **Smoke de 3 casos** — depois de qualquer mudança em `SKILL.md`, no espelho `skills/get-brolls/SKILL.md` ou nos prompts/comandos que dirigem o agente. Escolha um caso de notícia, um de print de UI e a armadilha.
+- **Smoke de 3 casos** — depois de qualquer mudança em `SKILL.md`, no espelho `skills/scenequarry/SKILL.md` ou nos prompts/comandos que dirigem o agente. Escolha um caso de notícia, um de print de UI e a armadilha.
 - **Fora de ciclo** — quando um provedor mudar de comportamento ou quando um usuário relatar que o agente "encheu com stock".
 
 ## Fora do CI — de propósito

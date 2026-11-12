@@ -2,11 +2,11 @@
 type: documentation
 status: current
 created: 2026-09-16
-updated: 2026-09-16
-tags: [get-brolls]
+updated: 2026-11-12
+tags: [scenequarry]
 ---
 
-# GET B-ROLLS — Gemini CLI
+# SceneQuarry — Gemini CLI
 
 O Gemini CLI carrega arquivos `GEMINI.md` de forma hierárquica a partir do diretório em que você está trabalhando (e de `~/.gemini/GEMINI.md`), não da pasta desta skill. Por isso este arquivo sozinho não é descoberto quando você edita um vídeo em outra pasta: importe o roteador a partir do seu próprio contexto.
 
@@ -15,9 +15,9 @@ O Gemini CLI carrega arquivos `GEMINI.md` de forma hierárquica a partir do dire
 Acrescente ao seu `~/.gemini/GEMINI.md` (crie o arquivo se ele não existir), trocando o caminho pelo local real do clone:
 
 ```md
-## Get B-rolls
+## SceneQuarry
 Use para coletar B-roll, cutaways, inserts ou imagens de apoio para um vídeo ou Reel — pesquisa em YouTube, Instagram, TikTok e bancos, prévias em Storyboard para revisão humana e entrega com origem e licença registradas.
-@/caminho/absoluto/para/get-brolls/SKILL.md
+@/caminho/absoluto/para/scenequarry/SKILL.md
 ```
 
 A linha `@/caminho/...` importa o conteúdo do [SKILL.md](SKILL.md) no contexto da sessão; a frase acima dela diz ao modelo quando usar a skill. Use sempre caminho absoluto. Para importar apenas em um projeto, coloque o mesmo trecho no `GEMINI.md` da pasta desse projeto.

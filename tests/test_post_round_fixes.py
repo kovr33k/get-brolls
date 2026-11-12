@@ -22,7 +22,7 @@ from getbrolls.commands import execute, mark_rejected
 from getbrolls.ledger import Ledger
 from getbrolls.runtime import audited
 
-TIKTOK = "https://www.tiktok.com/@engenheirodevideo/video/7312345678901234567"
+TIKTOK = "https://www.tiktok.com/@kovr33k/video/7312345678901234567"
 YOUTUBE = "https://www.youtube.com/watch?v=abcdefghijk"
 
 # O que o `--dump-single-json` do yt-dlp devolve para um post público de TikTok.
@@ -30,8 +30,8 @@ TIKTOK_JSON = {
     "id": "7312345678901234567",
     "title": "Como eu corto b-roll em 3 minutos",
     "uploader": "Engenheiro de Vídeo",
-    "uploader_id": "@engenheirodevideo",
-    "uploader_url": "https://www.tiktok.com/@engenheirodevideo",
+    "uploader_id": "@kovr33k",
+    "uploader_url": "https://www.tiktok.com/@kovr33k",
     "duration": 47.0,
 }
 
@@ -69,7 +69,7 @@ class ResolveFillsRemoteMetadata(unittest.TestCase):
             item = audited(resolve_args(tmp, TIKTOK), execute)
         self.assertEqual("Como eu corto b-roll em 3 minutos", item["title"])
         self.assertEqual("Engenheiro de Vídeo", item["creator"]["name"])
-        self.assertEqual("@engenheirodevideo", item["creator"]["handle"])
+        self.assertEqual("@kovr33k", item["creator"]["handle"])
         self.assertEqual(47.0, item["media"]["duration_s"])
         # O título genérico de antes não pode sobreviver ao preenchimento.
         self.assertNotIn("TikTok · ", item["title"])

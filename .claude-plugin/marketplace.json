@@ -1,19 +1,19 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "engenheirodevideo",
+  "name": "kovr33k",
   "owner": {
-    "name": "Bruno Moreira — Engenheiro de Vídeo"
+    "name": "kovr33k"
   },
   "plugins": [
     {
-      "name": "get-brolls",
+      "name": "scenequarry",
       "source": "./",
-      "version": "2.16.0",
+      "version": "0.1.0",
       "author": {
-        "name": "Bruno Moreira — Engenheiro de Vídeo",
-        "url": "https://www.instagram.com/zbrunomoreira/"
+        "name": "kovr33k",
+        "url": "https://github.com/kovr33k"
       },
-      "description": "B-roll planning and sourcing from YouTube, Instagram, TikTok and stock providers, with Storyboard human review and licensed delivery with provenance."
+      "description": "Discover footage and images, review scene options in Storyboard, and prepare sourced clips, Remotion graphics and AI media for your edit."
     }
   ]
 }

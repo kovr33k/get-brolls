@@ -538,7 +538,7 @@ assert.equal(first.graphics[0].id, "graphics:stat-01:v1");
 assert.equal(first.graphics[0].signature, v1.signature);
 assert.equal(first.graphics[0].reviewEpoch, v1.reviewEpoch);
 assert.ok(!first.graphics[0].requestId);
-assert.equal(only.done.textContent.includes("getbrolls-review.json"), true);
+assert.equal(only.done.textContent.includes("scenequarry-review.json"), true);
 
 const drafts = run({ graphics: [v1, v2] });
 const draftCard = drafts.board.querySelector(".graphics-card");

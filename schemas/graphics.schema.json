@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Get B-rolls Graphics records v1",
+  "title": "SceneQuarry Graphics records v1",
   "type": "object",
   "additionalProperties": true,
   "properties": {

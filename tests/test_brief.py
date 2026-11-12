@@ -623,7 +623,7 @@ class BriefCommandTests(unittest.TestCase):
 class BriefDocumentationTests(unittest.TestCase):
     def test_interview_reference_and_slash_command_ship_with_the_plugin(self):
         interview = ROOT / "references" / "interview.md"
-        command = ROOT / "commands" / "get-brolls-brief.md"
+        command = ROOT / "commands" / "scenequarry-brief.md"
         self.assertTrue(interview.is_file())
         self.assertTrue(command.is_file())
         body = interview.read_text(encoding="utf-8")
@@ -632,14 +632,14 @@ class BriefDocumentationTests(unittest.TestCase):
         self.assertIn("approve --candidate", body)
         self.assertIn("brief --validate", body)
         head = command.read_text(encoding="utf-8")
-        self.assertIn("name: get-brolls-brief", head)
+        self.assertIn("name: scenequarry-brief", head)
         self.assertIn("references/interview.md", head)
 
     def test_both_skills_mention_the_interview_before_searching(self):
         for path in SKILLS:
             body = path.read_text(encoding="utf-8")
             self.assertIn("BRIEF.md", body)
-            self.assertIn("/get-brolls-brief", body)
+            self.assertIn("/scenequarry-brief", body)
 
     def test_the_lazy_interview_case_is_in_the_eval_corpus(self):
         case = ROOT / "eval/corpus/brief-entrevista-preguicosa.md"

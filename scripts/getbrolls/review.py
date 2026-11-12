@@ -146,7 +146,7 @@ def import_review(ledger, file, by, rules=None):  # noqa: C901, PLR0912, PLR0915
     if path.stat().st_size > 2000000:  # noqa: PLR2004 - 2 MB, matches the message below
         raise ValueError(
             "Esse arquivo de escolhas passa de 2 MB — não parece ser o que a página "
-            "salvou. Confira se apontou para o getbrolls-review.json certo."
+            "salvou. Confira se apontou para o scenequarry-review.json certo."
         )
     data = json.loads(path.read_text(encoding="utf-8"))
     # `type(...) is not int` keeps `True` (`== 1`) and a float like `2.0` (`== 2`)

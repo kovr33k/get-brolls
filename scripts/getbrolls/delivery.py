@@ -309,7 +309,7 @@ def render_origin(c, media_name, created=None, method="hardlink"):
     """`ORIGEM.md` do trecho: fonte, autor, intervalo, direitos e sha256 do arquivo."""
     rights = c.get("rights") or {}
     approval = c.get("approval") or {}
-    lines = _frontmatter("delivery-origin", created, ["get-brolls", "entrega"])
+    lines = _frontmatter("delivery-origin", created, ["scenequarry", "entrega"])
     lines += [
         f"# Origem de {media_name}",
         "",
@@ -418,7 +418,7 @@ def _delivery_index_preamble(rows, created, copies):
     if mixed:
         columns.append("edit")
         headers.append("Edição")
-    lines = _frontmatter("delivery-index", created, ["get-brolls", "entrega"])
+    lines = _frontmatter("delivery-index", created, ["scenequarry", "entrega"])
     lines += [
         "# Seus trechos",
         "",
@@ -1673,7 +1673,7 @@ def render_graphics_origin(version, video_name, material, package_rel, *, dates=
     approval = _as_dict(version.get("approval"))
     artifact = _as_dict(version.get("artifact"))
     timing = _as_dict(version.get("timing"))
-    lines = _frontmatter("delivery-origin", created, ["get-brolls", "entrega", "graphics"], updated=updated)
+    lines = _frontmatter("delivery-origin", created, ["scenequarry", "entrega", "graphics"], updated=updated)
     lines += [
         f"# Origem de {video_name}",
         "",

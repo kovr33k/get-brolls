@@ -23,7 +23,7 @@ GUIDE_PATH = ROOT / "docs" / "GUIDE.md"
 # Arquivos onde âncoras GUIDE.md#... aparecem e precisam resolver.
 TARGET_FILES = [
     ROOT / "SKILL.md",
-    ROOT / "skills" / "get-brolls" / "SKILL.md",
+    ROOT / "skills" / "scenequarry" / "SKILL.md",
     ROOT / "README.md",
     ROOT / "README.en.md",
     *sorted((ROOT / "commands").glob("*.md")),

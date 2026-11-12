@@ -25,7 +25,7 @@ from .runtime import redact
 
 APP_SERVER_ENV = "GETBROLLS_CODEX_APP_SERVER"
 TIMEOUT_S = 120
-CLIENT_NAME = "get-brolls"
+CLIENT_NAME = "scenequarry"
 OPENAI_PROVIDER = "openai"
 MAX_LINE = 1_048_576
 MAX_IMAGE_BYTES = 32 * 1024 * 1024

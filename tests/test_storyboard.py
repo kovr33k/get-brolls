@@ -1,4 +1,3 @@
-import base64
 import shutil
 import subprocess
 import unittest
@@ -243,14 +242,12 @@ class StoryboardTest(unittest.TestCase):
         self.assertIn('id="shot-0"', page)
         self.assertIn("Fala &amp; contexto", page)
 
-    def test_rendered_storyboard_uses_current_logo(self):
-        logo = ROOT / "assets" / "brand-logo.png"
-        self.assertTrue(logo.is_file())
-        encoded = base64.b64encode(logo.read_bytes()).decode("ascii")
+    def test_rendered_storyboard_uses_independent_text_identity(self):
         page = render_page([])
-        self.assertIn('class="brand-logo"', page)
-        self.assertIn(f'src="data:image/png;base64,{encoded}"', page)
-        self.assertNotIn('<div class="brand"><svg', page)
+        self.assertIn('<span class="wordmark">SceneQuarry</span>', page)
+        self.assertIn("<title>SceneQuarry", page)
+        self.assertNotIn("data:image/png;base64,", page)
+        self.assertNotIn("brand-logo", page)
 
 
 def render_one(**overrides):
@@ -347,7 +344,7 @@ class StoryboardV2Test(unittest.TestCase):
     def test_header_gallery_and_panels_follow_v2(self):
         page = self.render_two()
         self.assertIn('<header class="artifact-header">', page)
-        self.assertIn('<span class="wordmark">engenheiro<span>de vídeo<b>.</b></span></span>', page)
+        self.assertIn('<span class="wordmark">SceneQuarry</span>', page)
         self.assertIn("<span>2 shots</span>", page)
         self.assertIn('<div class="gallery-head"><h2>Storyboard</h2>', page)
         self.assertIn('data-storyboard-mode="hover"', page)
@@ -381,11 +378,11 @@ class StoryboardV2Test(unittest.TestCase):
         self.assertNotIn('<section class="review-toolbar">', page)
         self.assertNotIn("Revisar trecho", page)
 
-    def test_brand_logo_is_not_cropped(self):
+    def test_header_uses_text_without_an_inherited_image(self):
         page = self.render_two()
-        css = page.split("</style>")[0]
-        self.assertIn(".brand-logo{display:block;width:48px;height:48px;max-width:none;object-fit:contain", css)
-        self.assertNotIn("brand-logo-frame", page)
+        self.assertIn('<span class="wordmark">SceneQuarry</span>', page)
+        self.assertNotIn("brand-logo", page)
+        self.assertIn("--accent:#126558", page)
 
 
 class PanelStringsSnapshotTest(unittest.TestCase):
@@ -432,7 +429,7 @@ class PanelStringsSnapshotTest(unittest.TestCase):
         self.assertIn('status.textContent = "Describe what you want in one line.";', js)
         self.assertIn('wanted() === "changes" ? "Confirm change request" : "Confirm: find a different video"', js)
         self.assertIn('note("Could not save to the project; downloaded the file instead.");', js)
-        self.assertIn('"Decisions saved in getbrolls-review.json (in your Downloads folder). "', js)
+        self.assertIn('"Decisions saved in scenequarry-review.json (in your Downloads folder). "', js)
         self.assertIn('"Return to the chat and say where you saved the file."', js)
         self.assertIn('copy.textContent = "Copy path";', js)
         for state, label in (

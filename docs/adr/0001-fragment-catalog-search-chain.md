@@ -2,8 +2,8 @@
 type: decision
 status: accepted
 created: 2026-10-03
-updated: 2026-10-03
-tags: [get-brolls, catalogs, search, planning]
+updated: 2026-11-12
+tags: [scenequarry, catalogs, search, planning]
 ---
 
 # Plan a catalog search chain for each scenario fragment

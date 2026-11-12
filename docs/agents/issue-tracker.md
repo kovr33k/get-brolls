@@ -2,22 +2,22 @@
 type: instructions
 status: current
 created: 2026-10-03
-updated: 2026-10-03
-tags: [get-brolls, agents, github]
+updated: 2026-11-12
+tags: [scenequarry, agents, github]
 ---
 
 # Issue tracker: GitHub
 
-Specs and tickets live in [kovr33k/get-brolls](https://github.com/kovr33k/get-brolls/issues). Use the GitHub CLI and pass `--repo kovr33k/get-brolls` explicitly for issue operations. This project also has an upstream remote; the selected tracker belongs to the origin repository.
+Specs and tickets live in [kovr33k/scenequarry](https://github.com/kovr33k/scenequarry/issues). Use the GitHub CLI and pass `--repo kovr33k/scenequarry` explicitly for issue operations. This project also has an upstream remote; the selected tracker belongs to the origin repository.
 
 ## Operations
 
-- Create: `gh issue create --repo kovr33k/get-brolls --title "TITLE" --body-file BODY_FILE`.
-- Read: `gh issue view NUMBER --repo kovr33k/get-brolls --comments`.
-- List: `gh issue list --repo kovr33k/get-brolls --state open --json number,title,body,labels`.
-- Comment: `gh issue comment NUMBER --repo kovr33k/get-brolls --body-file BODY_FILE`.
-- Label: `gh issue edit NUMBER --repo kovr33k/get-brolls --add-label LABEL` or `--remove-label LABEL`.
-- Close: `gh issue close NUMBER --repo kovr33k/get-brolls`.
+- Create: `gh issue create --repo kovr33k/scenequarry --title "TITLE" --body-file BODY_FILE`.
+- Read: `gh issue view NUMBER --repo kovr33k/scenequarry --comments`.
+- List: `gh issue list --repo kovr33k/scenequarry --state open --json number,title,body,labels`.
+- Comment: `gh issue comment NUMBER --repo kovr33k/scenequarry --body-file BODY_FILE`.
+- Label: `gh issue edit NUMBER --repo kovr33k/scenequarry --add-label LABEL` or `--remove-label LABEL`.
+- Close: `gh issue close NUMBER --repo kovr33k/scenequarry`.
 
 Use a UTF-8 temporary body file with actual newlines for multiline text. Follow the public-reporting rules in [AGENTS.md](../../AGENTS.md#dependências-e-arquivos-privados).
 

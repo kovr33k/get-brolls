@@ -2,13 +2,13 @@
 type: documentation
 status: current
 created: 2026-10-22
-updated: 2026-10-22
-tags: [get-brolls, ai, acceptance, evidence]
+updated: 2026-11-12
+tags: [scenequarry, ai, acceptance, evidence]
 ---
 
 # AI production acceptance
 
-This checkpoint covers [specification #81](https://github.com/kovr33k/get-brolls/issues/81) and child tickets #83–91. Implementation is integrated by [PR #93](https://github.com/kovr33k/get-brolls/pull/93), merge `497a26010cb25fc16934f67bc6615d8a98c2d26f`. The criterion audit reuses the exact-tree Windows results, fresh post-merge checks and preserved live/human records. It makes no new generation or spending request.
+This checkpoint covers [specification #81](https://github.com/kovr33k/scenequarry/issues/81) and child tickets #83–91. Implementation is integrated by [PR #93](https://github.com/kovr33k/scenequarry/pull/93), merge `497a26010cb25fc16934f67bc6615d8a98c2d26f`. The criterion audit reuses the exact-tree Windows results, fresh post-merge checks and preserved live/human records. It makes no new generation or spending request.
 
 ## Child-ticket criteria
 
@@ -16,15 +16,15 @@ Criterion numbers follow each ticket's original acceptance checklist, in order. 
 
 | Ticket | Criteria | Implementation and regression evidence |
 |---|---|---|
-| [#83](https://github.com/kovr33k/get-brolls/issues/83) | 1–16 | Original-scenario routing, three alternatives, economy selection, frozen GPT job, exact review, safe native retention and read-only refresh: [state](../scripts/getbrolls/ai_state.py), [public workflow](../tests/test_ai_workflow.py), [native results](../tests/test_ai_native_results.py), [Storyboard fixture](../tests/fixtures/storyboard_ai.cjs). |
-| [#84](https://github.com/kovr33k/get-brolls/issues/84) | 1–7 | Three retained independent results, partial failure, group identity and selection/approval separation: [comparison journeys](../tests/test_ai_workflow.py), [state guards](../tests/test_ai_state.py), [paid three-output scope](../tests/test_ai_openrouter_public.py). |
-| [#85](https://github.com/kovr33k/get-brolls/issues/85) | 1–15 | Exact revision target, actual image/video bytes and requested intervals, bound inspection, active/historical guidance and confined private transfer: [reference HTTP](../tests/test_ai_reference_http.py), [continuity](../tests/test_ai_reference_continuity.py), [inspection bindings](../tests/test_ai_inspection_bindings.py), [guided launches](../tests/test_ai_guided_launches.py). |
-| [#86](https://github.com/kovr33k/get-brolls/issues/86) | 1–22 | Retained-account OAuth, no static-key fallback, exact first frame, actual clip metadata, recorded alignment, separate review and stale-input refusal: [Grok adapter](../scripts/getbrolls/ai_grok.py), [native public journeys](../tests/test_ai_grok_public.py), [transport guards](../tests/test_ai_grok_transport.py), [timing journeys](../tests/test_ai_timing_public.py). |
-| [#87](https://github.com/kovr33k/get-brolls/issues/87) | 1–17 | Advertised endpoint capabilities, matching per-launch confirmation, exact reference/first-frame inputs, unknown pricing, private retrieval and no resubmission: [OpenRouter adapter](../scripts/getbrolls/ai_openrouter.py), [public journeys](../tests/test_ai_openrouter_public.py), [transport guards](../tests/test_ai_openrouter_transport.py). |
-| [#88](https://github.com/kovr33k/get-brolls/issues/88) | 1–9 | Bounded ordered plans, independently approved first frames, actual frame coverage, trims, scene sound/separate VO and exact sequence review: [sequence production](../scripts/getbrolls/ai_sequences.py), [public sequence journeys](../tests/test_ai_sequences_public.py). |
-| [#89](https://github.com/kovr33k/get-brolls/issues/89) | 1–16 | Durable local/remote recovery, unknown-submit quarantine, fault boundaries, worker exclusion and one correction per original operation, including paid re-confirmation: [recovery guards](../scripts/getbrolls/ai_recovery.py), [public recovery journeys](../tests/test_ai_recovery_public.py). |
-| [#90](https://github.com/kovr33k/get-brolls/issues/90) | 1–8 | Exact applicable review/use/quality, protected shared packages, retained originals, timing/provenance, separate VO and mixed-project behavior: [AI delivery](../scripts/getbrolls/ai_delivery.py), [public handoff journeys](../tests/test_ai_delivery_public.py), [combined references](../tests/test_ai_graphics_reference_integration.py). |
-| [#91](https://github.com/kovr33k/get-brolls/issues/91) | 1–10 | Separately authorized native GPT and Grok plus paid OpenRouter media, real prompt/image/video-reference revisions, same-result download recovery, actual recorded multi-clip coverage and explicit editor/Resolve report: [dated evidence and limits](QUALITY.md#integrated-ai-pilot-and-resolve-acceptance--2026-10-22). |
+| [#83](https://github.com/kovr33k/scenequarry/issues/83) | 1–16 | Original-scenario routing, three alternatives, economy selection, frozen GPT job, exact review, safe native retention and read-only refresh: [state](../scripts/getbrolls/ai_state.py), [public workflow](../tests/test_ai_workflow.py), [native results](../tests/test_ai_native_results.py), [Storyboard fixture](../tests/fixtures/storyboard_ai.cjs). |
+| [#84](https://github.com/kovr33k/scenequarry/issues/84) | 1–7 | Three retained independent results, partial failure, group identity and selection/approval separation: [comparison journeys](../tests/test_ai_workflow.py), [state guards](../tests/test_ai_state.py), [paid three-output scope](../tests/test_ai_openrouter_public.py). |
+| [#85](https://github.com/kovr33k/scenequarry/issues/85) | 1–15 | Exact revision target, actual image/video bytes and requested intervals, bound inspection, active/historical guidance and confined private transfer: [reference HTTP](../tests/test_ai_reference_http.py), [continuity](../tests/test_ai_reference_continuity.py), [inspection bindings](../tests/test_ai_inspection_bindings.py), [guided launches](../tests/test_ai_guided_launches.py). |
+| [#86](https://github.com/kovr33k/scenequarry/issues/86) | 1–22 | Retained-account OAuth, no static-key fallback, exact first frame, actual clip metadata, recorded alignment, separate review and stale-input refusal: [Grok adapter](../scripts/getbrolls/ai_grok.py), [native public journeys](../tests/test_ai_grok_public.py), [transport guards](../tests/test_ai_grok_transport.py), [timing journeys](../tests/test_ai_timing_public.py). |
+| [#87](https://github.com/kovr33k/scenequarry/issues/87) | 1–17 | Advertised endpoint capabilities, matching per-launch confirmation, exact reference/first-frame inputs, unknown pricing, private retrieval and no resubmission: [OpenRouter adapter](../scripts/getbrolls/ai_openrouter.py), [public journeys](../tests/test_ai_openrouter_public.py), [transport guards](../tests/test_ai_openrouter_transport.py). |
+| [#88](https://github.com/kovr33k/scenequarry/issues/88) | 1–9 | Bounded ordered plans, independently approved first frames, actual frame coverage, trims, scene sound/separate VO and exact sequence review: [sequence production](../scripts/getbrolls/ai_sequences.py), [public sequence journeys](../tests/test_ai_sequences_public.py). |
+| [#89](https://github.com/kovr33k/scenequarry/issues/89) | 1–16 | Durable local/remote recovery, unknown-submit quarantine, fault boundaries, worker exclusion and one correction per original operation, including paid re-confirmation: [recovery guards](../scripts/getbrolls/ai_recovery.py), [public recovery journeys](../tests/test_ai_recovery_public.py). |
+| [#90](https://github.com/kovr33k/scenequarry/issues/90) | 1–8 | Exact applicable review/use/quality, protected shared packages, retained originals, timing/provenance, separate VO and mixed-project behavior: [AI delivery](../scripts/getbrolls/ai_delivery.py), [public handoff journeys](../tests/test_ai_delivery_public.py), [combined references](../tests/test_ai_graphics_reference_integration.py). |
+| [#91](https://github.com/kovr33k/scenequarry/issues/91) | 1–10 | Separately authorized native GPT and Grok plus paid OpenRouter media, real prompt/image/video-reference revisions, same-result download recovery, actual recorded multi-clip coverage and explicit editor/Resolve report: [dated evidence and limits](QUALITY.md#integrated-ai-pilot-and-resolve-acceptance--2026-10-22). |
 
 ## Parent user stories
 
@@ -68,7 +68,7 @@ The parent defines **16 behavior-coverage cases**. Their acceptance boundary rem
 
 ## Verification and live acceptance
 
-[Final implementation Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/39701231290) passed **1,905 tests with 26 skips**, with a Windows/Python 3.14.4 artifact for tree `9cd33e4262359bc6f29f56d7fa7aff44e45a7ca4`. The actual merge tree is identical. Fresh local checks of merge `497a260` passed **21 tests without skips** and the Storyboard JavaScript fixture; all seven delivered test-package hashes still match. These overlapping counts are not additive. Acceptance-document follow-ups also require their own final PR checks.
+[Final implementation Windows CI](https://github.com/kovr33k/scenequarry/actions/runs/39701231290) passed **1,905 tests with 26 skips**, with a Windows/Python 3.14.4 artifact for tree `9cd33e4262359bc6f29f56d7fa7aff44e45a7ca4`. The actual merge tree is identical. Fresh local checks of merge `497a260` passed **21 tests without skips** and the Storyboard JavaScript fixture; all seven delivered test-package hashes still match. These overlapping counts are not additive. Acceptance-document follow-ups also require their own final PR checks.
 
 The dated live checkpoint separates native GPT image generation/inspection/revisions, native Grok media, confirmed OpenRouter image/video generation and same-result recovery, actual Inworld alignment, and human/Resolve use. Private original media, exact authorizations, attempt history and the human report remain outside distribution. Automated fixtures establish software contracts; they do not substitute for those live/human observations.
 

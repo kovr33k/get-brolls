@@ -3,8 +3,8 @@ type: eval-case
 id: stock-abertura-meditacao
 status: current
 created: 2026-09-16
-updated: 2026-09-16
-tags: [get-brolls, eval, blind-tests, stock-pedido]
+updated: 2026-11-12
+tags: [scenequarry, eval, blind-tests, stock-pedido]
 ---
 
 # Abertura de meditação — stock pedido explicitamente

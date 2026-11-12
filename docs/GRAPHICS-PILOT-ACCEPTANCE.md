@@ -2,13 +2,13 @@
 type: reference
 status: current
 created: 2026-10-14
-updated: 2026-10-14
-tags: [get-brolls, graphics, acceptance]
+updated: 2026-11-12
+tags: [scenequarry, graphics, acceptance]
 ---
 
 # Bounded graphics pilot acceptance
 
-This checkpoint records the accepted first-stage test for [#66](https://github.com/kovr33k/get-brolls/issues/66) and the scope reconciliation for [#52](https://github.com/kovr33k/get-brolls/issues/52). Engineering issues #53–65 are separately complete. Private recordings, scenario text, project paths and exact file-bound human statements remain outside distribution.
+This checkpoint records the accepted first-stage test for [#66](https://github.com/kovr33k/scenequarry/issues/66) and the scope reconciliation for [#52](https://github.com/kovr33k/scenequarry/issues/52). Engineering issues #53–65 are separately complete. Private recordings, scenario text, project paths and exact file-bound human statements remain outside distribution.
 
 ## Accepted scope
 

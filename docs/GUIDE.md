@@ -2,13 +2,21 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-11-03
-tags: [get-brolls, guide, installation, providers, storyboard, graphics, ai]
+updated: 2026-11-12
+tags: [scenequarry, guide, installation, providers, storyboard, graphics, ai]
 ---
 
-# Guia completo — Get B-rolls
+# Guia completo — SceneQuarry
 
-Este é o manual operacional único do **GET B-ROLLS — ENGENHEIRO DE VÍDEO**: instalação, compatibilidade, fluxo editorial, provedores, navegador, Instagram, tipos de asset e Storyboard.
+Este é o manual operacional único do **SceneQuarry**: instalação, compatibilidade, fluxo editorial, provedores, navegador, Instagram, tipos de asset e Storyboard.
+
+## SceneQuarry identity and existing installations
+
+SceneQuarry is maintained independently at `https://github.com/kovr33k/scenequarry`. Install it under the `scenequarry` skill/plugin name and use `$scenequarry` or `/scenequarry:scenequarry`. The marketplace is `kovr33k`, so the plugin install command is `/plugin install scenequarry@kovr33k`.
+
+Install into its final directory and rerun the installer there; virtual environments must not be moved from an older installation. Disable the old skill/plugin in your agent after verifying the new installation to avoid duplicate discovery. Keep private `.env` files and projects outside managed plugin caches. Existing project paths, `GB_*` settings, JSON/schema keys and the internal `getbrolls` Python package remain compatible; no project rewrite or media regeneration is needed. Regenerate `review` to show the new identity in previously saved Storyboards; existing exports are not rewritten automatically.
+
+Version 0.1.0 begins SceneQuarry's own release sequence. Dated 2.x evidence describes inherited code checkpoints. [Origin and license](../ATTRIBUTION.md) are recorded separately from current maintenance.
 
 ## Navegação rápida
 
@@ -57,7 +65,7 @@ Instale Python, FFmpeg, curl e Node pelo gerenciador de pacotes do sistema. Em m
 brew install python ffmpeg node
 ```
 
-Dentro da pasta da skill `get-brolls/`:
+Dentro da pasta da skill `scenequarry/`:
 
 ```sh
 bash scripts/install.sh --check
@@ -73,7 +81,7 @@ python scripts/gb.py doctor
 
 ### Windows
 
-Instale Python 3.11+, FFmpeg e Node 22+ pelos instaladores oficiais ou pelo gerenciador de pacotes da sua preferência. Durante a instalação, habilite o `PATH`. Abra PowerShell na pasta `get-brolls/` e execute:
+Instale Python 3.11+, FFmpeg e Node 22+ pelos instaladores oficiais ou pelo gerenciador de pacotes da sua preferência. Durante a instalação, habilite o `PATH`. Abra PowerShell na pasta `scenequarry/` e execute:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/install.ps1 -Check
@@ -152,12 +160,12 @@ GB_FFMPEG_PATH=/opt/homebrew/bin/ffmpeg python3 scripts/gb.py doctor
 
 ### Codex e Claude Code
 
-Use o repositório oficial [engenheirodevideo/get-brolls](https://github.com/engenheirodevideo/get-brolls): `git clone https://github.com/engenheirodevideo/get-brolls.git`. Clone ou copie a pasta completa da skill para **um** dos destinos abaixo. Escolha instalação pessoal ou por projeto para evitar duplicatas com o mesmo nome. Exclua `.venv/`, `.tools/`, `__pycache__/`, projetos e arquivos privados ao copiar uma árvore de desenvolvimento. Execute o instalador no destino final; não mova uma venv entre pastas:
+Use o repositório oficial [kovr33k/scenequarry](https://github.com/kovr33k/scenequarry): `git clone https://github.com/kovr33k/scenequarry.git`. Clone ou copie a pasta completa da skill para **um** dos destinos abaixo. Escolha instalação pessoal ou por projeto para evitar duplicatas com o mesmo nome. Exclua `.venv/`, `.tools/`, `__pycache__/`, projetos e arquivos privados ao copiar uma árvore de desenvolvimento. Execute o instalador no destino final; não mova uma venv entre pastas:
 
 | Agente | Pessoal | Projeto | Invocação |
 |---|---|---|---|
-| Codex | `~/.agents/skills/get-brolls/` | `.agents/skills/get-brolls/` | `$get-brolls` |
-| Claude Code | `~/.claude/skills/get-brolls/` | `.claude/skills/get-brolls/` | `/get-brolls` |
+| Codex | `~/.agents/skills/scenequarry/` | `.agents/skills/scenequarry/` | `$scenequarry` |
+| Claude Code | `~/.claude/skills/scenequarry/` | `.claude/skills/scenequarry/` | `/scenequarry` |
 
 Preserve cópias anteriores antes de substituir. Abra nova sessão para verificar descoberta. Use caminhos absolutos quando executar de outra pasta:
 
@@ -204,13 +212,13 @@ Codex e Claude Code usam a mesma pasta, com destinos e invocações descritos em
 A partir da 2.3.6, o repositório também é um marketplace de plugin do Claude Code (`.claude-plugin/plugin.json` e `.claude-plugin/marketplace.json`). A instalação usa dois comandos na sessão do Claude Code:
 
 ```text
-/plugin marketplace add engenheirodevideo/get-brolls
-/plugin install get-brolls@engenheirodevideo
+/plugin marketplace add kovr33k/scenequarry
+/plugin install scenequarry@kovr33k
 ```
 
-Na primeira sessão, execute `/get-brolls-setup`: o comando em `commands/get-brolls-setup.md` roda `scripts/install.sh --check`, o instalador completo do sistema e o `doctor` pela raiz do plugin, e devolve o veredito em uma linha. A skill é acionada pelo contexto do pedido; a forma explícita é `/get-brolls:get-brolls`.
+Na primeira sessão, execute `/scenequarry-setup`: o comando em `commands/scenequarry-setup.md` roda `scripts/install.sh --check`, o instalador completo do sistema e o `doctor` pela raiz do plugin, e devolve o veredito em uma linha. A skill é acionada pelo contexto do pedido; a forma explícita é `/scenequarry:scenequarry`.
 
-A skill do plugin fica em `skills/get-brolls/SKILL.md` e referencia os arquivos por `${CLAUDE_PLUGIN_ROOT}`, a raiz do plugin instalado — um diretório de cache versionado (`~/.claude/plugins/cache/engenheirodevideo/get-brolls/<versão>/`). Execute o instalador e o `doctor` pelo caminho absoluto dessa pasta, de qualquer cwd. As dependências ficam em `.venv/` e `.tools/` dentro da pasta do plugin: repita o instalador após cada `/plugin update` ou reinstalação, e prefira variáveis de ambiente ou um `.env` fora da pasta gerenciada para as chaves opcionais, apontado na raiz do parser: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gb.py" --env-file CAMINHO <subcomando> …`. O fluxo clone-como-skill continua suportado sem mudanças para Codex e instalações manuais, com o SKILL.md da raiz como fonte canônica.
+A skill do plugin fica em `skills/scenequarry/SKILL.md` e referencia os arquivos por `${CLAUDE_PLUGIN_ROOT}`, a raiz do plugin instalado — um diretório de cache versionado (`~/.claude/plugins/cache/kovr33k/scenequarry/<versão>/`). Execute o instalador e o `doctor` pelo caminho absoluto dessa pasta, de qualquer cwd. As dependências ficam em `.venv/` e `.tools/` dentro da pasta do plugin: repita o instalador após cada `/plugin update` ou reinstalação, e prefira variáveis de ambiente ou um `.env` fora da pasta gerenciada para as chaves opcionais, apontado na raiz do parser: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gb.py" --env-file CAMINHO <subcomando> …`. O fluxo clone-como-skill continua suportado sem mudanças para Codex e instalações manuais, com o SKILL.md da raiz como fonte canônica.
 
 #### Permissões (opcional)
 
@@ -263,11 +271,11 @@ Coleta B-roll dirigida pelo contrato de edição. Confirma no navegador antes de
 Motor: `yt-dlp` + FFmpeg pela CLI (`scripts/gb.py`). Capturas de página usam a integração de navegador autorizada ou o launcher Playwright do sistema. Os helpers `.sh` que existiam antes da CLI unificada continuam disponíveis só como utilitários avulsos — ver [Apêndice — utilitários legados](#apêndice--utilitários-legados).
 
 ### Saída
-`<PROJETO>/brolls/NN_entity_context.mp4`. Registrar no ledger (`step: get-brolls`, outputs = arquivos baixados).
+`<PROJETO>/brolls/NN_entity_context.mp4`. Registrar no ledger (`step: scenequarry`, outputs = arquivos baixados).
 
 ### Medição editorial deste fluxo
 
-Se a pergunta é "esse fluxo está achando fonte literal de verdade?", a resposta não vem da suíte de testes: vem dos **testes cegos** em [eval/README.md](../eval/README.md). Um agente executor recebe só o roteiro, roda `search` → `preview` → `review` e para na revisão humana; outro agente (ou o humano) pontua cada beat pela rubrica — alcance literal, literalidade do asset, qualidade da prévia e disciplina (nada de stock sem pedido, nada aprovado sozinho). Os relatórios ficam em `eval/runs/`, e o comando `/get-brolls-eval` roda um caso do corpus de ponta a ponta.
+Se a pergunta é "esse fluxo está achando fonte literal de verdade?", a resposta não vem da suíte de testes: vem dos **testes cegos** em [eval/README.md](../eval/README.md). Um agente executor recebe só o roteiro, roda `search` → `preview` → `review` e para na revisão humana; outro agente (ou o humano) pontua cada beat pela rubrica — alcance literal, literalidade do asset, qualidade da prévia e disciplina (nada de stock sem pedido, nada aprovado sozinho). Os relatórios ficam em `eval/runs/`, e o comando `/scenequarry-eval` roda um caso do corpus de ponta a ponta.
 
 ## Estado do projeto e progresso
 
@@ -915,7 +923,7 @@ Em 15/09/2026, a sessão Chrome indicada pelo usuário abriu o Reel `DcMXl1IPNtB
 
 ## Instagram — recuperação e auditoria
 
-Baixar e organizar Reels no fluxo Get B-rolls: capturar URLs diretas de CDN como pares `*_video.conf` + `*_audio.conf`, baixar as partes separadas, mesclar com `ffmpeg` e validar que o MP4 final tem vídeo e áudio corretos.
+Baixar e organizar Reels no fluxo SceneQuarry: capturar URLs diretas de CDN como pares `*_video.conf` + `*_audio.conf`, baixar as partes separadas, mesclar com `ffmpeg` e validar que o MP4 final tem vídeo e áudio corretos.
 
 ### Quando usar
 

@@ -3,8 +3,8 @@ type: eval-case
 id: person-jensen-huang-gtc
 status: current
 created: 2026-09-16
-updated: 2026-09-16
-tags: [get-brolls, eval, blind-tests, pessoa-publica, evento]
+updated: 2026-11-12
+tags: [scenequarry, eval, blind-tests, pessoa-publica, evento]
 ---
 
 # Jensen Huang no palco da GTC

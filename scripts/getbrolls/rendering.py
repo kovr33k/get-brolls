@@ -415,7 +415,7 @@ def render(ledger, *, ready_only=False):
         "status: current",
         "created: " + date.today().isoformat(),  # noqa: DTZ011 - local date in the rendered page; timezone-aware would shift the day near midnight
         "updated: " + date.today().isoformat(),  # noqa: DTZ011 - local date in the rendered page; timezone-aware would shift the day near midnight
-        "tags: [get-brolls, credits]",
+        "tags: [scenequarry, credits]",
         "---",
         "",
         "# Collection credits",

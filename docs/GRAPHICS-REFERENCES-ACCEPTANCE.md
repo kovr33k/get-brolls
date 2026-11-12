@@ -2,19 +2,19 @@
 type: documentation
 status: current
 created: 2026-10-16
-updated: 2026-10-18
-tags: [get-brolls, graphics, references, acceptance, windows]
+updated: 2026-11-12
+tags: [scenequarry, graphics, references, acceptance, windows]
 ---
 
 # Storyboard reference acceptance checkpoint
 
-This checkpoint maps all **55 user stories** and **13 acceptance criteria** of [the accepted contract #74](https://github.com/kovr33k/get-brolls/issues/74) to the implemented reference workflow and its evidence. It supports [final acceptance #79](https://github.com/kovr33k/get-brolls/issues/79); it does not close that ticket or its parent. The implementation is the combined 2.16.0 active/shared-context and recovery branch, following the integrated 2.14.0 image and 2.15.0 mixed-reference slices.
+This checkpoint maps all **55 user stories** and **13 acceptance criteria** of [the accepted contract #74](https://github.com/kovr33k/scenequarry/issues/74) to the implemented reference workflow and its evidence. It supports [final acceptance #79](https://github.com/kovr33k/scenequarry/issues/79); it does not close that ticket or its parent. The implementation is the combined 2.16.0 active/shared-context and recovery branch, following the integrated 2.14.0 image and 2.15.0 mixed-reference slices.
 
 **The agreed human visual acceptance is complete; integration remains pending.** A real image-guided scene and its following text-only revision received separate exact-version chat approvals. On 2026-10-18 the acceptance scope was explicitly amended to remove the additional human video-reference demonstration. Video transport, temporal selection, inclusion and retained context remain technically verified; cinematic video-style correspondence has no human acceptance claim. Automated success, native rendering and editorial approval retain their separate evidence boundaries. The separate AI-generation work is outside this checkpoint; its eventual integration needs checks for the actual combined revision.
 
 ## Evidence and revision boundaries
 
-The complete local Windows check script passed **1,635 tests, 32 skips, no failures, in 895.506 seconds**. Required [Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/38971486563) subsequently passed **1,635 tests, 26 skips, no failures, in 1,245.798 seconds** for executable revision `7e54263`; its verification artifact matches the tested tree. A later documentation-only revision still requires its own final PR check before integration. Lint, formatting, types, generated skill mirror and relative links passed. Version coherence, JavaScript syntax and the final **24-test Storyboard** recheck passed. The required **Windows checks** must also be green for the PR revision actually being integrated; the PR check record is the authority for that revision. Existing passing evidence is reused only for unchanged code, dependencies, configuration and relevant artifacts. Documentation-only additions retain the executable evidence and receive fresh link/frontmatter checks.
+The complete local Windows check script passed **1,635 tests, 32 skips, no failures, in 895.506 seconds**. Required [Windows CI](https://github.com/kovr33k/scenequarry/actions/runs/38971486563) subsequently passed **1,635 tests, 26 skips, no failures, in 1,245.798 seconds** for executable revision `7e54263`; its verification artifact matches the tested tree. A later documentation-only revision still requires its own final PR check before integration. Lint, formatting, types, generated skill mirror and relative links passed. Version coherence, JavaScript syntax and the final **24-test Storyboard** recheck passed. The required **Windows checks** must also be green for the PR revision actually being integrated; the PR check record is the authority for that revision. Existing passing evidence is reused only for unchanged code, dependencies, configuration and relevant artifacts. Documentation-only additions retain the executable evidence and receive fresh link/frontmatter checks.
 
 The following evidence keys identify observable journeys, rather than a count of helper calls:
 

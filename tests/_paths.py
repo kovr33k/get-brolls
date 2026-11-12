@@ -10,6 +10,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts" / "gb.py"
-SKILLS = (ROOT / "SKILL.md", ROOT / "skills" / "get-brolls" / "SKILL.md")
+SKILLS = (ROOT / "SKILL.md", ROOT / "skills" / "scenequarry" / "SKILL.md")
 
 sys.path.insert(0, str(ROOT / "scripts"))

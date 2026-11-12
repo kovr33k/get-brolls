@@ -1,8 +1,8 @@
 {
-  "name": "get-brolls-tools",
-  "version": "2.16.0",
+  "name": "scenequarry-tools",
+  "version": "0.1.0",
   "private": true,
-  "description": "Dependency manifest for the local Get B-rolls browser tools",
+  "description": "Dependency manifest for the local SceneQuarry browser tools",
   "dependencies": {
     "@playwright/cli": "0.1.22"
   }

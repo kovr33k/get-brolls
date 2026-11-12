@@ -2,8 +2,8 @@
 type: research
 status: current
 created: 2026-10-14
-updated: 2026-10-14
-tags: [get-brolls, ai-generation, storyboard, ui, pipeline, donor-research]
+updated: 2026-11-12
+tags: [scenequarry, ai-generation, storyboard, ui, pipeline, donor-research]
 ---
 
 # AI generation: donor interfaces and production workflows
@@ -18,7 +18,7 @@ This source-based assessment expands the earlier generation-client and media-QC 
 | super-video-maker-skill | `3fec4aa66a1d4f8b249746eabc372547f67bba5c` | Recipes, reference/keyframe contracts, variant reuse, repair and QC |
 | video-production-skills | `e19f1f300eddbb4f73764e66849792ece94ff0b7` | Motion briefs, asset/runtime/delivery distinctions, frame comparison |
 
-The comparison baseline is get-brolls `01f1a627508a53015bc2036e2cf98f8e16a21d98`, including the [bounded Remotion acceptance](https://github.com/kovr33k/get-brolls/blob/01f1a627508a53015bc2036e2cf98f8e16a21d98/docs/GRAPHICS-PILOT-ACCEPTANCE.md). Research used first-party source and documentation. Donor skills were inspected as data, not activated. No donor application was installed or launched; no paid generation or editorial-quality benchmark was conducted.
+The comparison baseline is scenequarry `01f1a627508a53015bc2036e2cf98f8e16a21d98`, including the [bounded Remotion acceptance](https://github.com/kovr33k/scenequarry/blob/01f1a627508a53015bc2036e2cf98f8e16a21d98/docs/GRAPHICS-PILOT-ACCEPTANCE.md). Research used first-party source and documentation. Donor skills were inspected as data, not activated. No donor application was installed or launched; no paid generation or editorial-quality benchmark was conducted.
 
 ## What UI actually exists
 
@@ -94,10 +94,10 @@ Its alignment workflow separates source assets, actual timeline playback and dec
 
 ## Existing strengths to preserve
 
-- One project and Storyboard with original scenario context, retained versions, exact-version review and explicit human decisions. [Review panel](https://github.com/kovr33k/get-brolls/blob/01f1a627508a53015bc2036e2cf98f8e16a21d98/scripts/getbrolls/graphics.py#L6782-L6806).
-- Dependency-aware continuation, integrity checking and selective invalidation. [Continuation](https://github.com/kovr33k/get-brolls/blob/01f1a627508a53015bc2036e2cf98f8e16a21d98/scripts/getbrolls/graphics_continuation.py#L247-L273).
-- Durable external-operation states and refusal to repeat an unknown submission. [Narration state contract](https://github.com/kovr33k/get-brolls/blob/01f1a627508a53015bc2036e2cf98f8e16a21d98/scripts/getbrolls/narration.py#L79-L106).
-- Original and derived-media identity, actual dimensions and clocks, separate material-use permissions and human approval. [Media record](https://github.com/kovr33k/get-brolls/blob/01f1a627508a53015bc2036e2cf98f8e16a21d98/scripts/getbrolls/graphics_media.py#L120-L154).
+- One project and Storyboard with original scenario context, retained versions, exact-version review and explicit human decisions. [Review panel](https://github.com/kovr33k/scenequarry/blob/01f1a627508a53015bc2036e2cf98f8e16a21d98/scripts/getbrolls/graphics.py#L6782-L6806).
+- Dependency-aware continuation, integrity checking and selective invalidation. [Continuation](https://github.com/kovr33k/scenequarry/blob/01f1a627508a53015bc2036e2cf98f8e16a21d98/scripts/getbrolls/graphics_continuation.py#L247-L273).
+- Durable external-operation states and refusal to repeat an unknown submission. [Narration state contract](https://github.com/kovr33k/scenequarry/blob/01f1a627508a53015bc2036e2cf98f8e16a21d98/scripts/getbrolls/narration.py#L79-L106).
+- Original and derived-media identity, actual dimensions and clocks, separate material-use permissions and human approval. [Media record](https://github.com/kovr33k/scenequarry/blob/01f1a627508a53015bc2036e2cf98f8e16a21d98/scripts/getbrolls/graphics_media.py#L120-L154).
 
 ## Recommended UI and pipeline scope
 

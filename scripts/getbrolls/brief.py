@@ -184,7 +184,7 @@ def load_brief(project):
                 "ou apague essa variável para usar o BRIEF.md da pasta do trabalho."
             )
         raise ValueError(
-            "Este projeto ainda não tem BRIEF.md. Rode `/get-brolls-brief` para fazer a "
+            "Este projeto ainda não tem BRIEF.md. Rode `/scenequarry-brief` para fazer a "
             "entrevista, ou `init-brief --project ...` para criar o modelo e preencher."
         )
     return read_json_block(
