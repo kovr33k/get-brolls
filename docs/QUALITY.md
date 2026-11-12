@@ -14,6 +14,14 @@ Este documento resume a qualidade atual e os limites das evidências. Relatório
 
 SceneQuarry starts its own version sequence at 0.1.0. Dated 2.x versions and prior CI results below describe inherited fork checkpoints, not validation of this renamed revision. See [origin and attribution](../ATTRIBUTION.md). Rebranding does not extend any prior live-media or human acceptance evidence.
 
+## SceneQuarry candidate checks — 2026-11-12
+
+The combined rebrand and dependency candidate uses Playwright CLI 0.1.23, pycryptodomex 3.24.2 and Ruff 0.17.4. The Windows installer completed, `pip check` reported no broken requirements, and lint, formatting, types, version/mirror, anchors and 161 focused tests passed locally. Final combined Windows CI remains the integration gate; earlier full-suite results are not evidence for the changed dependency set.
+
+A dedicated headless Chrome session exercised the installed Playwright CLI: public-page navigation, snapshot, JavaScript evaluation, screenshot, a second tab, return to the first tab and session close. A separate synthetic Storyboard check passed at 1440-pixel desktop and 390-pixel mobile widths, including approval, a change request, decision export and print output. The exported filename is `scenequarry-review.json`; its established JSON type remains compatible.
+
+The actual `resolve` and `preview` commands acquired the 0–3 s working window of [this public YouTube recording](https://www.youtube.com/watch?v=B_7EUmCxcvE). The saved working media measured **494,839 bytes, 1920×1080, 25 fps, H.264/AAC, 3.000 s** and passed ffprobe plus strict `ffmpeg -xerror` decoding. Poster, 12-frame contact sheet and GIF were generated; the viewed contact sheet shows a rocket and launch tower before liftoff. Media and private logs remain outside the source tree. This bounded check does not establish rights, editorial approval, other source availability or live AI/Remotion acceptance.
+
 ## Current integration state
 
 The accepted catalog engineering scope is **complete**: parent [#2](https://github.com/kovr33k/scenequarry/issues/2) and child tickets #3–20 are closed. The current [acceptance checkpoint](CATALOG-ACCEPTANCE.md) maps all eight final criteria to their evidence and records the operational limits separately.
