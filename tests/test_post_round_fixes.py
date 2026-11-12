@@ -383,13 +383,13 @@ class SearchCarriesDuration(unittest.TestCase):
 
 
 class ReleaseNotesCoverTheWave(unittest.TestCase):
-    """Cada item desta onda aparece no CHANGELOG e no QUALITY; a rodada fica registrada."""
+    """A onda herdada fica no arquivo de evidências, fora das releases atuais."""
 
-    def changelog(self):
-        return (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    def history(self):
+        return (ROOT / "docs/archive/quality-evidence-through-2026-10-07.md").read_text(encoding="utf-8")
 
-    def test_the_changelog_names_every_fix_of_the_wave(self):
-        text = self.changelog()
+    def test_the_evidence_archive_names_every_fix_of_the_wave(self):
+        text = self.history()
         for marker in (
             "blocked_reason",
             "PEXELS_API_KEY",
@@ -407,10 +407,11 @@ class ReleaseNotesCoverTheWave(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, text)
 
-    def test_the_wave_sits_under_the_240_heading(self):
-        text = self.changelog()
-        start = text.index("## 2.4.0")
-        self.assertIn("Onda pós-rodada", text[start : start + 4000])
+    def test_the_wave_sits_under_the_archived_240_qa_heading(self):
+        text = self.history()
+        section = text.split("## QA da versão 2.4.0", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("Rodada cega completa e onda pós-rodada", section)
+        self.assertIn("status: archived", text)
 
     def test_quality_records_the_same_wave(self):
         quality_path = ROOT / "docs/QUALITY.md"
