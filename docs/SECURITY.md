@@ -2,8 +2,8 @@
 type: documentation
 status: current
 created: 2026-09-15
-updated: 2026-09-16
-tags: [get-brolls]
+updated: 2026-11-12
+tags: [scenequarry]
 ---
 
 # Segurança e privacidade

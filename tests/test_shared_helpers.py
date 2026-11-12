@@ -24,7 +24,7 @@ class PathsTests(unittest.TestCase):
     def test_skills_is_the_root_and_mirror_pair(self):
         root_skill, mirror_skill = SKILLS
         self.assertEqual(ROOT / "SKILL.md", root_skill)
-        self.assertEqual(ROOT / "skills" / "get-brolls" / "SKILL.md", mirror_skill)
+        self.assertEqual(ROOT / "skills" / "scenequarry" / "SKILL.md", mirror_skill)
         self.assertTrue(root_skill.is_file())
         self.assertTrue(mirror_skill.is_file())
 

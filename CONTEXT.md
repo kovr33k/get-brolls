@@ -2,11 +2,11 @@
 type: reference
 status: current
 created: 2026-10-03
-updated: 2026-10-10
-tags: [get-brolls, catalogs, motion-graphics, domain-model]
+updated: 2026-11-12
+tags: [scenequarry, catalogs, motion-graphics, domain-model]
 ---
 
-# Get-brolls domain language
+# SceneQuarry domain language
 
 Domain terms used when designing searches, authored graphics and AI production for scenario fragments. Catalog-specific routes are described in [SOURCE-CATALOGS.md](docs/SOURCE-CATALOGS.md); user-facing wording is covered by [glossario.md](references/glossario.md).
 

@@ -3,7 +3,7 @@
 Onze fontes (as duas ocorrências do `package-lock.json` contam separado):
 `scripts/getbrolls/__init__.py`, `package.json`, `package-lock.json` (raiz e
 `packages[""]`), `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,
-`SKILL.md`, `skills/get-brolls/SKILL.md`, `README.md`, `README.en.md` e
+`SKILL.md`, `skills/scenequarry/SKILL.md`, `README.md`, `README.en.md` e
 `docs/QUALITY.md`. As listas de "Atualizações" dos READMEs e o corpo do
 CHANGELOG são prosa humana e ficam fora — quem escreve nelas é
 `scripts/bump_version.py`, não este teste.
@@ -58,7 +58,7 @@ class VersionCoherenceTest(unittest.TestCase):
         self.assertEqual(match.group(1), __version__)
 
     def test_skill_mirror_md_metadata_version(self):
-        text = _text("skills/get-brolls/SKILL.md")
+        text = _text("skills/scenequarry/SKILL.md")
         match = re.search(r'metadata:\s*\n\s*version:\s*"(\d+\.\d+\.\d+)"', text)
         self.assertIsNotNone(match, "metadata.version não encontrado no espelho")
         assert match is not None
@@ -88,7 +88,7 @@ class VersionCoherenceTest(unittest.TestCase):
 
     def test_quality_md_title(self):
         text = _text("docs/QUALITY.md")
-        match = re.search(r"^# Qualidade e evidências — GET B-ROLLS (\d+\.\d+\.\d+)$", text, re.MULTILINE)
+        match = re.search(r"^# Qualidade e evidências — SceneQuarry (\d+\.\d+\.\d+)$", text, re.MULTILINE)
         self.assertIsNotNone(match, "título de versão não encontrado em docs/QUALITY.md")
         assert match is not None
         self.assertEqual(match.group(1), __version__)

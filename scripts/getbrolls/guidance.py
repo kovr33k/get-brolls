@@ -383,7 +383,7 @@ def next_action(state):  # noqa: C901, PLR0911, PLR0912 - existing size; one bra
             "init-brief",
             "O projeto ainda não tem BRIEF.md, então nada define o que buscar.",
             "Antes de buscar qualquer coisa, precisamos do plano do vídeo: rode "
-            "`/get-brolls-brief` para eu te fazer as perguntas, ou `init-brief` para "
+            "`/scenequarry-brief` para eu te fazer as perguntas, ou `init-brief` para "
             "criar o modelo e preencher à mão.",
             state,
         )

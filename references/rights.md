@@ -2,8 +2,8 @@
 type: reference
 status: current
 created: 2026-09-17
-updated: 2026-09-17
-tags: [get-brolls, direitos, permit, licenca]
+updated: 2026-11-12
+tags: [scenequarry, direitos, permit, licenca]
 ---
 
 # Condições de uso — o que registrar antes de coletar

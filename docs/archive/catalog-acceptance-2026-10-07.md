@@ -2,21 +2,21 @@
 type: documentation
 status: archived
 created: 2026-10-07
-updated: 2026-10-07
-tags: [get-brolls, archive, evidence]
+updated: 2026-11-12
+tags: [scenequarry, archive, evidence]
 ---
 
 > **Historical snapshot, archived 2026-10-07.** This report preserves the observations and checkpoint wording recorded before the final closure reconciliation. Its `pending`, `open` and `candidate` statements describe their original checkpoints; they are superseded by the [current status](../CATALOG-ACCEPTANCE.md). Parent #2 and child tickets #3-20 are closed following PR #42 and post-merge verification. Dated access, media, rights and editorial limits remain observations, not future availability or reuse promises.
 
 # Catalog integration acceptance checkpoint
 
-This checklist records the evidence for [issue #20](https://github.com/kovr33k/get-brolls/issues/20) against the [accepted specification](../SPEC-CATALOG-INTEGRATION.md). The ticket records final PR verification, integration and closure. Source implementation, dated access/media observations, visual suitability, human approval and reuse conditions remain separate. Detailed public sample URLs and measured outcomes live in [QUALITY.md](../QUALITY.md); private projects, media and access material stay outside distribution.
+This checklist records the evidence for [issue #20](https://github.com/kovr33k/scenequarry/issues/20) against the [accepted specification](../SPEC-CATALOG-INTEGRATION.md). The ticket records final PR verification, integration and closure. Source implementation, dated access/media observations, visual suitability, human approval and reuse conditions remain separate. Detailed public sample URLs and measured outcomes live in [QUALITY.md](../QUALITY.md); private projects, media and access material stay outside distribution.
 
 ## Source evidence and remaining checks
 
 ### Final review and print evidence — 2026-10-07, 2.13.8
 
-All source tickets #3–19 are closed. [PR #38](https://github.com/kovr33k/get-brolls/pull/38) completed Instagram/TikTok and [PR #40](https://github.com/kovr33k/get-brolls/pull/40) completed the supplied LoC master handoff. [PR #41](https://github.com/kovr33k/get-brolls/pull/41) integrated the reconciled source diagnostics and scenario evidence. Its [Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/37540228703) passed 1,249 tests with 26 skips; its verified tree matches that integration commit. Seventy focused post-merge tests passed without skips. The dated source reconciliations below retain their historical closure gates; this checkpoint supersedes those gates. The print correction has its own required final PR CI and post-merge gate recorded in #20.
+All source tickets #3–19 are closed. [PR #38](https://github.com/kovr33k/scenequarry/pull/38) completed Instagram/TikTok and [PR #40](https://github.com/kovr33k/scenequarry/pull/40) completed the supplied LoC master handoff. [PR #41](https://github.com/kovr33k/scenequarry/pull/41) integrated the reconciled source diagnostics and scenario evidence. Its [Windows CI](https://github.com/kovr33k/scenequarry/actions/runs/37540228703) passed 1,249 tests with 26 skips; its verified tree matches that integration commit. Seventy focused post-merge tests passed without skips. The dated source reconciliations below retain their historical closure gates; this checkpoint supersedes those gates. The print correction has its own required final PR CI and post-merge gate recorded in #20.
 
 The current inventory has exactly twenty catalogs, excluding local import and UNifeed. Every supported entry route has audited offline coverage and dated bounded live evidence or an explicit access failure. Native LoC JSON access remains unverified after HTTP 403; its known-card/supplied-TIFF route is separately verified. GDELT's selected original remains restricted. UN archive originals and Destockd exact source boundaries are not silently promoted from previews. Stock remains explicit; retained X/Grok OAuth has no billing or model fallback.
 
@@ -43,11 +43,11 @@ Issue #20 records the final successful CI, integration and post-merge checks bef
 
 ### Historical source checkpoints
 
-[PR #32](https://github.com/kovr33k/get-brolls/pull/32) merged the reconciled #8–12 implementation batch. Its required Windows CI passed 1,241 tests with 26 skips; the merge tree equals the tested PR tree. Seventy-five focused local checks and version/mirror/links passed after merge. Those five tickets are closed. Production tagging and personal installation remain separate actions.
+[PR #32](https://github.com/kovr33k/scenequarry/pull/32) merged the reconciled #8–12 implementation batch. Its required Windows CI passed 1,241 tests with 26 skips; the merge tree equals the tested PR tree. Seventy-five focused local checks and version/mirror/links passed after merge. Those five tickets are closed. Production tagging and personal installation remain separate actions.
 
-[PR #33](https://github.com/kovr33k/get-brolls/pull/33) merged the reconciled source contracts #14–17 and #19; those tickets are closed. Its required Windows CI passed 1,242 tests with 26 skips, followed by 58 focused post-merge tests with three skips. [PR #34](https://github.com/kovr33k/get-brolls/pull/34) subsequently integrated #18's acquired/viewed UN archive working preview and closed that source ticket. The 2026-10-06 #13 follow-up now records both complete bounded social-browser routes and fixes the observed transport/provenance gaps; its final PR checks and integration remain the closure gate. LoC #7, integrated acceptance #20 and parent #2 retain their separate gaps.
+[PR #33](https://github.com/kovr33k/scenequarry/pull/33) merged the reconciled source contracts #14–17 and #19; those tickets are closed. Its required Windows CI passed 1,242 tests with 26 skips, followed by 58 focused post-merge tests with three skips. [PR #34](https://github.com/kovr33k/scenequarry/pull/34) subsequently integrated #18's acquired/viewed UN archive working preview and closed that source ticket. The 2026-10-06 #13 follow-up now records both complete bounded social-browser routes and fixes the observed transport/provenance gaps; its final PR checks and integration remain the closure gate. LoC #7, integrated acceptance #20 and parent #2 retain their separate gaps.
 
-All twenty retained catalogs remain in the inventory. Required X/Grok OAuth has bounded CLI discovery and separately observed original/manual-media evidence; its source ticket #15 is closed, while scenario acceptance remains separate. Instagram and TikTok now have dated reservation/import, acquired working-media, viewed preview and review-gate evidence; [PR #38](https://github.com/kovr33k/get-brolls/pull/38) merged that follow-up and closed #13. LoC's separately supplied master now fills the earlier actual-media gap, with final checks and integration still pending. These bounded technical samples do not establish scenario acceptance, future access or reuse permission. Local import and UNifeed do not increase the catalog count.
+All twenty retained catalogs remain in the inventory. Required X/Grok OAuth has bounded CLI discovery and separately observed original/manual-media evidence; its source ticket #15 is closed, while scenario acceptance remains separate. Instagram and TikTok now have dated reservation/import, acquired working-media, viewed preview and review-gate evidence; [PR #38](https://github.com/kovr33k/scenequarry/pull/38) merged that follow-up and closed #13. LoC's separately supplied master now fills the earlier actual-media gap, with final checks and integration still pending. These bounded technical samples do not establish scenario acceptance, future access or reuse permission. Local import and UNifeed do not increase the catalog count.
 
 | Catalog | Ticket | Existing dated evidence | Remaining acceptance evidence |
 |---|---|---|---|

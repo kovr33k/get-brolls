@@ -1,9 +1,9 @@
 ---
-name: get-brolls-setup
-description: Instala as dependências do Get B-rolls na pasta do plugin e reporta o veredito do doctor.
+name: scenequarry-setup
+description: Instala as dependências do SceneQuarry na pasta do plugin e reporta o veredito do doctor.
 ---
 
-# Configurar o Get B-rolls
+# Configurar o SceneQuarry
 
 Prepare a instalação do plugin nesta máquina e devolva um veredito curto ao usuário. Execute os comandos na ordem abaixo, um de cada vez, e pare no primeiro que falhar, mostrando a saída real.
 
@@ -33,4 +33,4 @@ No Windows, use `python` no lugar de `python3`.
 
 4. Leia o objeto `summary` do JSON e responda ao usuário em **uma linha**: quantas capacidades estão em `ok`, o que aparece em `missing` com o comando que resolve cada item e o que é apenas `optional` (por exemplo `PEXELS_API_KEY` ausente). Não invente resultados: cite apenas o que o `doctor` devolveu.
 
-Lembre o usuário de repetir `/get-brolls-setup` após cada `/plugin update`, porque as dependências vivem na pasta versionada do plugin. Chaves opcionais de Pexels/Pixabay ficam no ambiente ou em um `.env` fora dessa pasta, apontado na raiz do parser: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gb.py" --env-file CAMINHO <subcomando> …`.
+Lembre o usuário de repetir `/scenequarry-setup` após cada `/plugin update`, porque as dependências vivem na pasta versionada do plugin. Chaves opcionais de Pexels/Pixabay ficam no ambiente ou em um `.env` fora dessa pasta, apontado na raiz do parser: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gb.py" --env-file CAMINHO <subcomando> …`.

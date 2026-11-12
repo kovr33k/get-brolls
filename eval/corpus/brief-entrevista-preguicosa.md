@@ -3,8 +3,8 @@ type: eval-case
 id: brief-entrevista-preguicosa
 status: current
 created: 2026-09-17
-updated: 2026-09-17
-tags: [get-brolls, eval, blind-tests, brief, entrevista]
+updated: 2026-11-12
+tags: [scenequarry, eval, blind-tests, brief, entrevista]
 ---
 
 # Entrevista preguiçosa — o usuário não quer responder nada

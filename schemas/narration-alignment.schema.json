@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Get B-rolls narration alignment records v1",
+  "title": "SceneQuarry narration alignment records v1",
   "description": "Pure matching/correction record for one occurrence. transcript_sha256 is the SHA-256 of the complete recognized result (original transcript text, each word's original text/start_ms/end_ms/segment, artifact_sha256, and the exact boolean timing_resolved), kept separate from scenario_sha256, matching and overrides. It is not a hash of transcript text alone; scenario edits keep this identity. Matching score is local evidence, never a provider confidence field. Structural checks live in scripts/getbrolls/narration_alignment.py.",
   "type": "object",
   "additionalProperties": false,

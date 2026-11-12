@@ -2,8 +2,8 @@
 type: specification
 status: accepted
 created: 2026-10-15
-updated: 2026-10-16
-tags: [get-brolls, ai-generation, storyboard, design, interview]
+updated: 2026-11-12
+tags: [scenequarry, ai-generation, storyboard, design, interview]
 ---
 
 # AI image and video production

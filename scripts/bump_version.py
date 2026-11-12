@@ -12,10 +12,10 @@ escreve, numa passada só, a versão nova em:
 - `.claude-plugin/marketplace.json` (`plugins[0].version`);
 - `SKILL.md` (`metadata.version` e `metadata.updated`);
 - `README.md` / `README.en.md` (badge: URL e `alt`);
-- `docs/QUALITY.md` (título `# Qualidade e evidências — GET B-ROLLS <v>`);
+- `docs/QUALITY.md` (título `# Qualidade e evidências — SceneQuarry <v>`);
 - `CHANGELOG.md` (stub `## <v> — <data>` abaixo de `## Unreleased`, só se
   ainda não existir uma seção para essa versão);
-- `skills/get-brolls/SKILL.md`, regerado chamando `gen_skill_mirror.py`.
+- `skills/scenequarry/SKILL.md`, regerado chamando `gen_skill_mirror.py`.
 
 `--check` não escreve nada: lê as mesmas fontes (exceto `CHANGELOG.md`, cujo
 corpo é prosa humana) e sai com código 1 assim que alguma delas divergir da
@@ -245,8 +245,8 @@ def _write_readme_en(root: Path, version: str, _date_str: str) -> None:
 # -- docs/QUALITY.md --------------------------------------------------
 
 
-_QUALITY_TITLE_RE = re.compile(r"^# Qualidade e evidências — GET B-ROLLS (\d+\.\d+\.\d+)$", re.MULTILINE)
-_QUALITY_TITLE_SUB_RE = re.compile(r"^(# Qualidade e evidências — GET B-ROLLS )\d+\.\d+\.\d+$", re.MULTILINE)
+_QUALITY_TITLE_RE = re.compile(r"^# Qualidade e evidências — SceneQuarry (\d+\.\d+\.\d+)$", re.MULTILINE)
+_QUALITY_TITLE_SUB_RE = re.compile(r"^(# Qualidade e evidências — SceneQuarry )\d+\.\d+\.\d+$", re.MULTILINE)
 
 
 def _quality_md_path(root: Path) -> Path:
@@ -291,7 +291,7 @@ def _write_changelog(root: Path, version: str, date_str: str) -> None:
     _write(path, text.replace(marker, stub, 1))
 
 
-# -- skills/get-brolls/SKILL.md (regerado, não editado diretamente) ---
+# -- skills/scenequarry/SKILL.md (regerado, não editado diretamente) ---
 
 
 def _gen_skill_mirror(root: Path) -> Path:
@@ -338,7 +338,7 @@ TARGETS: list[Target] = [
     Target("CHANGELOG.md", _check_changelog, _write_changelog),
     # A regeneração do espelho depende do SKILL.md já escrito; roda por
     # último tanto na checagem quanto na escrita.
-    Target("skills/get-brolls/SKILL.md", _check_skill_mirror, _write_skill_mirror),
+    Target("skills/scenequarry/SKILL.md", _check_skill_mirror, _write_skill_mirror),
 ]
 
 

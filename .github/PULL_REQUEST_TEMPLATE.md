@@ -17,7 +17,7 @@ No Windows PowerShell, troque o primeiro comando por `powershell -ExecutionPolic
 - [ ] Suíte completa passou para a revisão final, localmente ou no CI (informe a revisão e o total de testes/skips).
 - [ ] Regressão adicionada para o defeito corrigido ou para o comportamento novo.
 - [ ] `./scripts/check.ps1` ou os checks equivalentes do CI passaram: `ruff`, `pyright`, espelho da skill, âncoras e suíte; reutilize evidência válida sem repetir a mesma bateria.
-- [ ] Documentação afetada atualizada (GUIDE, README/README.en, SKILL, QUALITY, CHANGELOG). O espelho em `skills/get-brolls/SKILL.md` é gerado: rode `python3 scripts/gen_skill_mirror.py`, nunca edite à mão.
+- [ ] Documentação afetada atualizada (GUIDE, README/README.en, SKILL, QUALITY, CHANGELOG). O espelho em `skills/scenequarry/SKILL.md` é gerado: rode `python3 scripts/gen_skill_mirror.py`, nunca edite à mão.
 - [ ] Nenhuma chave, sessão, URL assinada, original ou projeto de cliente no diff.
 
 `--check` valida pré-requisitos do instalador; não instala bibliotecas nem testa sessão/rede. `doctor` informa disponibilidade. Nenhum deles substitui um ensaio real da fonte afetada — descreva abaixo o que foi testado ao vivo, se houver.

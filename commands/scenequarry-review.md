@@ -1,5 +1,5 @@
 ---
-name: get-brolls-review
+name: scenequarry-review
 description: Monta o Storyboard local, entrega a URL para a pessoa decidir e importa as decisões salvas.
 ---
 

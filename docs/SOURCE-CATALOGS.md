@@ -2,8 +2,8 @@
 type: reference
 status: current
 created: 2026-10-01
-updated: 2026-10-07
-tags: [get-brolls, catalogs, providers, search, access]
+updated: 2026-11-12
+tags: [scenequarry, catalogs, providers, search, access]
 ---
 
 # Source catalogs: search, access, and acquisition
@@ -16,7 +16,7 @@ Operational CLI instructions remain in [GUIDE.md](GUIDE.md); provider selection 
 
 ## Catalog overview
 
-| Catalog | Best material to look for | Search/access route | Current get-brolls support |
+| Catalog | Best material to look for | Search/access route | Current scenequarry support |
 |---|---|---|---|
 | YouTube | Named people, speeches, official channels, news, events | yt-dlp search; no YouTube API key | Search |
 | Wikimedia Commons | Historical photos, documents, video | Public MediaWiki Action API | Search |
@@ -244,7 +244,7 @@ Implemented with shared locale/query accounting, public timed-transcript inspect
 ## Instagram
 
 - **Discovery:** agent-operated browser search/profile browsing in an authorized session. There is no global Instagram keyword search in the current CLI.
-- **Optional external search route:** Agent Reach documents OpenCLI user search, profiles, recent posts, and Explore through an existing logged-in Chrome session. This is an integration option, not installed get-brolls functionality or proof of full-content keyword search.
+- **Optional external search route:** Agent Reach documents OpenCLI user search, profiles, recent posts, and Explore through an existing logged-in Chrome session. This is an integration option, not installed scenequarry functionality or proof of full-content keyword search.
 - **Current acquisition route:** browser/Playwright → capture video and audio representations of the same Reel → private temporary configs → pair collector/curl → FFmpeg merge → ffprobe/full decoding. yt-dlp by full post URL is another route when it works for the item.
 - **Critical pairing:** match Reel ID/manifest/asset identity and duration. Preloaded recommendations may supply unrelated streams; the first two MP4 requests are not sufficient evidence. `blob:` is not a downloadable source URL.
 - **Fragment handoff:** reserve before browser discovery, import the observed canonical Reel, then link the collector MP4 with `resolve --original-for` and matching `--source-url`/observed pair conditions. A bounded 2026-10-06 sample completed capture, pairing, merge, full decoding, inspect, viewed preview and common review; human approval/rights remain separate.

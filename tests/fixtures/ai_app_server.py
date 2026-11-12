@@ -217,7 +217,7 @@ def _thread_result(cwd, model=None):
         "sandbox": {"type": "workspaceWrite", "writableRoots": [cwd], "networkAccess": False},
         "thread": {
             "id": THREAD_ID,
-            "cliVersion": "get-brolls-fixture",
+            "cliVersion": "scenequarry-fixture",
             "createdAt": 1,
             "updatedAt": 1,
             "cwd": cwd,
@@ -542,7 +542,7 @@ def _accept_initialize(message, mode):
     _result(
         ident,
         {
-            "userAgent": "get-brolls-fixture",
+            "userAgent": "scenequarry-fixture",
             "platformFamily": "windows" if os.name == "nt" else "unix",
             "platformOs": "windows" if os.name == "nt" else "linux",
             "codexHome": str(_cwd().resolve()),

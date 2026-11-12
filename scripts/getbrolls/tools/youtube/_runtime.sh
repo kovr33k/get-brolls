@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared yt-dlp runtime for the Get B-rolls YouTube helpers.
+# Shared yt-dlp runtime for the SceneQuarry YouTube helpers.
 GB_RUNTIME_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 gb_ytdlp() {
   local exe="yt-dlp"

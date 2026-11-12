@@ -46,9 +46,9 @@ def github_slug(heading):
 # Destinos que o hub de AGENTS.md precisa rotear: um por público/finalidade.
 HUB_TARGETS = (
     "SKILL.md",
-    "skills/get-brolls/SKILL.md",
+    "skills/scenequarry/SKILL.md",
     "agents/openai.yaml",
-    "commands/get-brolls-setup.md",
+    "commands/scenequarry-setup.md",
     "GEMINI.md",
     "docs/GUIDE.md",
     "docs/QUALITY.md",
@@ -61,11 +61,11 @@ HUB_TARGETS = (
 
 # Acionamento por agente: o hub nomeia o comando real de cada instalação.
 HUB_INVOCATIONS = (
-    "$get-brolls",
-    "/get-brolls",
-    "/plugin marketplace add engenheirodevideo/get-brolls",
-    "/get-brolls:get-brolls",
-    "/get-brolls-setup",
+    "$scenequarry",
+    "/scenequarry",
+    "/plugin marketplace add kovr33k/scenequarry",
+    "/scenequarry:scenequarry",
+    "/scenequarry-setup",
 )
 
 
@@ -124,7 +124,7 @@ class RepositoryDocumentationTests(unittest.TestCase):
 
     def test_official_repository_clone_is_documented(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("https://github.com/engenheirodevideo/get-brolls", readme)
+        self.assertIn("https://github.com/kovr33k/scenequarry", readme)
         self.assertIn("git clone", readme)
 
     def test_readmes_have_reciprocal_language_switch_and_author_credit(self):
@@ -132,11 +132,11 @@ class RepositoryDocumentationTests(unittest.TestCase):
         english = (ROOT / "README.en.md").read_text(encoding="utf-8")
         self.assertIn('href="README.en.md">English</a>', portuguese)
         self.assertIn('href="README.md">Português</a>', english)
-        self.assertIn("<h1>GET B-ROLLS</h1>", portuguese)
-        self.assertIn("<h1>GET B-ROLLS</h1>", english)
+        self.assertIn("<h1>SceneQuarry</h1>", portuguese)
+        self.assertIn("<h1>SceneQuarry</h1>", english)
         for readme in (portuguese, english):
-            self.assertIn("Bruno Moreira — Engenheiro de Vídeo", readme)
-            self.assertIn("https://www.instagram.com/zbrunomoreira/", readme)
+            self.assertIn("kovr33k", readme)
+            self.assertIn("https://github.com/kovr33k", readme)
 
     def test_native_windows_entrypoints_are_present_and_documented(self):
         installer = ROOT / "scripts/install.ps1"

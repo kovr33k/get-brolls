@@ -140,7 +140,7 @@ def _locked():
                     timeout=True,
                 )
                 raise ValueError(
-                    f"{path} está travado há tempo demais por outro get-brolls. "
+                    f"{path} está travado há tempo demais por outro scenequarry. "
                     "Espere a outra execução terminar ou apague esse arquivo."
                 ) from None
             time.sleep(0.02)

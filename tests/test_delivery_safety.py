@@ -220,7 +220,7 @@ class ForeignSymlinksSurviveSweep(unittest.TestCase):
             delivery.build_delivery(tmp)
             beat_dir = next(p for p in (Path(tmp) / "entrega").iterdir() if p.is_dir() and p.name != delivery.NO_BEAT)
             outside = Path(tmp) / "minha-mídia-pessoal.mp4"
-            outside.write_bytes(b"nao e do get-brolls")
+            outside.write_bytes(b"nao e do scenequarry")
             # Nome que bate com o padrão de mídia do beat (`<pasta>-2.<ext>`), mas o alvo
             # não fica dentro de `brolls/`: continua sendo um link da pessoa.
             user_link = beat_dir / f"{beat_dir.name}-2.mp4"

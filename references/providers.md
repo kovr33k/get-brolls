@@ -2,8 +2,8 @@
 type: reference
 status: current
 created: 2026-09-17
-updated: 2026-10-04
-tags: [get-brolls, fontes, provedores]
+updated: 2026-11-12
+tags: [scenequarry, fontes, provedores]
 ---
 
 # Fontes — qual tentar, nessa ordem

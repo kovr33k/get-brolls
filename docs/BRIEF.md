@@ -2,13 +2,13 @@
 type: brief
 status: template
 created: 2026-09-17
-updated: 2026-09-17
-tags: [get-brolls, brief, intake]
+updated: 2026-11-12
+tags: [scenequarry, brief, intake]
 ---
 
 # Brief do vídeo
 
-Copie para o projeto com `gb.py init-brief --project ./video-01`, ou deixe o agente preencher pela entrevista de `/get-brolls-brief`. Edite só o bloco JSON abaixo: ele é lido pelo CLI, sem executar código. O `RULES.md` guarda as suas regras permanentes; este arquivo guarda **este** vídeo. Depois de editar, rode `gb.py brief --validate --project ...`.
+Copie para o projeto com `gb.py init-brief --project ./video-01`, ou deixe o agente preencher pela entrevista de `/scenequarry-brief`. Edite só o bloco JSON abaixo: ele é lido pelo CLI, sem executar código. O `RULES.md` guarda as suas regras permanentes; este arquivo guarda **este** vídeo. Depois de editar, rode `gb.py brief --validate --project ...`.
 
 ```json
 {

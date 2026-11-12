@@ -2,8 +2,8 @@
 type: research
 status: current
 created: 2026-10-16
-updated: 2026-10-16
-tags: [get-brolls, ai-generation, subscription, image-generation, limits]
+updated: 2026-11-12
+tags: [scenequarry, ai-generation, subscription, image-generation, limits]
 ---
 
 # GPT Image subscription capacity and scene alternatives

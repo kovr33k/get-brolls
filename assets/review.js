@@ -4155,14 +4155,14 @@
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = "getbrolls-review.json";
+    a.download = "scenequarry-review.json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     // O maior buraco da jornada era aqui: a página acabava e ninguém dizia pra voltar.
     announce(
-      "Decisions saved in getbrolls-review.json (in your Downloads folder). " +
+      "Decisions saved in scenequarry-review.json (in your Downloads folder). " +
         "Return to the chat and say where you saved the file.",
-      "getbrolls-review.json",
+      "scenequarry-review.json",
     );
   }
   function announce(text, path) {

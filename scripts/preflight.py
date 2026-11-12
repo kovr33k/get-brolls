@@ -242,7 +242,7 @@ def main(argv: list[str] | None = None) -> int:
             record_ci(ROOT, args.record_ci, args.github_output)
         elif args.ref:
             commit = run(ROOT, "git", "rev-parse", "--verify", f"{args.ref}^{{commit}}", capture=True)
-            with tempfile.TemporaryDirectory(prefix="get-brolls-preflight-") as directory:
+            with tempfile.TemporaryDirectory(prefix="scenequarry-preflight-") as directory:
                 root = Path(directory).resolve() / "repo"
                 run(ROOT, "git", "clone", "--quiet", "--no-hardlinks", str(ROOT), str(root))
                 run(root, "git", "checkout", "--quiet", "--detach", commit)

@@ -2,13 +2,13 @@
 type: specification
 status: accepted
 created: 2026-10-10
-updated: 2026-10-10
-tags: [get-brolls, motion-graphics, design]
+updated: 2026-11-12
+tags: [scenequarry, motion-graphics, design]
 ---
 
 # Motion graphics: staged design
 
-This document records the accepted scope and consolidated architecture for adding authored graphics and animation to get-brolls. The human editor confirmed the complete architecture on 2026-10-10. Visual direction and exact implementation contracts remain to be prepared; acceptance of this design is not evidence of implemented or validated renderer support.
+This document records the accepted scope and consolidated architecture for adding authored graphics and animation to scenequarry. The human editor confirmed the complete architecture on 2026-10-10. Visual direction and exact implementation contracts remain to be prepared; acceptance of this design is not evidence of implemented or validated renderer support.
 
 ## Settled scope
 
@@ -57,7 +57,7 @@ For animation from numerical data, retain the values and metadata rather than tr
 
 ## Real media inputs
 
-The graphics specialist may obtain the real video and photographs needed for its assigned scene. Reuse suitable material already recorded in the project first, then find missing material through the existing get-brolls workflow. Keep the source identity, provenance and reuse conditions in the shared project records.
+The graphics specialist may obtain the real video and photographs needed for its assigned scene. Reuse suitable material already recorded in the project first, then find missing material through the existing scenequarry workflow. Keep the source identity, provenance and reuse conditions in the shared project records.
 
 Use the existing source capabilities, configured constraints and acquisition/preview routes. Material discovery does not itself establish suitability, human approval or permission to publish a finished composition. The renderer receives the selected working assets; source discovery remains part of the project workflow rather than rendering.
 
@@ -93,7 +93,7 @@ Give each scene its own graphics-agent session and context, carrying the assignm
 
 Render Remotion scenes locally on Windows in the first stage. Keep scene authoring sources and rendered results in the local project. Cloud rendering is deferred rather than requiring AWS deployment as part of the pilot. Local rendering and the external narration-analysis provider are independent parts of the workflow.
 
-The current [rendering CLI](https://www.remotion.dev/docs/cli/render) and [renderer API](https://www.remotion.dev/docs/renderer/render-media) document local rendering; supported-platform details are in the [system requirements](https://www.remotion.dev/docs#system-requirements). This renderer is not yet integrated or validated in get-brolls. Exact dependency versions, resource limits and technical checkpoint schemas remain implementation specification work. Narration analysis uses the provider selected in the timing policy above and the ordered matching approach in the consolidated architecture below; matching thresholds need pilot calibration.
+The current [rendering CLI](https://www.remotion.dev/docs/cli/render) and [renderer API](https://www.remotion.dev/docs/renderer/render-media) document local rendering; supported-platform details are in the [system requirements](https://www.remotion.dev/docs#system-requirements). This renderer is not yet integrated or validated in scenequarry. Exact dependency versions, resource limits and technical checkpoint schemas remain implementation specification work. Narration analysis uses the provider selected in the timing policy above and the ordered matching approach in the consolidated architecture below; matching thresholds need pilot calibration.
 
 For a technical error in a scene's authoring code, allow the specialist up to two repair attempts followed by another render, preserving the scene's intended meaning. If neither attempt succeeds, retain the error and work completed so far, report the unresolved scene and continue other assignments. This allowance applies to scene-code repair, not repeated narration-analysis submissions or automatic factual changes.
 
@@ -265,7 +265,7 @@ These are accepted requirements, not completed acceptance evidence. Resolve impo
 
 The individual workflow choices and consolidated architecture are confirmed, including explicit chat activation of saved Storyboard revision requests. The architecture interview is complete. The editor has deferred the visual reference until the start of implementation work; it is not a prerequisite for preparing the technical specification. Implementation requires a subsequent implementation request.
 
-The accepted [implementation specification](SPEC-MOTION-GRAPHICS.md) is published as [issue #52](https://github.com/kovr33k/get-brolls/issues/52) with `ready-for-agent`. It synthesizes this architecture and the confirmed public CLI/Storyboard testing approach. Publication is a specification outcome, not evidence that the product workflow is implemented or accepted in Resolve.
+The accepted [implementation specification](SPEC-MOTION-GRAPHICS.md) is published as [issue #52](https://github.com/kovr33k/scenequarry/issues/52) with `ready-for-agent`. It synthesizes this architecture and the confirmed public CLI/Storyboard testing approach. Publication is a specification outcome, not evidence that the product workflow is implemented or accepted in Resolve.
 
 During implementation preparation, finalize the accepted specification's exact schema encoding, command interfaces, compatible dependency versions, frame conversion convention, matching criteria, renderer limits and artifact checks before coding the affected routes. Keep reference-dependent visual choices pending until work begins. These are bounded engineering details within the accepted contract, not evidence that the design already works. Calibrate timing, quality and sound on the pilot; acceptance remains the observed five-moment workflow and actual Resolve use described above.
 

@@ -2,19 +2,19 @@
 type: documentation
 status: current
 created: 2026-10-05
-updated: 2026-10-07
-tags: [get-brolls, catalogs, acceptance, evidence]
+updated: 2026-11-12
+tags: [scenequarry, catalogs, acceptance, evidence]
 ---
 
 # Catalog integration acceptance checkpoint
 
-The [accepted catalog specification](SPEC-CATALOG-INTEGRATION.md) is complete for its engineering scope: parent [#2](https://github.com/kovr33k/get-brolls/issues/2) and all eighteen child tickets #3–20 are **closed**. This page records the final acceptance state as of 2026-10-07. Source access, acquired media, visual suitability, operational approval and reuse conditions remain separate facts.
+The [accepted catalog specification](SPEC-CATALOG-INTEGRATION.md) is complete for its engineering scope: parent [#2](https://github.com/kovr33k/scenequarry/issues/2) and all eighteen child tickets #3–20 are **closed**. This page records the final acceptance state as of 2026-10-07. Source access, acquired media, visual suitability, operational approval and reuse conditions remain separate facts.
 
 ## Final integration evidence
 
-[PR #42](https://github.com/kovr33k/get-brolls/pull/42) completed the review/print correction and final reconciliation in version **2.13.8**, merged at `9cc2d059949224c481939c455c2e79d9e93148e4`. Its [required Windows CI](https://github.com/kovr33k/get-brolls/actions/runs/37544014877) ran **1,250 tests with 26 skips** on Python 3.14.4 and passed lint, formatting, types, version/mirror and syntax checks. The saved CI verification artifact's tested tree matches the runtime integration tree. Focused local post-merge verification ran **116 tests with one skip**, then passed version/mirror, links and frontmatter checks. The local skip concerns invalid synthetic video metadata; it is not a failed acquired-media lifecycle.
+[PR #42](https://github.com/kovr33k/scenequarry/pull/42) completed the review/print correction and final reconciliation in version **2.13.8**, merged at `9cc2d059949224c481939c455c2e79d9e93148e4`. Its [required Windows CI](https://github.com/kovr33k/scenequarry/actions/runs/37544014877) ran **1,250 tests with 26 skips** on Python 3.14.4 and passed lint, formatting, types, version/mirror and syntax checks. The saved CI verification artifact's tested tree matches the runtime integration tree. Focused local post-merge verification ran **116 tests with one skip**, then passed version/mirror, links and frontmatter checks. The local skip concerns invalid synthetic video metadata; it is not a failed acquired-media lifecycle.
 
-[#20](https://github.com/kovr33k/get-brolls/issues/20#issuecomment-6027122097) records all eight completed criteria and post-merge evidence. [Parent #2](https://github.com/kovr33k/get-brolls/issues/2#issuecomment-6027122818) records the resulting closure. Earlier PRs and intermediate closure gates are retained in the [dated acceptance archive](archive/catalog-acceptance-2026-10-07.md), not used as outstanding work here.
+[#20](https://github.com/kovr33k/scenequarry/issues/20#issuecomment-6027122097) records all eight completed criteria and post-merge evidence. [Parent #2](https://github.com/kovr33k/scenequarry/issues/2#issuecomment-6027122818) records the resulting closure. Earlier PRs and intermediate closure gates are retained in the [dated acceptance archive](archive/catalog-acceptance-2026-10-07.md), not used as outstanding work here.
 
 ## Accepted criteria
 

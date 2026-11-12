@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Get B-rolls Graphics background records v1",
+  "title": "SceneQuarry Graphics background records v1",
   "description": "Normalized selected-background identity. Drafts may omit suitability and material_use (null). Still images store null clocks. Kind is the probed container/codec representation; missing video duration is not a photograph. GIF/WebP/APNG-like containers are still photographs only after a proven single frame. WebP animation is decided from original RIFF VP8X/ANIM/ANMF metadata with bounded local reads; one decoded frame is not complete container proof. Multi-frame or unknown/incomplete WebP animation is not a photograph or retimed video even if a decoder exposes one frame. Short or unknown duration does not freeze an animation as an image. Resolved clocks map source onto local media using representation_source_start_s with at most one-frame error, and material_use.sha256 equals sha256. Rights identity is the complete status/evidence/license tuple, separate from suitability, approval and acquisition. Structural and file checks live in scripts/getbrolls/graphics_media.py.",
   "type": "object",
   "additionalProperties": false,

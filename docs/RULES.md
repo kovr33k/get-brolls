@@ -2,8 +2,8 @@
 type: rules
 status: template
 created: 2026-09-15
-updated: 2026-09-15
-tags: [get-brolls, user-preferences]
+updated: 2026-11-12
+tags: [scenequarry, user-preferences]
 ---
 
 # Regras do usuário

@@ -2,8 +2,8 @@
 type: reference
 status: current
 created: 2026-09-17
-updated: 2026-10-06
-tags: [get-brolls, instagram, reels, playwright]
+updated: 2026-11-12
+tags: [scenequarry, instagram, reels, playwright]
 ---
 
 # Instagram — navegador, dois streams e MP4

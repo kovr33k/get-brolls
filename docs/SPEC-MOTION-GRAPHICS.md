@@ -2,16 +2,16 @@
 type: specification
 status: accepted
 created: 2026-10-10
-updated: 2026-10-10
-issue: https://github.com/kovr33k/get-brolls/issues/52
-tags: [get-brolls, motion-graphics, remotion, narration, integration]
+updated: 2026-11-12
+issue: https://github.com/kovr33k/scenequarry/issues/52
+tags: [scenequarry, motion-graphics, remotion, narration, integration]
 ---
 
 # Integrate Remotion graphics with narration alignment and Storyboard review
 
 ## Problem Statement
 
-A documentary creator needs authored graphics for scenario passages that footage alone does not explain well: numbers, timelines, geography, processes and relationships. The existing get-brolls workflow discovers and reviews material, but it does not provide an integrated way to author these graphics, locate them in a complete narration recording, render them locally, revise them in Storyboard and deliver editable, approved clips for montage.
+A documentary creator needs authored graphics for scenario passages that footage alone does not explain well: numbers, timelines, geography, processes and relationships. The existing scenequarry workflow discovers and reviews material, but it does not provide an integrated way to author these graphics, locate them in a complete narration recording, render them locally, revise them in Storyboard and deliver editable, approved clips for montage.
 
 Putting research, beat planning and every scene's implementation into one agent context overloads the planning task. Producing isolated animations without shared timing, evidence and version records also makes revisions and continuation unreliable. A saved video is insufficient if its displayed facts, source assets, narration interval or human approval cannot be traced.
 
@@ -124,7 +124,7 @@ These are responsibilities, not a requirement for five separate services or pass
 
 - Research the facts displayed in a scene, rather than requiring a complete script fact check. Preserve original sources, indicator definitions, units, geography, reference dates and applicable terms. Retain editable numeric data instead of treating a chart screenshot as a dataset.
 - If research conflicts with narration, save the discrepancy, source and proposed correction; block only that scene pending the editor's decision. Do not rewrite the scenario or render an apparently settled correction without that decision.
-- Reuse suitable project materials first, then acquire missing video or images through the existing get-brolls routes and constraints. Existing search limits, visual suitability assessment, human approval and reuse conditions still apply to source candidates. Preview access does not establish permission for final delivery.
+- Reuse suitable project materials first, then acquire missing video or images through the existing scenequarry routes and constraints. Existing search limits, visual suitability assessment, human approval and reuse conditions still apply to source candidates. Preview access does not establish permission for final delivery.
 - Data portals and sound collections are research starting points, not mandatory provider chains or requirements to implement a connector for every site. Save the actual selected data, media, fonts and sound bytes with provenance, terms and hashes before repeatable rendering.
 
 ### Narration analysis and timing

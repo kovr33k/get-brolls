@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Get B-rolls graphics displayed facts v1",
+  "title": "SceneQuarry graphics displayed facts v1",
   "description": "Optional occurrence facts record. Drafts may use empty strings and empty arrays. Stored scalar and list fields are strings or arrays, never null; only conflict.decision may be null. Structural and file checks live in scripts/getbrolls/graphics_facts.py.",
   "type": "object",
   "additionalProperties": false,

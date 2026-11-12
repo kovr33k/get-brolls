@@ -2,8 +2,8 @@
 type: specification
 status: accepted
 created: 2026-10-03
-updated: 2026-10-03
-tags: [get-brolls, catalogs, search, integration]
+updated: 2026-11-12
+tags: [scenequarry, catalogs, search, integration]
 ---
 
 # Integrate twenty catalogs with fragment-specific search chains
@@ -154,4 +154,4 @@ Product scope and search policies are accepted in [ADR-0001](adr/0001-fragment-c
 
 This document records the accepted implementation and test scope. Implementation details above follow the current CLI/provider/brief/ledger design and may be refined while preserving the accepted behavior. Implementation status and successful access/acquisition evidence remain separate from specification acceptance.
 
-The selected tracker is GitHub Issues in `kovr33k/get-brolls`, configured in [issue-tracker.md](agents/issue-tracker.md). Published as [GitHub issue #2](https://github.com/kovr33k/get-brolls/issues/2) with `ready-for-agent`; the issue includes the domain vocabulary and retained source contracts.
+The selected tracker is GitHub Issues in `kovr33k/scenequarry`, configured in [issue-tracker.md](agents/issue-tracker.md). Published as [GitHub issue #2](https://github.com/kovr33k/scenequarry/issues/2) with `ready-for-agent`; the issue includes the domain vocabulary and retained source contracts.

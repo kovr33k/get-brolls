@@ -3,8 +3,8 @@ type: eval-case
 id: ui-davinci-resolve-timeline
 status: current
 created: 2026-09-16
-updated: 2026-09-16
-tags: [get-brolls, eval, blind-tests, software, print-ui]
+updated: 2026-11-12
+tags: [scenequarry, eval, blind-tests, software, print-ui]
 ---
 
 # A timeline do DaVinci Resolve

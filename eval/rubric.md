@@ -2,8 +2,8 @@
 type: documentation
 status: current
 created: 2026-09-16
-updated: 2026-09-16
-tags: [get-brolls, eval, blind-tests, rubric]
+updated: 2026-11-12
+tags: [scenequarry, eval, blind-tests, rubric]
 ---
 
 # Rubrica dos testes cegos

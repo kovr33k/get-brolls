@@ -2,9 +2,9 @@
 type: specification
 status: accepted
 created: 2026-10-16
-updated: 2026-10-16
-tags: [get-brolls, ai-generation, storyboard, narration, integration]
-issue: https://github.com/kovr33k/get-brolls/issues/81
+updated: 2026-11-12
+tags: [scenequarry, ai-generation, storyboard, narration, integration]
+issue: https://github.com/kovr33k/scenequarry/issues/81
 ---
 
 # AI scene production for narrative beats

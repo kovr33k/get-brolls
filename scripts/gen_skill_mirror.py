@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Gera `skills/get-brolls/SKILL.md` a partir do `SKILL.md` da raiz.
+"""Gera `skills/scenequarry/SKILL.md` a partir do `SKILL.md` da raiz.
 
 O `SKILL.md` da raiz é a fonte canônica do fluxo clone-como-skill. O espelho
-em `skills/get-brolls/` é o que o plugin do Claude Code descobre; o diff real
+em `skills/scenequarry/` é o que o plugin do Claude Code descobre; o diff real
 entre os dois arquivos é fechado em três regras:
 
 1. o frontmatter é copiado literalmente;
@@ -35,7 +35,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ROOT_SKILL = ROOT / "SKILL.md"
-MIRROR_SKILL = ROOT / "skills" / "get-brolls" / "SKILL.md"
+MIRROR_SKILL = ROOT / "skills" / "scenequarry" / "SKILL.md"
 
 FRONTMATTER_RE = re.compile(r"\A(---\n.*?\n---\n)(.*)\Z", re.DOTALL)
 

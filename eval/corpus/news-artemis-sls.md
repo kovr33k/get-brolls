@@ -3,8 +3,8 @@ type: eval-case
 id: news-artemis-sls
 status: current
 created: 2026-09-16
-updated: 2026-09-16
-tags: [get-brolls, eval, blind-tests, noticia]
+updated: 2026-11-12
+tags: [scenequarry, eval, blind-tests, noticia]
 ---
 
 # Programa Artemis e o foguete SLS

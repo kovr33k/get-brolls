@@ -22,7 +22,7 @@ from getbrolls.commands import execute, mark_rejected
 from getbrolls.ledger import Ledger
 from getbrolls.runtime import audited
 
-TIKTOK = "https://www.tiktok.com/@engenheirodevideo/video/7312345678901234567"
+TIKTOK = "https://www.tiktok.com/@kovr33k/video/7312345678901234567"
 YOUTUBE = "https://www.youtube.com/watch?v=abcdefghijk"
 
 # O que o `--dump-single-json` do yt-dlp devolve para um post público de TikTok.
@@ -30,8 +30,8 @@ TIKTOK_JSON = {
     "id": "7312345678901234567",
     "title": "Como eu corto b-roll em 3 minutos",
     "uploader": "Engenheiro de Vídeo",
-    "uploader_id": "@engenheirodevideo",
-    "uploader_url": "https://www.tiktok.com/@engenheirodevideo",
+    "uploader_id": "@kovr33k",
+    "uploader_url": "https://www.tiktok.com/@kovr33k",
     "duration": 47.0,
 }
 
@@ -69,7 +69,7 @@ class ResolveFillsRemoteMetadata(unittest.TestCase):
             item = audited(resolve_args(tmp, TIKTOK), execute)
         self.assertEqual("Como eu corto b-roll em 3 minutos", item["title"])
         self.assertEqual("Engenheiro de Vídeo", item["creator"]["name"])
-        self.assertEqual("@engenheirodevideo", item["creator"]["handle"])
+        self.assertEqual("@kovr33k", item["creator"]["handle"])
         self.assertEqual(47.0, item["media"]["duration_s"])
         # O título genérico de antes não pode sobreviver ao preenchimento.
         self.assertNotIn("TikTok · ", item["title"])
@@ -383,13 +383,13 @@ class SearchCarriesDuration(unittest.TestCase):
 
 
 class ReleaseNotesCoverTheWave(unittest.TestCase):
-    """Cada item desta onda aparece no CHANGELOG e no QUALITY; a rodada fica registrada."""
+    """A onda herdada fica no arquivo de evidências, fora das releases atuais."""
 
-    def changelog(self):
-        return (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    def history(self):
+        return (ROOT / "docs/archive/quality-evidence-through-2026-10-07.md").read_text(encoding="utf-8")
 
-    def test_the_changelog_names_every_fix_of_the_wave(self):
-        text = self.changelog()
+    def test_the_evidence_archive_names_every_fix_of_the_wave(self):
+        text = self.history()
         for marker in (
             "blocked_reason",
             "PEXELS_API_KEY",
@@ -407,10 +407,11 @@ class ReleaseNotesCoverTheWave(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, text)
 
-    def test_the_wave_sits_under_the_240_heading(self):
-        text = self.changelog()
-        start = text.index("## 2.4.0")
-        self.assertIn("Onda pós-rodada", text[start : start + 4000])
+    def test_the_wave_sits_under_the_archived_240_qa_heading(self):
+        text = self.history()
+        section = text.split("## QA da versão 2.4.0", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("Rodada cega completa e onda pós-rodada", section)
+        self.assertIn("status: archived", text)
 
     def test_quality_records_the_same_wave(self):
         quality_path = ROOT / "docs/QUALITY.md"

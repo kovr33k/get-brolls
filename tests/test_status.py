@@ -150,7 +150,7 @@ class StatusCommandTests(unittest.TestCase):
             # real é fazer o brief, e `summary["brief"]` fica None.
             self.assertEqual("init-brief", summary["do"]["step"])
             self.assertIn("init-brief --project", summary["do"]["command"])
-            self.assertIn("/get-brolls-brief", summary["do"]["for_human"])
+            self.assertIn("/scenequarry-brief", summary["do"]["for_human"])
             self.assertFalse(summary["do"]["blocking_human"])
             self.assertIsNone(summary["do"]["url"])
             self.assertIsNone(summary["brief"])

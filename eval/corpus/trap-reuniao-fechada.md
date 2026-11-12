@@ -3,8 +3,8 @@ type: eval-case
 id: trap-reuniao-fechada
 status: current
 created: 2026-09-16
-updated: 2026-09-16
-tags: [get-brolls, eval, blind-tests, armadilha]
+updated: 2026-11-12
+tags: [scenequarry, eval, blind-tests, armadilha]
 ---
 
 # Armadilha — a reunião que ninguém filmou

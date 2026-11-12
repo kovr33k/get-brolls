@@ -1,5 +1,6 @@
 import json
 import re
+import subprocess
 import unittest
 
 # A pasta pessoal da skill vai para um temporário: nenhum teste toca ~/.getbrolls.
@@ -11,7 +12,7 @@ from getbrolls import __version__
 PLUGIN_JSON = ROOT / ".claude-plugin" / "plugin.json"
 MARKETPLACE_JSON = ROOT / ".claude-plugin" / "marketplace.json"
 COMMANDS = ROOT / "commands"
-SETUP_COMMAND = COMMANDS / "get-brolls-setup.md"
+SETUP_COMMAND = COMMANDS / "scenequarry-setup.md"
 REFERENCES = ROOT / "references"
 
 
@@ -27,18 +28,53 @@ def frontmatter_field(path, field):
 
 
 class PluginManifestTests(unittest.TestCase):
+    def test_scenequarry_identity_and_origin_are_separate(self):
+        plugin = json.loads(PLUGIN_JSON.read_text(encoding="utf-8"))
+        self.assertEqual("https://github.com/kovr33k/scenequarry", plugin["repository"])
+        self.assertEqual(plugin["repository"], plugin["homepage"])
+        self.assertEqual("kovr33k", plugin["author"]["name"])
+        self.assertEqual("https://github.com/kovr33k", plugin["author"]["url"])
+        for name in ("package.json", "package-lock.json"):
+            self.assertEqual("scenequarry-tools", json.loads((ROOT / name).read_text(encoding="utf-8"))["name"])
+        license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+        self.assertIn("Copyright (c) 2026 Bruno Moreira", license_text)
+        self.assertIn("Permission is hereby granted", license_text)
+        origin = (ROOT / "ATTRIBUTION.md").read_text(encoding="utf-8")
+        self.assertIn("engenheiro" + "devideo/get" + "-brolls", origin)
+        self.assertIn("(MIT)", origin)
+
+    def test_public_tree_has_no_inherited_product_identity_outside_attribution(self):
+        tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode("utf-8").split("\0")
+        old_identity = re.compile(r"get" + r"[ -]+b-?rolls|engenheiro" + r"devideo|zbruno" + r"moreira", re.IGNORECASE)
+        problems = []
+        for name in tracked:
+            if not name or name in {"LICENSE", "ATTRIBUTION.md"}:
+                continue
+            if old_identity.search(name):
+                problems.append(name)
+                continue
+            try:
+                content = (ROOT / name).read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            if old_identity.search(content):
+                problems.append(name)
+        self.assertEqual([], problems)
+        for name in ("brand-logo.png", "flow.svg", "flow.en.svg", "formats.svg", "formats.en.svg"):
+            self.assertFalse((ROOT / "assets" / name).exists(), name)
+
     def test_plugin_manifest_valid(self):
         data = json.loads(PLUGIN_JSON.read_text(encoding="utf-8"))
-        self.assertEqual(data["name"], "get-brolls")
+        self.assertEqual(data["name"], "scenequarry")
         self.assertEqual(data["version"], __version__)
         for key in ("description", "author", "repository", "license"):
             self.assertIn(key, data)
 
     def test_marketplace_valid(self):
         data = json.loads(MARKETPLACE_JSON.read_text(encoding="utf-8"))
-        self.assertEqual(data["name"], "engenheirodevideo")
+        self.assertEqual(data["name"], "kovr33k")
         self.assertIn("name", data["owner"])
-        entries = [p for p in data["plugins"] if p["name"] == "get-brolls"]
+        entries = [p for p in data["plugins"] if p["name"] == "scenequarry"]
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]["source"], "./")
         self.assertEqual(entries[0].get("version"), __version__)
@@ -46,8 +82,8 @@ class PluginManifestTests(unittest.TestCase):
 
 class SetupCommandTests(unittest.TestCase):
     def test_setup_command_is_discoverable_and_complete(self):
-        self.assertTrue(SETUP_COMMAND.is_file(), "commands/get-brolls-setup.md ausente")
-        self.assertEqual("get-brolls-setup", frontmatter_field(SETUP_COMMAND, "name"))
+        self.assertTrue(SETUP_COMMAND.is_file(), "commands/scenequarry-setup.md ausente")
+        self.assertEqual("scenequarry-setup", frontmatter_field(SETUP_COMMAND, "name"))
         self.assertTrue(frontmatter_field(SETUP_COMMAND, "description"))
         body = SETUP_COMMAND.read_text(encoding="utf-8")
         for marker in (
@@ -61,11 +97,11 @@ class SetupCommandTests(unittest.TestCase):
     def test_every_command_is_discoverable(self):
         """Todo comando do plugin traz name/description e roda pela raiz do plugin."""
         expected = {
-            "get-brolls-setup",
-            "get-brolls-brief",
-            "get-brolls-eval",
-            "get-brolls-status",
-            "get-brolls-review",
+            "scenequarry-setup",
+            "scenequarry-brief",
+            "scenequarry-eval",
+            "scenequarry-status",
+            "scenequarry-review",
         }
         found = set()
         for path in sorted(COMMANDS.glob("*.md")):
@@ -76,13 +112,13 @@ class SetupCommandTests(unittest.TestCase):
         self.assertEqual(expected, found, "conjunto de comandos do plugin mudou")
 
     def test_status_command_repasses_the_ready_sentence(self):
-        body = (COMMANDS / "get-brolls-status.md").read_text(encoding="utf-8")
+        body = (COMMANDS / "scenequarry-status.md").read_text(encoding="utf-8")
         self.assertIn('"${CLAUDE_PLUGIN_ROOT}/scripts/gb.py" status --project', body)
         self.assertIn("summary.do.for_human", body)
         self.assertIn("sem parafrasear", body)
 
     def test_review_command_serves_then_imports(self):
-        body = (COMMANDS / "get-brolls-review.md").read_text(encoding="utf-8")
+        body = (COMMANDS / "scenequarry-review.md").read_text(encoding="utf-8")
         for marker in (
             '"${CLAUDE_PLUGIN_ROOT}/scripts/gb.py" review --project',
             '"${CLAUDE_PLUGIN_ROOT}/scripts/gb.py" serve --background --project',

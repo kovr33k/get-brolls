@@ -2,8 +2,8 @@
 type: instructions
 status: current
 created: 2026-10-03
-updated: 2026-10-03
-tags: [get-brolls, agents, domain-model]
+updated: 2026-11-12
+tags: [scenequarry, agents, domain-model]
 ---
 
 # Domain docs

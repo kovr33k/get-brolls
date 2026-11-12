@@ -164,7 +164,7 @@ class Guidance(unittest.TestCase):
 
     def test_missing_brief_names_the_slash_command_and_init_brief(self):
         action = next_action(LADDER_STATES["init-brief"])
-        self.assertIn("/get-brolls-brief", action["for_human"])
+        self.assertIn("/scenequarry-brief", action["for_human"])
         self.assertIn("init-brief", action["command"])
         self.assertFalse(action["blocking_human"])
 

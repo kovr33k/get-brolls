@@ -2,8 +2,8 @@
 type: reference
 status: current
 created: 2026-09-17
-updated: 2026-09-17
-tags: [get-brolls, brief, entrevista, onboarding]
+updated: 2026-11-12
+tags: [scenequarry, brief, entrevista, onboarding]
 ---
 
 # Entrevista de brief — 7 perguntas, uma de cada vez
